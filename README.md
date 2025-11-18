@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # IUSJC Planning 2025 - Projet Transversal ISI 2025-2026
 
 ## Architecture Microservices
@@ -141,3 +142,6 @@ iusjc-planning-2025/
     ↓                   ↓                   ↓
 [Notification]    [Reporting]         [ENT Integration]
 ```
+=======
+"# EduSchedule - Gestion EDT & Salles IUSJC" 
+>>>>>>> 05557e28d8cd303119551bee085611f321f0b3c9
