@@ -7,7 +7,7 @@
 - **Java 17** + **Spring Boot 3.2.5**
 - **Spring Cloud 2023.0.1** (Eureka, Gateway)
 - **MySQL 8.0** + **Redis** + **RabbitMQ**
-- **Thymeleaf** + **Tailwind CSS**
+- **Thymeleaf** + **Tailwind CSS**(pour un debut)
 - **Docker** + **Docker Compose**
 - **OAuth2** + **JWT** + **RBAC**
 
@@ -98,7 +98,6 @@ Password: iusjc2024
 **Utilisateurs de test :**
 - admin / password (ADMIN)
 - teacher1 / password (TEACHER)
-- student1 / password (STUDENT)
 
 ## CI/CD
 GitHub Actions → Build → Push Docker Hub (darlene4/iusjc-*)
