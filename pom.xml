@@ -12,29 +12,7 @@
 
     <name>IUSJC Planning - Projet Transversal ISI 2025-2026</name>
 
-    <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.5</version>
-        <relativePath/>
-    </parent>
 
-    <modules>
-        <module>eureka-server</module>
-        <module>api-gateway</module>
-        <module>user-service</module>
-        <module>school-service</module>
-        <module>resource-service</module>
-        <module>room-service</module>
-        <module>course-service</module>
-        <module>scheduling-service</module>
-        <module>reservation-service</module>
-        <module>event-service</module>
-        <module>notification-service</module>
-        <module>reporting-service</module>
-        <module>ent-integration-service</module>
-        <module>frontend-thymeleaf</module>
-    </modules>
     
     <!-- Note: config-server retiré car configuration simplifiée avec application.properties -->
 
