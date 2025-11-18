@@ -1,0 +1,176 @@
+version: '3.9'
+
+services:
+  mysql:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: iusjcdb
+      MYSQL_USER: iusjc
+      MYSQL_PASSWORD: iusjc2024
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 10s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: iusjc
+      RABBITMQ_DEFAULT_PASS: iusjc2024
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  eureka-server:
+    build: ./eureka-server
+    image: darlene4/iusjc-eureka:latest
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      retries: 5
+
+  api-gateway:
+    build: ./api-gateway
+    image: darlene4/iusjc-gateway:latest
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+
+  # === LES 3 SERVICES PRINCIPAUX (VRAIS) ===
+  user-service:
+    build: ./user-service
+    image: darlene4/iusjc-user:latest
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: iusjc
+      SPRING_DATASOURCE_PASSWORD: iusjc2024
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  scheduling-service:
+    build: ./scheduling-service
+    image: darlene4/iusjc-scheduling:latest
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: iusjc
+      SPRING_DATASOURCE_PASSWORD: iusjc2024
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_RABBITMQ_HOST: rabbitmq
+    depends_on:
+      mysql:
+        condition: service_healthy
+      - redis
+      - rabbitmq
+      eureka-server:
+        condition: service_healthy
+
+  notification-service:
+    build: ./notification-service
+    image: darlene4/iusjc-notification:latest
+    environment:
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: iusjc
+      SPRING_RABBITMQ_PASSWORD: iusjc2024
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      - rabbitmq
+      - eureka-server
+
+  # === LES 9 AUTRES SERVICES (SQUELETTES LÉGERS) ===
+  school-service:
+    build: ./school-service
+    image: darlene4/iusjc-school:latest
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+
+  resource-service:
+    build: ./resource-service
+    image: darlene4/iusjc-resource:latest
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+
+  room-service:
+    build: ./room-service
+    image: darlene4/iusjc-room:latest
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+
+  course-service:
+    build: ./course-service
+    image: darlene4/iusjc-course:latest
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+
+  reservation-service:
+    build: ./reservation-service
+    image: darlene4/iusjc-reservation:latest
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+
+  event-service:
+    build: ./event-service
+    image: darlene4/iusjc-event:latest
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+
+  reporting-service:
+    build: ./reporting-service
+    image: darlene4/iusjc-reporting:latest
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+
+  ent-integration-service:
+    build: ./ent-integration-service
+    image: darlene4/iusjc-ent:latest
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+
+  frontend-thymeleaf:
+    build: ./frontend-thymeleaf
+    image: darlene4/iusjc-frontend:latest
+    ports:
+      - "8090:8090"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      - api-gateway
+
+volumes:
+  mysql_data:
