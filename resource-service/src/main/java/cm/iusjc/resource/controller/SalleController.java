@@ -28,4 +28,39 @@ public class SalleController {
     }
 
     @GetMapping("/disponibles")
-    @Cacheable(
+    @Cacheable("sallesDisponibles")
+    public ResponseEntity<List<Salle>> getSallesDisponibles() {
+        return ResponseEntity.ok(salleRepository.findByDisponibleTrue());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Salle> getSalleById(@PathVariable Long id) {
+        return salleRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping
+    public ResponseEntity<Salle> createSalle(@RequestBody Salle salle) {
+        return ResponseEntity.ok(salleRepository.save(salle));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Salle> updateSalle(@PathVariable Long id, @RequestBody Salle salle) {
+        return salleRepository.findById(id)
+                .map(existingSalle -> {
+                    salle.setId(id);
+                    return ResponseEntity.ok(salleRepository.save(salle));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteSalle(@PathVariable Long id) {
+        if (salleRepository.existsById(id)) {
+            salleRepository.deleteById(id);
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
+}

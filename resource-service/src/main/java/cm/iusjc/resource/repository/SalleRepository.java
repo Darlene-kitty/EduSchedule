@@ -7,6 +7,7 @@ import java.util.List;
 
 @Repository
 public interface SalleRepository extends JpaRepository<Salle, Long> {
+    List<Salle> findByDisponibleTrue();
     List<Salle> findByDisponibleTrueAndActiveTrue();
     List<Salle> findByType(Salle.TypeSalle type);
 }

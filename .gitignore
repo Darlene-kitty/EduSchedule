@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+# Compiled class files
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
@@ -46,6 +46,23 @@ Thumbs.db
 
 ### Docker ###
 docker-compose.override.yml
-=======
-"target/ *.log .idea/ *.iml .env" 
->>>>>>> 05557e28d8cd303119551bee085611f321f0b3c9
+
+### Node.js (Frontend) ###
+node_modules/
+.next/
+out/
+dist/
+
+### Documentation (garder seulement les principaux à la racine) ###
+/ARCHITECTURE.md
+/DOCUMENTATION_INDEX.md
+/GUIDE_VISUEL.md
+/INTEGRATION_COMPLETE.md
+/PROJECT_STATUS.md
+/QUICKSTART.md
+/frontend/API_INTEGRATION.md
+/frontend/INTEGRATION_SUMMARY.md
+/frontend/MIGRATION_GUIDE.md
+
+### Frontend Thymeleaf (ancien, à supprimer) ###
+frontend-thymeleaf/

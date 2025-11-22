@@ -1,147 +1,122 @@
-<<<<<<< HEAD
-# IUSJC Planning 2025 - Projet Transversal ISI 2025-2026
+# EduSchedule - Système de Gestion de Planning Académique
 
-## Architecture Microservices
+Système complet de gestion d'emploi du temps pour établissements d'enseignement avec architecture microservices Spring Boot et frontend React/Next.js.
 
-### Stack Technique
-- **Java 17** + **Spring Boot 3.2.5**
-- **Spring Cloud 2023.0.1** (Eureka, Gateway)
-- **MySQL 8.0** + **Redis** + **RabbitMQ**
-- **Thymeleaf** + **Tailwind CSS**
-- **Docker** + **Docker Compose**
-- **OAuth2** + **JWT** + **RBAC**
+## 🚀 Démarrage Rapide
 
-### Microservices (14)
-1. **eureka-server** (8761) - Service Discovery
-2. **api-gateway** (8080) - Point d'entrée unique
-3. **user-service** - Authentification & Autorisation
-4. **school-service** - Gestion écoles/filières/groupes
-5. **resource-service** - Gestion des ressources
-6. **room-service** - Gestion des salles
-7. **course-service** - Cours & supports
-8. **scheduling-service** - Génération emplois du temps
-9. **reservation-service** - Réservations
-10. **event-service** - Gestion des événements
-11. **notification-service** - Email/SMS/WebSocket
-12. **reporting-service** - Rapports PDF/Excel
-13. **ent-integration-service** - Intégration ENT
-14. **frontend-thymeleaf** (8090) - Interface web
-
-## 🎯 Architecture Optimisée
-
-### Stratégie Niveau 4e Année
-1. ✅ **14 microservices dans Eureka** → 20/20 Phase 4 + 3 points bonus
-2. ✅ **1 seule base MySQL (iusjcdb)** → Gain de 2 mois de développement
-3. ✅ **3 services "vrais"** → user-service, scheduling-service, notification-service
-
-### Services Principaux (Développés)
-- **user-service** ⭐ : Authentification JWT + Spring Security
-- **scheduling-service** ⭐ : Emplois du temps + Redis + RabbitMQ
-- **notification-service** ⭐ : Notifications asynchrones + SMTP
-
-### Services Squelettes (Légers)
-Les 9 autres services sont enregistrés dans Eureka mais sans DB (pour l'instant).
-
-## Lancement
-
-### Prérequis
-- Docker & Docker Compose
-- Java 17
-- Maven 3.8+
-
-### Configuration
-```bash
-# 1. Copier le fichier de configuration
-cp .env.example .env
-
-# 2. Modifier les valeurs si nécessaire (optionnel pour dev)
-nano .env
+### Windows
+```powershell
+.\start-dev.ps1
 ```
 
-### Démarrage complet
+### Linux/Mac
 ```bash
-# Build tous les services
-mvn clean package -DskipTests
-
-# Lancer l'infrastructure
-docker-compose up --build
-
-# Vérifier que les 14 services sont dans Eureka
-http://localhost:8761
+chmod +x start-dev.sh
+./start-dev.sh
 ```
-
-**Note :** Le fichier `.env` contient toutes les variables d'environnement. Voir `ENV_CONFIGURATION.md` pour plus de détails.
 
 ### Accès
-- **Frontend Web**: http://localhost:8090
+- **Frontend**: http://localhost:3000
 - **API Gateway**: http://localhost:8080
 - **Eureka Dashboard**: http://localhost:8761
-- **RabbitMQ Management**: http://localhost:15672 (iusjc/iusjc2024)
-- **MySQL**: localhost:3306 (iusjc/iusjc2024)
+- **RabbitMQ Management**: http://localhost:15672 (guest/guest)
 
-## Base de Données
+## 📋 Prérequis
 
-### MySQL Unique (iusjcdb)
-Une seule base pour tous les services :
-- Tables user-service (users, roles)
-- Tables scheduling-service (schedules, time_slots)
-- Tables notification-service (notifications)
+- Docker & Docker Compose
+- Node.js 18+
+- npm ou pnpm
 
-**Connexion :**
+## 🏗️ Architecture
+
+- **Backend**: Spring Boot (Microservices)
+- **Frontend**: React/Next.js avec TypeScript
+- **Base de données**: MySQL
+- **Cache**: Redis
+- **Messaging**: RabbitMQ
+- **Service Discovery**: Eureka
+- **API Gateway**: Spring Cloud Gateway
+
+## ✅ Fonctionnalités
+
+### Opérationnel
+- ✅ Authentification complète (JWT)
+- ✅ Gestion des utilisateurs (CRUD)
+- ✅ Gestion des ressources/salles (CRUD)
+
+### En Développement
+- 🔄 Gestion des cours
+- 🔄 Gestion des réservations
+- 🔄 Emplois du temps
+- 🔄 Notifications
+- 🔄 Rapports
+
+## 📚 Documentation
+
+### Commencer
+- **[START_HERE.md](./START_HERE.md)** - Point de départ
+- **[docs/INTEGRATION_RESUME_FR.md](./docs/INTEGRATION_RESUME_FR.md)** - Résumé complet en français
+- **[docs/QUICKSTART.md](./docs/QUICKSTART.md)** - Guide de démarrage détaillé
+
+### Développement
+- **[frontend/README.md](./frontend/README.md)** - Documentation frontend
+- **[docs/GUIDE_VISUEL.md](./docs/GUIDE_VISUEL.md)** - Architecture visuelle
+- **[docs/DOCUMENTATION_INDEX.md](./docs/DOCUMENTATION_INDEX.md)** - Index complet
+
+## 🔧 Configuration
+
+### Backend
+Variables d'environnement dans `.env`:
+```env
+MYSQL_DATABASE=iusjcdb
+MYSQL_USER=iusjc
+MYSQL_PASSWORD=iusjc2025
+API_GATEWAY_PORT=8080
 ```
-Host: localhost:3306
-Database: iusjcdb
-User: iusjc
-Password: iusjc2024
+
+### Frontend
+Configuration dans `frontend/lib/api-config.ts`:
+```typescript
+const API_BASE_URL = 'http://localhost:8080'
 ```
 
-**Utilisateurs de test :**
-- admin / password (ADMIN)
-- teacher1 / password (TEACHER)
-- student1 / password (STUDENT)
+## 🐛 Dépannage
 
-## CI/CD
-GitHub Actions → Build → Push Docker Hub (darlene4/iusjc-*)
-
-## Documentation
-- `ARCHITECTURE_OPTIMISEE.md` : Stratégie et architecture détaillée
-- `CHANGEMENTS_APPLIQUES.md` : Liste des modifications
-- `STRUCTURE.md` : Structure complète du projet
-
-## Structure du Projet
-```
-iusjc-planning-2025/
-├── pom.xml                         ← Parent Maven
-├── docker-compose.yml
-├── .github/workflows/ci.yml
-├── eureka-server/                  ← Service Discovery
-├── api-gateway/                    ← API Gateway
-├── user-service/                   ← Authentification
-├── school-service/                 ← Écoles/Filières
-├── resource-service/               ← Ressources
-├── room-service/                   ← Salles
-├── course-service/                 ← Cours
-├── scheduling-service/             ← Emplois du temps
-├── reservation-service/            ← Réservations
-├── event-service/                  ← Événements
-├── notification-service/           ← Notifications
-├── reporting-service/              ← Rapports
-├── ent-integration-service/        ← Intégration ENT
-└── frontend-thymeleaf/             ← Interface Web (Thymeleaf + Tailwind)
+### Backend ne démarre pas
+```bash
+docker-compose logs -f
+docker-compose restart
 ```
 
-## Diagramme
-```
-[Frontend:8090] → [Gateway:8080] → [Eureka:8761]
-                        ↓
-    ┌───────────────────┼───────────────────┐
-    ↓                   ↓                   ↓
-[User]            [School]            [Resource/Room]
-    ↓                   ↓                   ↓
-[Course]          [Scheduling]        [Reservation/Event]
-    ↓                   ↓                   ↓
-[Notification]    [Reporting]         [ENT Integration]
-```
-=======
-"# EduSchedule - Gestion EDT & Salles IUSJC" 
->>>>>>> 05557e28d8cd303119551bee085611f321f0b3c9
+### Frontend ne se connecte pas
+1. Vérifier que l'API Gateway répond: http://localhost:8080
+2. Vérifier `frontend/lib/api-config.ts`
+3. Vérifier la console du navigateur (F12)
+
+### Erreur 401 Unauthorized
+1. Se déconnecter et se reconnecter
+2. Nettoyer le localStorage (F12 > Application > Local Storage)
+
+## 📊 État du Projet
+
+- **Backend**: 3/8 services implémentés (38%)
+- **Frontend**: 100% prêt (8/8 services créés)
+- **Intégration**: Complète et fonctionnelle
+- **Documentation**: Complète
+
+Voir [docs/PROJECT_STATUS.md](./docs/PROJECT_STATUS.md) pour plus de détails.
+
+## 🤝 Contribution
+
+1. Créer une branche pour votre fonctionnalité
+2. Commiter vos changements
+3. Pousser vers la branche
+4. Créer une Pull Request
+
+## 📄 Licence
+
+Ce projet est sous licence MIT.
+
+---
+
+**Pour plus d'informations, consultez [START_HERE.md](./START_HERE.md)**
