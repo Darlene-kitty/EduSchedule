@@ -1,9 +1,6 @@
 package cm.iusjc.userservice.controller;
 
-import cm.iusjc.userservice.dto.LoginRequest;
-import cm.iusjc.userservice.dto.LoginResponse;
-import cm.iusjc.userservice.dto.RegisterRequest;
-import cm.iusjc.userservice.dto.UserDTO;
+import cm.iusjc.userservice.dto.*;
 import cm.iusjc.userservice.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -40,9 +37,22 @@ public class AuthController {
         return ResponseEntity.ok(user);
     }
     
+    @PostMapping("/refresh")
+    public ResponseEntity<LoginResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+        LoginResponse response = authService.refreshToken(request.getRefreshToken());
+        return ResponseEntity.ok(response);
+    }
+    
     @PostMapping("/logout")
-    public ResponseEntity<String> logout() {
-        // Le logout côté client supprime le token
+    public ResponseEntity<String> logout(@RequestBody RefreshTokenRequest request) {
+        // Révoquer le refresh token
+        authService.revokeRefreshToken(request.getRefreshToken());
         return ResponseEntity.ok("Logged out successfully");
     }
 }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<LoginResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+        LoginResponse response = authService.refreshToken(request.getRefreshToken());
+        return ResponseEntity.ok(response);
+    }

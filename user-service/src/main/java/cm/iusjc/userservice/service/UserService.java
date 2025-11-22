@@ -5,6 +5,7 @@ import cm.iusjc.userservice.dto.UserDTO;
 import cm.iusjc.userservice.entity.User;
 import cm.iusjc.userservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +15,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserService {
     
     private final UserRepository userRepository;
@@ -21,12 +23,16 @@ public class UserService {
     
     @Transactional
     public UserDTO createUser(RegisterRequest request) {
+        log.info("Creating new user: {}", request.getUsername());
+        
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Username already exists");
+            log.warn("Username already exists: {}", request.getUsername());
+            throw new RuntimeException("Le nom d'utilisateur '" + request.getUsername() + "' est déjà utilisé");
         }
         
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
+            log.warn("Email already exists: {}", request.getEmail());
+            throw new RuntimeException("L'adresse email '" + request.getEmail() + "' est déjà utilisée");
         }
         
         User user = new User();
@@ -47,14 +53,16 @@ public class UserService {
     }
     
     public UserDTO getUserById(Long id) {
+        log.debug("Fetching user by id: {}", id);
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("Utilisateur avec l'ID " + id + " introuvable"));
         return convertToDTO(user);
     }
     
     public UserDTO getUserByUsername(String username) {
+        log.debug("Fetching user by username: {}", username);
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("Utilisateur '" + username + "' introuvable"));
         return convertToDTO(user);
     }
     
@@ -78,10 +86,13 @@ public class UserService {
     
     @Transactional
     public void deleteUser(Long id) {
+        log.info("Deleting user with id: {}", id);
         if (!userRepository.existsById(id)) {
-            throw new RuntimeException("User not found");
+            log.warn("User not found for deletion: {}", id);
+            throw new RuntimeException("Utilisateur avec l'ID " + id + " introuvable");
         }
         userRepository.deleteById(id);
+        log.info("User deleted successfully: {}", id);
     }
     
     private UserDTO convertToDTO(User user) {

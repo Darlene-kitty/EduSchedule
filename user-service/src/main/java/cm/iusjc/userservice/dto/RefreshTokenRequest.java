@@ -1,5 +1,6 @@
 package cm.iusjc.userservice.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -7,12 +8,8 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class LoginResponse {
-    private String token;
+public class RefreshTokenRequest {
+    
+    @NotBlank(message = "Refresh token is required")
     private String refreshToken;
-    private String type; // Bearer
-    private Long userId;
-    private String username;
-    private String email;
-    private String role;
 }

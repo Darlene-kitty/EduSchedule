@@ -55,11 +55,25 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Table pour refresh tokens
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    user_id BIGINT NOT NULL,
+    expiry_date TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    revoked BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Index pour optimisation
-CREATE INDEX idx_users_username ON users(username);
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_schedules_dates ON schedules(start_time, end_time);
-CREATE INDEX idx_notifications_status ON notifications(status);
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_enabled ON users(enabled);
+CREATE INDEX IF NOT EXISTS idx_schedules_dates ON schedules(start_time, end_time);
+CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status);
+CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient);
 
 -- Tables pour school-service (écoles et filières)
 CREATE TABLE IF NOT EXISTS schools (
@@ -139,6 +153,49 @@ CREATE INDEX idx_equipments_room ON equipments(room_id);
 CREATE INDEX idx_courses_filiere ON courses(filiere_id);
 CREATE INDEX idx_schedules_course ON schedules(course_id);
 CREATE INDEX idx_schedules_room ON schedules(room_id);
+
+-- Table pour refresh tokens
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    token VARCHAR(500) UNIQUE NOT NULL,
+    user_id BIGINT NOT NULL,
+    expiry_date TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Table pour reset password tokens
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    token VARCHAR(500) UNIQUE NOT NULL,
+    user_id BIGINT NOT NULL,
+    expiry_date TIMESTAMP NOT NULL,
+    used BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Table pour email verification tokens
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    token VARCHAR(500) UNIQUE NOT NULL,
+    user_id BIGINT NOT NULL,
+    expiry_date TIMESTAMP NOT NULL,
+    verified BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Ajouter colonnes pour les nouvelles fonctionnalités
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS remember_me_token VARCHAR(500);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP NULL;
+
+-- Index pour les tokens
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_token ON email_verification_tokens(token);
 
 -- Données de test
 INSERT INTO roles (name) VALUES ('ADMIN'), ('TEACHER') ON DUPLICATE KEY UPDATE name=name;

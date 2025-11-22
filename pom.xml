@@ -12,9 +12,12 @@
 
     <name>IUSJC Planning - Projet Transversal ISI 2025-2026</name>
 
-
-    
-    <!-- Note: config-server retiré car configuration simplifiée avec application.properties -->
+    <modules>
+        <module>config-server</module>
+        <module>api-gateway</module>
+        <module>user-service</module>
+        <module>resource-service</module>
+    </modules>
 
     <properties>
         <java.version>17</java.version>
@@ -50,6 +53,7 @@
                 <plugin>
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
                 </plugin>
             </plugins>
         </pluginManagement>

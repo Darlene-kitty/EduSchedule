@@ -5,6 +5,7 @@ import cm.iusjc.userservice.dto.LoginRequest;
 import cm.iusjc.userservice.dto.LoginResponse;
 import cm.iusjc.userservice.dto.RegisterRequest;
 import cm.iusjc.userservice.dto.UserDTO;
+import cm.iusjc.userservice.entity.RefreshToken;
 import cm.iusjc.userservice.entity.User;
 import cm.iusjc.userservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,8 @@ public class AuthService {
         return userService.createUser(request);
     }
     
+    private final RefreshTokenService refreshTokenService;
+    
     public LoginResponse login(LoginRequest request) {
         try {
             // Authentifier l'utilisateur
@@ -47,10 +50,14 @@ public class AuthService {
             // Générer le token JWT
             String token = jwtUtil.generateToken(user.getUsername(), user.getRole());
             
+            // Générer le refresh token
+            RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+            
             log.info("User logged in successfully: {}", request.getUsername());
             
             return new LoginResponse(
                     token,
+                    refreshToken.getToken(),
                     "Bearer",
                     user.getId(),
                     user.getUsername(),
@@ -62,6 +69,31 @@ public class AuthService {
             log.error("Authentication failed for user: {}", request.getUsername());
             throw new RuntimeException("Invalid username or password");
         }
+    }
+    
+    public LoginResponse refreshToken(String refreshTokenStr) {
+        return refreshTokenService.findByToken(refreshTokenStr)
+                .map(refreshTokenService::verifyExpiration)
+                .map(RefreshToken::getUser)
+                .map(user -> {
+                    String newToken = jwtUtil.generateToken(user.getUsername(), user.getRole());
+                    log.info("Token refreshed for user: {}", user.getUsername());
+                    
+                    return new LoginResponse(
+                            newToken,
+                            refreshTokenStr,
+                            "Bearer",
+                            user.getId(),
+                            user.getUsername(),
+                            user.getEmail(),
+                            user.getRole()
+                    );
+                })
+                .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
+    }
+    
+    public void revokeRefreshToken(String refreshToken) {
+        refreshTokenService.revokeToken(refreshToken);
     }
     
     public UserDTO getCurrentUser(String username) {
