@@ -61,11 +61,129 @@ CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_schedules_dates ON schedules(start_time, end_time);
 CREATE INDEX idx_notifications_status ON notifications(status);
 
--- Données de test
-INSERT INTO roles (name) VALUES ('ADMIN'), ('TEACHER'), ('STUDENT') ON DUPLICATE KEY UPDATE name=name;
+-- Tables pour school-service (écoles et filières)
+CREATE TABLE IF NOT EXISTS schools (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    code VARCHAR(20) UNIQUE NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
+CREATE TABLE IF NOT EXISTS filieres (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    code VARCHAR(20) NOT NULL,
+    school_id BIGINT NOT NULL,
+    level VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS groupes (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    filiere_id BIGINT NOT NULL,
+    capacity INT DEFAULT 30,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (filiere_id) REFERENCES filieres(id) ON DELETE CASCADE
+);
+
+-- Tables pour room-service (salles et équipements)
+CREATE TABLE IF NOT EXISTS rooms (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    code VARCHAR(20) UNIQUE NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    capacity INT NOT NULL,
+    building VARCHAR(100),
+    floor INT,
+    available BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS equipments (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    quantity INT DEFAULT 1,
+    room_id BIGINT,
+    status VARCHAR(20) DEFAULT 'AVAILABLE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE SET NULL
+);
+
+-- Tables pour course-service (cours)
+CREATE TABLE IF NOT EXISTS courses (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    code VARCHAR(20) UNIQUE NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    hours_per_week INT DEFAULT 2,
+    filiere_id BIGINT NOT NULL,
+    teacher_id BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Amélioration de la table schedules
+ALTER TABLE schedules ADD COLUMN IF NOT EXISTS course_id BIGINT;
+ALTER TABLE schedules ADD COLUMN IF NOT EXISTS room_id BIGINT;
+ALTER TABLE schedules ADD COLUMN IF NOT EXISTS group_id BIGINT;
+ALTER TABLE schedules ADD COLUMN IF NOT EXISTS school_id BIGINT;
+
+-- Index pour optimisation
+CREATE INDEX idx_filieres_school ON filieres(school_id);
+CREATE INDEX idx_groupes_filiere ON groupes(filiere_id);
+CREATE INDEX idx_rooms_type ON rooms(type);
+CREATE INDEX idx_equipments_room ON equipments(room_id);
+CREATE INDEX idx_courses_filiere ON courses(filiere_id);
+CREATE INDEX idx_schedules_course ON schedules(course_id);
+CREATE INDEX idx_schedules_room ON schedules(room_id);
+
+-- Données de test
+INSERT INTO roles (name) VALUES ('ADMIN'), ('TEACHER') ON DUPLICATE KEY UPDATE name=name;
+
+-- Utilisateurs de test (password = "password" hashé en BCrypt)
 INSERT INTO users (username, email, password, role) VALUES 
 ('admin', 'admin@iusjc.cm', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'ADMIN'),
-('teacher1', 'teacher1@iusjc.cm', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'TEACHER'),
-('student1', 'student1@iusjc.cm', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'STUDENT')
+('', 'dupont@iusjc.cm', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'TEACHER'),
+('prof.martin', 'martin@iusjc.cm', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'TEACHER')
 ON DUPLICATE KEY UPDATE username=username;
+
+-- Écoles de l'IUSJC
+INSERT INTO schools (name, code, description) VALUES 
+('Saint Jean Institute', 'SJI', 'École d\'ingénierie'),
+('Saint Jean Medical', 'SJM', 'École de médecine'),
+('PrepaVogt', 'PREPAV', 'Classes préparatoires'),
+('CPGE', 'CPGE', 'Classes préparatoires aux grandes écoles')
+ON DUPLICATE KEY UPDATE name=name;
+
+-- Filières exemple pour SJI
+INSERT INTO filieres (name, code, school_id, level) VALUES 
+('Informatique', 'INFO', 1, 'Licence'),
+('Génie Civil', 'GC', 1, 'Licence'),
+('Électronique', 'ELEC', 1, 'Master')
+ON DUPLICATE KEY UPDATE name=name;
+
+-- Groupes exemple
+INSERT INTO groupes (name, filiere_id, capacity) VALUES 
+('ISI 4A', 1, 35),
+('ISI 4B', 1, 30),
+('GC 3A', 2, 40)
+ON DUPLICATE KEY UPDATE name=name;
+
+-- Salles exemple
+INSERT INTO rooms (name, code, type, capacity, building, floor) VALUES 
+('Amphi A', 'AMPH-A', 'AMPHITHEATRE', 200, 'Bâtiment Principal', 1),
+('Salle A101', 'A101', 'CLASSROOM', 40, 'Bâtiment A', 1),
+('Labo Info 1', 'LAB-I1', 'LABORATORY', 30, 'Bâtiment B', 2),
+('Salle TD 201', 'TD201', 'CLASSROOM', 35, 'Bâtiment C', 2)
+ON DUPLICATE KEY UPDATE name=name;
+
+-- Équipements exemple
+INSERT INTO equipments (name, type, quantity, room_id, status) VALUES 
+('Projecteur', 'PROJECTOR', 1, 1, 'AVAILABLE'),
+('Ordinateurs', 'COMPUTER', 30, 3, 'AVAILABLE'),
+('Tableau Blanc', 'WHITEBOARD', 1, 2, 'AVAILABLE'),
+('Baffles', 'SPEAKER', 2, 1, 'AVAILABLE')
+ON DUPLICATE KEY UPDATE name=name;
