@@ -79,11 +79,3 @@ public class RefreshTokenService {
         });
     }
 }
-
-    @Transactional
-    public void revokeToken(String token) {
-        refreshTokenRepository.findByToken(token).ifPresent(refreshToken -> {
-            refreshTokenRepository.delete(refreshToken);
-            log.info("Refresh token revoked: {}", token);
-        });
-    }

@@ -4,7 +4,9 @@ services:
     command: --default-authentication-plugin=mysql_native_password
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: eduschedule
+      MYSQL_DATABASE: iusjcdb
+      MYSQL_USER: iusjc
+      MYSQL_PASSWORD: iusjc2025
     ports: ["3306:3306"]
 
   redis:
@@ -13,6 +15,9 @@ services:
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: iusjc
+      RABBITMQ_DEFAULT_PASS: iusjc2025
     ports: ["5672:5672", "15672:15672"]
 
   # LES SEULES IMAGES QUI MARCHENT À 100% EN NOVEMBRE 2025

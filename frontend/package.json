@@ -6,7 +6,9 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "next start",
+    "install:legacy": "npm install --legacy-peer-deps",
+    "install:force": "npm install --force"
   },
   "dependencies": {
     "@dnd-kit/core": "latest",

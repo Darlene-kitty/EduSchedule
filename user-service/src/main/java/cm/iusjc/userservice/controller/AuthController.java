@@ -50,9 +50,3 @@ public class AuthController {
         return ResponseEntity.ok("Logged out successfully");
     }
 }
-
-    @PostMapping("/refresh")
-    public ResponseEntity<LoginResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
-        LoginResponse response = authService.refreshToken(request.getRefreshToken());
-        return ResponseEntity.ok(response);
-    }
