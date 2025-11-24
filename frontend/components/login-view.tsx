@@ -3,7 +3,7 @@
 import type React from "react"
 
 import type { ReactElement } from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Calendar, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,7 +22,7 @@ export function LoginView(): ReactElement {
   const [rememberMe, setRememberMe] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
-  useState(() => {
+  useEffect(() => {
     const savedEmail = localStorage.getItem("savedEmail")
     const rememberMeFlag = localStorage.getItem("rememberMe")
     if (savedEmail && rememberMeFlag === "true") {
@@ -83,12 +83,12 @@ export function LoginView(): ReactElement {
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
               <Label htmlFor="email" className="text-gray-900 font-medium">
-                Email
+                Email ou Nom d'utilisateur
               </Label>
               <Input
                 id="email"
-                type="email"
-                placeholder="nom@exemple.com"
+                type="text"
+                placeholder="admin ou admin@exem
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="mt-1.5 h-12"

@@ -53,7 +53,9 @@ public class SecurityConfig {
         configuration.setAllowedOriginPatterns(Arrays.asList(
             "http://localhost:*",
             "http://127.0.0.1:*",
-            "http://frontend:*"
+            "http://frontend:*",
+            "https://*.app.github.dev",      // GitHub Codespaces
+            "https://*.githubpreview.dev"    // GitHub Codespaces (ancien)
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));

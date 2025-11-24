@@ -24,7 +24,9 @@ public class CorsConfig {
         corsConfig.setAllowedOriginPatterns(Arrays.asList(
             "http://localhost:*",         // Tous les ports localhost
             "http://frontend:*",          // Tous les ports Docker
-            "http://127.0.0.1:*"          // Tous les ports 127.0.0.1
+            "http://127.0.0.1:*",         // Tous les ports 127.0.0.1
+            "https://*.app.github.dev",   // GitHub Codespaces
+            "https://*.githubpreview.dev" // GitHub Codespaces (ancien)
         ));
         
         // Méthodes HTTP autorisées
