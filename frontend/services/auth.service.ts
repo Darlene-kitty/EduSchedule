@@ -168,11 +168,9 @@ class AuthService {
       'ADMIN': 'admin',
       'TEACHER': 'teacher',
       'ENSEIGNANT': 'teacher',
-      'STUDENT': 'student',
-      'ETUDIANT': 'student',
     }
 
-    const role = roleMap[backendUser.role?.toUpperCase()] || 'student'
+    const role = roleMap[backendUser.role?.toUpperCase()] || 'teacher'
     const name = backendUser.nom && backendUser.prenom 
       ? `${backendUser.prenom} ${backendUser.nom}`
       : backendUser.name || backendUser.email

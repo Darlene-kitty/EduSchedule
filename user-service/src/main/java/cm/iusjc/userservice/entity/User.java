@@ -27,7 +27,7 @@ public class User {
     private String password;
     
     @Column(nullable = false, length = 20)
-    private String role; // ADMIN, TEACHER, STUDENT
+    private String role; // ADMIN, TEACHER
     
     @Column(nullable = false)
     private Boolean enabled = true;

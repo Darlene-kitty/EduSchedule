@@ -1,4 +1,6 @@
-# EduSchedule - Système de Gestion de Planning Académique
+# 🎓 EduSchedule - IUSJC
+## Système de Gestion des Emplois du Temps
+### Institut Universitaire Saint Jean - Cameroun
 
 Système complet de gestion d'emploi du temps pour établissements d'enseignement avec architecture microservices Spring Boot et frontend React/Next.js.
 

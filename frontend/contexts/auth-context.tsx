@@ -6,7 +6,7 @@ import { saveSession, getSession, clearSession } from "@/lib/session"
 import { authService } from "@/services/auth.service"
 import { ApiError } from "@/lib/api-client"
 
-export type UserRole = "admin" | "teacher" | "student"
+export type UserRole = "admin" | "teacher"
 
 export interface User {
   id: string

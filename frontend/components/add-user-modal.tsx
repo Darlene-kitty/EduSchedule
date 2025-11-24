@@ -80,7 +80,6 @@ export function AddUserModal({ open, onOpenChange, onSubmit }: AddUserModalProps
                 <SelectContent>
                   <SelectItem value="admin">Administrateur</SelectItem>
                   <SelectItem value="teacher">Enseignant</SelectItem>
-                  <SelectItem value="student">Étudiant</SelectItem>
                 </SelectContent>
               </Select>
             </div>

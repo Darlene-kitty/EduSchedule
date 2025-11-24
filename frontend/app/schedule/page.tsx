@@ -3,7 +3,7 @@ import { AuthGuard } from "@/components/auth-guard"
 
 export default function SchedulePage() {
   return (
-    <AuthGuard requiredRoles={["admin", "teacher", "student"]}>
+    <AuthGuard requiredRoles={["admin", "teacher"]}>
       <ScheduleView />
     </AuthGuard>
   )

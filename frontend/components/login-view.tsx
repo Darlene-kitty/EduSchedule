@@ -70,14 +70,14 @@ export function LoginView(): ReactElement {
           <div className="inline-flex items-center justify-center w-24 h-24 bg-[#FBBF24] rounded-3xl shadow-lg mb-6">
             <Calendar className="w-12 h-12 text-[#1F2937]" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Système de Gestion</h1>
-          <p className="text-gray-600">Salles & Emplois du Temps</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">EduSchedule IUSJC</h1>
+          <p className="text-gray-600">Gestion des Emplois du Temps - Enseignants & Administration</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Connexion</h2>
-            <p className="text-gray-600">Accédez à votre espace de gestion</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Connexion Enseignant</h2>
+            <p className="text-gray-600">Accédez à votre espace de planification</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">

@@ -3,7 +3,7 @@ import { AuthGuard } from "@/components/auth-guard"
 
 export default function DashboardPage() {
   return (
-    <AuthGuard requiredRoles={["admin", "teacher", "student"]}>
+    <AuthGuard requiredRoles={["admin", "teacher"]}>
       <DashboardView />
     </AuthGuard>
   )

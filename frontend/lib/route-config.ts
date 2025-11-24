@@ -6,19 +6,19 @@ export type ProtectedRoute = {
 }
 
 export const protectedRoutes: ProtectedRoute[] = [
-  { path: "/", requiredRoles: ["admin", "teacher", "student"] },
-  { path: "/schedule", requiredRoles: ["admin", "teacher", "student"] },
+  { path: "/", requiredRoles: ["admin", "teacher"] },
+  { path: "/schedule", requiredRoles: ["admin", "teacher"] },
   { path: "/users", requiredRoles: ["admin"] },
   { path: "/courses", requiredRoles: ["admin", "teacher"] },
   { path: "/reservations", requiredRoles: ["admin", "teacher"] },
   { path: "/resources", requiredRoles: ["admin"] },
   { path: "/conflicts", requiredRoles: ["admin"] },
   { path: "/reports", requiredRoles: ["admin"] },
-  { path: "/notifications", requiredRoles: ["admin", "teacher", "student"] },
-  { path: "/calendar", requiredRoles: ["admin", "teacher", "student"] },
+  { path: "/notifications", requiredRoles: ["admin", "teacher"] },
+  { path: "/calendar", requiredRoles: ["admin", "teacher"] },
 ]
 
-export const publicRoutes = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email"]
+export const publicRoutes = ["/welcome", "/login", "/register", "/forgot-password", "/reset-password", "/verify-email"]
 
 export function isProtectedRoute(path: string): boolean {
   return protectedRoutes.some((route) => route.path === path)
