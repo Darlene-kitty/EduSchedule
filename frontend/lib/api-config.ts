@@ -19,19 +19,19 @@ export const API_CONFIG = {
   baseURL: API_BASE_URL,
   timeout: API_TIMEOUT,
   endpoints: {
-    // User Service
+    // User Service (via API Gateway)
     auth: {
-      login: '/user-service/api/auth/login',
-      register: '/user-service/api/auth/register',
-      logout: '/user-service/api/auth/logout',
-      refresh: '/user-service/api/auth/refresh',
-      forgotPassword: '/user-service/api/auth/forgot-password',
-      resetPassword: '/user-service/api/auth/reset-password',
-      verifyEmail: '/user-service/api/auth/verify-email',
+      login: '/api/auth/login',
+      register: '/api/auth/register',
+      logout: '/api/auth/logout',
+      refresh: '/api/auth/refresh',
+      forgotPassword: '/api/auth/forgot-password',
+      resetPassword: '/api/auth/reset-password',
+      verifyEmail: '/api/auth/verify-email',
     },
     users: {
-      base: '/user-service/api/users',
-      byId: (id: string) => `/user-service/api/users/${id}`,
+      base: '/api/users',
+      byId: (id: string) => `/api/users/${id}`,
       profile: '/user-service/api/users/profile',
     },
     // Resource Service
@@ -65,7 +65,7 @@ export const API_CONFIG = {
     },
     // Reporting Service
     reports: {
-      base: '/reporting-service/api/reports',
+      base: 't/reporting-service/api/reports',
       generate: '/reporting-service/api/reports/generate',
     },
   },
