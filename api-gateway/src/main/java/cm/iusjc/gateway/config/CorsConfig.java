@@ -21,11 +21,10 @@ public class CorsConfig {
         CorsConfiguration corsConfig = new CorsConfiguration();
         
         // Origines autorisées (frontend)
-        corsConfig.setAllowedOrigins(Arrays.asList(
-            "http://localhost:3000",      // Next.js dev
-            "http://localhost:8090",      // Frontend Thymeleaf
-            "http://frontend:3000",       // Docker
-            "http://frontend:8090"        // Docker Thymeleaf
+        corsConfig.setAllowedOriginPatterns(Arrays.asList(
+            "http://localhost:*",         // Tous les ports localhost
+            "http://frontend:*",          // Tous les ports Docker
+            "http://127.0.0.1:*"          // Tous les ports 127.0.0.1
         ));
         
         // Méthodes HTTP autorisées

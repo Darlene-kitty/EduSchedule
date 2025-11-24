@@ -2,6 +2,17 @@
 
 Application frontend React/Next.js pour le système de gestion d'emploi du temps EduSchedule.
 
+## 🔧 Test de Connexion Backend/Frontend
+
+**IMPORTANT:** Avant de commencer, testez la connexion avec le backend:
+
+1. Démarrez tous les services backend (voir `../DEMARRAGE_RAPIDE.md`)
+2. Démarrez le frontend: `npm run dev`
+3. Accédez à: **http://localhost:3000/test-connection**
+4. Cliquez sur "Lancer les tests"
+
+✅ Tous les tests doivent être verts avant de continuer.
+
 ## 🚀 Démarrage
 
 ```bash

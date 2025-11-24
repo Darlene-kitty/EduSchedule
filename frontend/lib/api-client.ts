@@ -3,6 +3,7 @@
  */
 
 import { API_CONFIG } from './api-config'
+import { DEBUG } from './debug-utils'
 
 export class ApiError extends Error {
   constructor(
@@ -106,14 +107,22 @@ class ApiClient {
     const timeoutId = setTimeout(() => controller.abort(), this.timeout)
 
     try {
-      const response = await fetch(this.buildURL(endpoint, params), {
+      const fullUrl = this.buildURL(endpoint, params)
+      DEBUG.api(fetchOptions.method || 'GET', endpoint, fetchOptions.body)
+      
+      const response = await fetch(fullUrl, {
         ...fetchOptions,
         headers,
         signal: controller.signal,
       })
 
+      DEBUG.cors(fullUrl, response.headers)
       clearTimeout(timeoutId)
-      return await this.handleResponse<T>(response)
+      
+      const result = await this.handleResponse<T>(response)
+      DEBUG.response(endpoint, response.status, result)
+      
+      return result
     } catch (error) {
       clearTimeout(timeoutId)
 

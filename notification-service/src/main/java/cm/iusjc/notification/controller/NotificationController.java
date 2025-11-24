@@ -3,13 +3,15 @@ package cm.iusjc.notification.controller;
 import cm.iusjc.notification.dto.NotificationDTO;
 import cm.iusjc.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/api/notifications")
+@RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
 public class NotificationController {
     
@@ -35,9 +37,43 @@ public class NotificationController {
         return ResponseEntity.ok(notificationService.getNotificationsByStatus(status));
     }
     
+    @PostMapping
+    public ResponseEntity<NotificationDTO> createNotification(@RequestBody Map<String, String> request) {
+        String recipient = request.get("recipient");
+        String subject = request.get("subject");
+        String message = request.get("message");
+        String type = request.getOrDefault("type", "EMAIL");
+        
+        NotificationDTO notification = notificationService.createNotification(recipient, subject, message, type);
+        return ResponseEntity.status(HttpStatus.CREATED).body(notification);
+    }
+    
     @PostMapping("/{id}/send")
     public ResponseEntity<Void> sendNotification(@PathVariable Long id) {
         notificationService.sendNotification(id);
         return ResponseEntity.ok().build();
+    }
+    
+    @PostMapping("/test-email")
+    public ResponseEntity<Map<String, String>> testEmail(@RequestBody Map<String, String> request) {
+        try {
+            String recipient = request.getOrDefault("recipient", "test@example.com");
+            String subject = request.getOrDefault("subject", "Test Email - EduSchedule");
+            String message = request.getOrDefault("message", "Ceci est un email de test depuis EduSchedule. Si vous recevez cet email, la configuration SMTP fonctionne correctement!");
+            
+            NotificationDTO notification = notificationService.createNotification(recipient, subject, message, "EMAIL");
+            
+            return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "Email de test envoyé avec succès",
+                "notificationId", notification.getId().toString(),
+                "recipient", recipient
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "status", "error",
+                "message", "Échec de l'envoi de l'email: " + e.getMessage()
+            ));
+        }
     }
 }

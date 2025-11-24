@@ -7,37 +7,35 @@ import { API_CONFIG } from '@/lib/api-config'
 import type { User, UserRole } from '@/contexts/auth-context'
 
 export interface LoginRequest {
-  email: string
+  username: string  // Backend attend 'username', pas 'email'
   password: string
 }
 
 export interface LoginResponse {
-  accessToken: string
+  token: string
   refreshToken: string
-  user: {
-    id: string
-    email: string
-    nom: string
-    prenom: string
-    role: string
-  }
+  type: string
+  userId: number
+  username: string
+  email: string
+  role: string
 }
 
 export interface RegisterRequest {
+  username: string  // Backend attend 'username'
   email: string
   password: string
-  nom: string
-  prenom: string
   role: string
 }
 
-export interface RegisterResponse {
-  id: string
+export interface UserDTO {
+  id: number
+  username: string
   email: string
-  nom: string
-  prenom: string
   role: string
-  message: string
+  enabled: boolean
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface ForgotPasswordRequest {
@@ -65,17 +63,22 @@ class AuthService {
     )
 
     // Sauvegarder les tokens
-    apiClient.saveTokens(response.accessToken, response.refreshToken)
+    apiClient.saveTokens(response.token, response.refreshToken)
 
     // Transformer la réponse backend en format User du frontend
-    return this.mapBackendUserToFrontend(response.user)
+    return this.mapBackendUserToFrontend({
+      id: response.userId.toString(),
+      email: response.email,
+      username: response.username,
+      role: response.role
+    })
   }
 
   /**
    * Inscription utilisateur
    */
   async register(data: RegisterRequest): Promise<User> {
-    const response = await apiClient.post<RegisterResponse>(
+    const response = await apiClient.post<UserDTO>(
       API_CONFIG.endpoints.auth.register,
       data,
       { requiresAuth: false }
@@ -134,7 +137,7 @@ class AuthService {
    * Récupérer le profil de l'utilisateur connecté
    */
   async getProfile(): Promise<User> {
-    const response = await apiClient.get<any>(API_CONFIG.endpoints.users.profile)
+    const response = await apiClient.get<any>(API_CONFIG.endpoints.users.me)
     return this.mapBackendUserToFrontend(response)
   }
 
@@ -150,14 +153,14 @@ class AuthService {
       throw new Error('No refresh token available')
     }
 
-    const response = await apiClient.post<{ accessToken: string; refreshToken: string }>(
+    const response = await apiClient.post<{ token: string; refreshToken: string }>(
       API_CONFIG.endpoints.auth.refresh,
       { refreshToken },
       { requiresAuth: false }
     )
 
-    apiClient.saveTokens(response.accessToken, response.refreshToken)
-    return response.accessToken
+    apiClient.saveTokens(response.token, response.refreshToken)
+    return response.token
   }
 
   /**
@@ -168,15 +171,15 @@ class AuthService {
       'ADMIN': 'admin',
       'TEACHER': 'teacher',
       'ENSEIGNANT': 'teacher',
+      'ROLE_ADMIN': 'admin',
+      'ROLE_TEACHER': 'teacher',
     }
 
     const role = roleMap[backendUser.role?.toUpperCase()] || 'teacher'
-    const name = backendUser.nom && backendUser.prenom 
-      ? `${backendUser.prenom} ${backendUser.nom}`
-      : backendUser.name || backendUser.email
+    const name = backendUser.username || backendUser.email
 
     return {
-      id: backendUser.id,
+      id: backendUser.id?.toString() || backendUser.userId?.toString(),
       email: backendUser.email,
       name,
       role,

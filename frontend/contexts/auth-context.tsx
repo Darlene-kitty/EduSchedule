@@ -54,7 +54,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string, rememberMe = false) => {
     setIsLoading(true)
     try {
-      const user = await authService.login({ email, password })
+      // Le backend attend 'username', on peut utiliser l'email comme username
+      const user = await authService.login({ username: email, password })
       setUser(user)
       saveSession(user, rememberMe)
       
@@ -91,14 +92,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = useCallback(async (email: string, password: string, name: string, role: UserRole) => {
     setIsLoading(true)
     try {
-      const [prenom, ...nomParts] = name.split(' ')
-      const nom = nomParts.join(' ') || prenom
+      // Le backend utilise 'username' au lieu de nom/prénom séparés
+      const username = name.replace(/\s+/g, '.').toLowerCase()
       
       const user = await authService.register({
+        username,
         email,
         password,
-        nom,
-        prenom,
         role: role.toUpperCase(),
       })
       
