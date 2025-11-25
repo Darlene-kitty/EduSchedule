@@ -83,7 +83,7 @@ export function ResetPasswordView() {
                 <Label htmlFor="newPassword" className="text-gray-900 font-medium">
                   Nouveau mot de passe
                 </Label>
-                <div className="relative mt-1.5">
+                <div className="relative mt-2">
                   <Input
                     id="newPassword"
                     type={showPassword ? "text" : "password"}
@@ -137,7 +137,7 @@ export function ResetPasswordView() {
                 <Label htmlFor="confirmPassword" className="text-gray-900 font-medium">
                   Confirmer le mot de passe
                 </Label>
-                <div className="relative mt-1.5">
+                <div className="relative mt-2">
                   <Input
                     id="confirmPassword"
                     type={showConfirm ? "text" : "password"}

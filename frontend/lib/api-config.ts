@@ -11,7 +11,7 @@
 // Configuration par défaut (peut être surchargée via .env.local)
 // Pour GitHub Codespaces, utilisez l'URL du port forwarding
 const API_BASE_URL = typeof window !== 'undefined' && window.location.hostname.includes('github.dev')
-  ? window.location.origin.replace('3000', '8080')
+  ? window.location.origin.replace(/300[01]/, '8080')
   : (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080')
 const API_TIMEOUT = parseInt(process.env.NEXT_PUBLIC_API_TIMEOUT || '30000', 10)
 
