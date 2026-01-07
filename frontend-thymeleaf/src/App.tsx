@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import LoginPage from './components/auth/LoginPage';
 import TimeTableScheduling from './components/schedule/TimeTableSchedule';
 import UserManagement from './components/users/UserManagement';
+import ProfilePage from './components/profile/ProfilePage';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -31,6 +32,14 @@ function App() {
           element={
             <ProtectedRoute>
               <UserManagement />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/profile" 
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
             </ProtectedRoute>
           } 
         />
