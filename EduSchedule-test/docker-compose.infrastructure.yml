@@ -1,0 +1,52 @@
+services:
+  # ============================================
+  # INFRASTRUCTURE SERVICES ONLY
+  # ============================================
+  mysql:
+    image: mysql:8.0
+    container_name: eduschedule-mysql
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: iusjcdb
+      MYSQL_USER: iusjc
+      MYSQL_PASSWORD: iusjc2025
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uiusjc", "-piusjc2025"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: eduschedule-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: eduschedule-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: iusjc
+      RABBITMQ_DEFAULT_PASS: iusjc2025
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mysql-data:

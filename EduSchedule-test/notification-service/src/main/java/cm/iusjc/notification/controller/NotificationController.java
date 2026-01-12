@@ -54,6 +54,39 @@ public class NotificationController {
         return ResponseEntity.ok().build();
     }
     
+    @PostMapping("/send")
+    public ResponseEntity<Map<String, String>> sendDirectEmail(@RequestBody Map<String, String> request) {
+        try {
+            String to = request.get("to");
+            String subject = request.get("subject");
+            String message = request.get("message");
+            String type = request.getOrDefault("type", "EMAIL");
+            
+            if (to == null || subject == null || message == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "status", "error",
+                    "message", "Les champs 'to', 'subject' et 'message' sont requis"
+                ));
+            }
+            
+            // Créer et envoyer immédiatement la notification
+            NotificationDTO notification = notificationService.createNotification(to, subject, message, type);
+            notificationService.sendNotification(notification.getId());
+            
+            return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "Email envoyé avec succès",
+                "notificationId", notification.getId().toString(),
+                "recipient", to
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "status", "error",
+                "message", "Échec de l'envoi de l'email: " + e.getMessage()
+            ));
+        }
+    }
+    
     @PostMapping("/test-email")
     public ResponseEntity<Map<String, String>> testEmail(@RequestBody Map<String, String> request) {
         try {

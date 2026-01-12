@@ -1,115 +1,63 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Sidebar } from "./sidebar"
 import { Header } from "./header"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Search, Filter, MoreVertical, Mail, Phone, Edit, Trash2 } from "lucide-react"
+import { Plus, Search, Filter, MoreVertical, Mail, User as UserIcon, Edit, Trash2, Loader2, AlertCircle } from "lucide-react"
 import { AddUserModal } from "./add-user-modal"
+import { usersApi, User as ApiUser, CreateUserRequest } from "@/lib/api/users"
+import { useToast } from "@/hooks/use-toast"
 
 interface User {
-  id: string
-  name: string
+  id: number
+  username: string
   email: string
-  phone: string
-  role: "Administrateur" | "Professeur" | "Étudiant"
-  status: "Actif" | "Inactif"
-  avatar: string
-  courses?: number
+  role: string
+  enabled: boolean
+  createdAt: string
+  updatedAt: string
 }
-
-const users: User[] = [
-  {
-    id: "1",
-    name: "Dr. Martin",
-    email: "martin@edu.fr",
-    phone: "+33 6 12 34 56 78",
-    role: "Professeur",
-    status: "Actif",
-    avatar: "DM",
-    courses: 8,
-  },
-  {
-    id: "2",
-    name: "Prof. Bernard",
-    email: "bernard@edu.fr",
-    phone: "+33 6 23 45 67 89",
-    role: "Professeur",
-    status: "Actif",
-    avatar: "PB",
-    courses: 6,
-  },
-  {
-    id: "3",
-    name: "Dr. Laurent",
-    email: "laurent@edu.fr",
-    phone: "+33 6 34 56 78 90",
-    role: "Professeur",
-    status: "Actif",
-    avatar: "DL",
-    courses: 7,
-  },
-  {
-    id: "4",
-    name: "Admin Système",
-    email: "admin@edu.fr",
-    phone: "+33 6 45 67 89 01",
-    role: "Administrateur",
-    status: "Actif",
-    avatar: "AS",
-  },
-  {
-    id: "5",
-    name: "Prof. Dubois",
-    email: "dubois@edu.fr",
-    phone: "+33 6 56 78 90 12",
-    role: "Professeur",
-    status: "Actif",
-    avatar: "PD",
-    courses: 5,
-  },
-  {
-    id: "6",
-    name: "Dr. Sophie",
-    email: "sophie@edu.fr",
-    phone: "+33 6 67 89 01 23",
-    role: "Professeur",
-    status: "Actif",
-    avatar: "DS",
-    courses: 9,
-  },
-  {
-    id: "7",
-    name: "Prof. Richard",
-    email: "richard@edu.fr",
-    phone: "+33 6 78 90 12 34",
-    role: "Professeur",
-    status: "Inactif",
-    avatar: "PR",
-    courses: 3,
-  },
-  {
-    id: "8",
-    name: "Marie Dupont",
-    email: "marie.d@student.edu.fr",
-    phone: "+33 6 89 01 23 45",
-    role: "Étudiant",
-    status: "Actif",
-    avatar: "MD",
-  },
-]
 
 export function UsersView() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedRole, setSelectedRole] = useState<string>("all")
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
+
+  // Charger les utilisateurs au montage du composant
+  useEffect(() => {
+    loadUsers()
+  }, [])
+
+  const loadUsers = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const usersData = await usersApi.getAllUsers()
+      setUsers(usersData)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors du chargement des utilisateurs'
+      setError(errorMessage)
+      toast({
+        title: "Erreur",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesRole = selectedRole === "all" || user.role === selectedRole
     return matchesSearch && matchesRole
@@ -117,24 +65,117 @@ export function UsersView() {
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case "Administrateur":
+      case "ADMIN":
         return "bg-purple-100 text-purple-700"
-      case "Professeur":
+      case "TEACHER":
         return "bg-blue-100 text-blue-700"
-      case "Étudiant":
+      case "STUDENT":
         return "bg-green-100 text-green-700"
       default:
         return "bg-gray-100 text-gray-700"
     }
   }
 
-  const getStatusColor = (status: string) => {
-    return status === "Actif" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case "ADMIN":
+        return "Administrateur"
+      case "TEACHER":
+        return "Professeur"
+      case "STUDENT":
+        return "Étudiant"
+      default:
+        return role
+    }
   }
 
-  const handleAddUser = (userData: any) => {
-    console.log("[v0] New user added:", userData)
-    // Here you would typically add the user to your state/database
+  const getStatusColor = (enabled: boolean) => {
+    return enabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+  }
+
+  const getStatusLabel = (enabled: boolean) => {
+    return enabled ? "Actif" : "Inactif"
+  }
+
+  const getInitials = (username: string) => {
+    return username.substring(0, 2).toUpperCase()
+  }
+
+  const handleAddUser = async (userData: CreateUserRequest) => {
+    try {
+      const newUser = await usersApi.createUser(userData)
+      setUsers(prev => [...prev, newUser])
+      toast({
+        title: "Succès",
+        description: "Utilisateur créé avec succès",
+      })
+      setIsAddModalOpen(false)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors de la création de l\'utilisateur'
+      toast({
+        title: "Erreur",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeleteUser = async (userId: number) => {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?")) {
+      return
+    }
+
+    try {
+      await usersApi.deleteUser(userId)
+      setUsers(prev => prev.filter(user => user.id !== userId))
+      toast({
+        title: "Succès",
+        description: "Utilisateur supprimé avec succès",
+      })
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors de la suppression de l\'utilisateur'
+      toast({
+        title: "Erreur",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar activePage="users" />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="Utilisateurs" subtitle="Gérez les professeurs, étudiants et administrateurs" />
+          <main className="flex-1 flex items-center justify-center">
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <span>Chargement des utilisateurs...</span>
+            </div>
+          </main>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar activePage="users" />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="Utilisateurs" subtitle="Gérez les professeurs, étudiants et administrateurs" />
+          <main className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Erreur de chargement</h3>
+              <p className="text-muted-foreground mb-4">{error}</p>
+              <Button onClick={loadUsers}>Réessayer</Button>
+            </div>
+          </main>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -169,7 +210,7 @@ export function UsersView() {
 
           {/* Role Filter Tabs */}
           <div className="flex gap-2 mb-6 overflow-x-auto">
-            {["all", "Administrateur", "Professeur", "Étudiant"].map((role) => (
+            {["all", "ADMIN", "TEACHER", "STUDENT"].map((role) => (
               <Button
                 key={role}
                 variant={selectedRole === role ? "default" : "outline"}
@@ -177,7 +218,7 @@ export function UsersView() {
                 onClick={() => setSelectedRole(role)}
                 className={selectedRole === role ? "bg-[#15803D] hover:bg-[#15803D]/90" : ""}
               >
-                {role === "all" ? "Tous" : role}
+                {role === "all" ? "Tous" : getRoleLabel(role)}
               </Button>
             ))}
           </div>
@@ -189,11 +230,13 @@ export function UsersView() {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-[#15803D] rounded-full flex items-center justify-center font-bold text-white">
-                      {user.avatar}
+                      {getInitials(user.username)}
                     </div>
                     <div>
-                      <h3 className="font-semibold">{user.name}</h3>
-                      <Badge className={`${getRoleColor(user.role)} text-xs mt-1`}>{user.role}</Badge>
+                      <h3 className="font-semibold">{user.username}</h3>
+                      <Badge className={`${getRoleColor(user.role)} text-xs mt-1`}>
+                        {getRoleLabel(user.role)}
+                      </Badge>
                     </div>
                   </div>
                   <Button variant="ghost" size="icon">
@@ -207,16 +250,18 @@ export function UsersView() {
                     <span className="truncate">{user.email}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Phone className="w-4 h-4" />
-                    <span>{user.phone}</span>
+                    <UserIcon className="w-4 h-4" />
+                    <span>ID: {user.id}</span>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between pt-4 border-t">
-                  <Badge className={`${getStatusColor(user.status)} text-xs`}>{user.status}</Badge>
-                  {user.courses !== undefined && (
-                    <span className="text-sm text-muted-foreground">{user.courses} cours</span>
-                  )}
+                  <Badge className={`${getStatusColor(user.enabled)} text-xs`}>
+                    {getStatusLabel(user.enabled)}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    {new Date(user.createdAt).toLocaleDateString()}
+                  </span>
                 </div>
 
                 <div className="flex gap-2 mt-4">
@@ -224,7 +269,12 @@ export function UsersView() {
                     <Edit className="w-3 h-3" />
                     Modifier
                   </Button>
-                  <Button variant="outline" size="sm" className="gap-2 text-red-600 hover:text-red-700 bg-transparent">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-2 text-red-600 hover:text-red-700 bg-transparent"
+                    onClick={() => handleDeleteUser(user.id)}
+                  >
                     <Trash2 className="w-3 h-3" />
                   </Button>
                 </div>

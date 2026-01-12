@@ -9,6 +9,9 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL,
     enabled BOOLEAN DEFAULT TRUE,
+    account_non_expired BOOLEAN DEFAULT TRUE,
+    account_non_locked BOOLEAN DEFAULT TRUE,
+    credentials_non_expired BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -200,11 +203,11 @@ CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_token ON email_verifica
 -- Données de test
 INSERT INTO roles (name) VALUES ('ADMIN'), ('TEACHER') ON DUPLICATE KEY UPDATE name=name;
 
--- Utilisateurs de test (password = "password" hashé en BCrypt)
-INSERT INTO users (username, email, password, role) VALUES 
-('admin', 'admin@iusjc.cm', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'ADMIN'),
-('', 'dupont@iusjc.cm', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'TEACHER'),
-('prof.martin', 'martin@iusjc.cm', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'TEACHER')
+-- Utilisateurs de test (password = "admin123" hashé en BCrypt)
+INSERT INTO users (username, email, password, role, enabled, account_non_expired, account_non_locked, credentials_non_expired) VALUES 
+('admin', 'admin@iusjc.cm', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'ADMIN', true, true, true, true),
+('prof.dupont', 'dupont@iusjc.cm', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'TEACHER', true, true, true, true),
+('prof.martin', 'martin@iusjc.cm', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'TEACHER', true, true, true, true)
 ON DUPLICATE KEY UPDATE username=username;
 
 -- Écoles de l'IUSJC

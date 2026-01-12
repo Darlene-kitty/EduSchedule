@@ -93,7 +93,28 @@ class AuthService {
    */
   async logout(): Promise<void> {
     try {
-      await apiClient.post(API_CONFIG.endpoints.auth.logout)
+      // Récupérer le refresh token pour l'envoyer au backend
+      const refreshToken = typeof window !== 'undefined' 
+        ? localStorage.getItem('refreshToken') 
+        : null
+
+      if (refreshToken) {
+        await apiClient.post(
+          API_CONFIG.endpoints.auth.logout,
+          { refreshToken },
+          { requiresAuth: false }
+        )
+      } else {
+        // Logout sans refresh token (déconnexion côté client seulement)
+        await apiClient.post(
+          API_CONFIG.endpoints.auth.logout,
+          {},
+          { requiresAuth: false }
+        )
+      }
+    } catch (error) {
+      // En cas d'erreur, on continue quand même la déconnexion côté client
+      console.warn('Logout error (continuing with client-side logout):', error)
     } finally {
       // Toujours nettoyer les tokens localement
       apiClient.clearTokens()
@@ -170,13 +191,16 @@ class AuthService {
     const roleMap: Record<string, UserRole> = {
       'ADMIN': 'admin',
       'TEACHER': 'teacher',
+      'STUDENT': 'student',
       'ENSEIGNANT': 'teacher',
+      'ETUDIANT': 'student',
       'ROLE_ADMIN': 'admin',
       'ROLE_TEACHER': 'teacher',
+      'ROLE_STUDENT': 'student',
     }
 
-    const role = roleMap[backendUser.role?.toUpperCase()] || 'teacher'
-    const name = backendUser.username || backendUser.email
+    const role = roleMap[backendUser.role?.toUpperCase()] || 'student'
+    const name = backendUser.username || backendUser.email?.split('@')[0] || 'Utilisateur'
 
     return {
       id: backendUser.id?.toString() || backendUser.userId?.toString(),

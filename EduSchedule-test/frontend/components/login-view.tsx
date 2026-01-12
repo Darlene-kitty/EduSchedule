@@ -36,13 +36,13 @@ export function LoginView() {
     setLoading(true)
 
     try {
-      await login({ username, password })
+      await login(username, password)
       toast({
         title: "Connexion réussie",
         description: "Bienvenue dans EduSchedule",
         variant: "default",
       })
-      router.push('/welcome')
+      router.push('/')
     } catch (error: any) {
       console.error('Login error:', error)
       toast({

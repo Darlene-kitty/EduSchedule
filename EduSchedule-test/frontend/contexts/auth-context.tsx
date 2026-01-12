@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(savedSession)
         }
       } catch (error) {
-        console.error("[v0] Failed to initialize auth:", error)
+        console.error("Failed to initialize auth:", error)
       } finally {
         setIsLoading(false)
       }
@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       if (error instanceof ApiError) {
-        throw new Error(error.message)
+        throw error
       }
       throw new Error("Échec de la connexion. Veuillez réessayer.")
     } finally {
@@ -92,21 +92,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = useCallback(async (email: string, password: string, name: string, role: UserRole) => {
     setIsLoading(true)
     try {
-      // Le backend utilise 'username' au lieu de nom/prénom séparés
-      const username = name.replace(/\s+/g, '.').toLowerCase()
+      // Le backend utilise 'username' et n'accepte que lettres, chiffres, _ et -
+      const username = name.replace(/\s+/g, '_').toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '')
+      
+      // Mapper le rôle frontend vers le format backend
+      const roleMap: Record<UserRole, string> = {
+        'admin': 'ADMIN',
+        'teacher': 'TEACHER', 
+        'student': 'STUDENT'
+      }
       
       const user = await authService.register({
         username,
         email,
         password,
-        role: role.toUpperCase(),
+        role: roleMap[role],
       })
       
       setUser(user)
       saveSession(user, false)
     } catch (error) {
       if (error instanceof ApiError) {
-        throw new Error(error.message)
+        throw error
       }
       throw new Error("Échec de l'inscription. Veuillez réessayer.")
     } finally {
@@ -120,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authService.forgotPassword(email)
     } catch (error) {
       if (error instanceof ApiError) {
-        throw new Error(error.message)
+        throw error
       }
       throw new Error("Échec de la réinitialisation. Veuillez réessayer.")
     } finally {
@@ -134,7 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authService.verifyEmail(code)
     } catch (error) {
       if (error instanceof ApiError) {
-        throw new Error(error.message)
+        throw error
       }
       throw new Error("Échec de la vérification. Veuillez réessayer.")
     } finally {
