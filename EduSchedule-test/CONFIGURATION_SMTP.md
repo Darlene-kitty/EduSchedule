@@ -14,8 +14,8 @@ Le service de notification utilise SMTP pour envoyer des emails. Cette configura
 ```bash
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
-MAIL_USERNAME=jacky.kouang@saintjeaningenieur.org
-MAIL_PASSWORD=uvkb ltoz uuhx tizv
+MAIL_USERNAME=votre-email@gmail.com
+MAIL_PASSWORD=votre-mot-de-passe-app
 MAIL_SMTP_AUTH=true
 MAIL_SMTP_STARTTLS_ENABLE=true
 ```

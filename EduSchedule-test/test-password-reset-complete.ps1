@@ -108,7 +108,7 @@ try {
 }
 
 Write-Host "`n=== Instructions pour la suite ===" -ForegroundColor Green
-Write-Host "1. Vérifiez votre boîte email: jacky.kouang@saintjeaningenieur.org" -ForegroundColor Yellow
+Write-Host "1. Vérifiez votre boîte email: votre-email@example.com" -ForegroundColor Yellow
 Write-Host "2. Cliquez sur le lien de réinitialisation reçu" -ForegroundColor Yellow
 Write-Host "3. Ou utilisez le script test-password-reset-token.ps1 avec un vrai token" -ForegroundColor Yellow
 

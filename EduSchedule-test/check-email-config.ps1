@@ -24,7 +24,7 @@ try {
 Write-Host "`n2. Test de configuration SMTP..." -ForegroundColor Cyan
 
 $testEmailData = @{
-    to = "jacky.kouang@saintjeaningenieur.org"
+    to = "votre-email@example.com"
     subject = "Test de configuration SMTP - EduSchedule"
     message = "Ceci est un test de configuration SMTP pour EduSchedule. Si vous recevez cet email, la configuration fonctionne correctement."
 } | ConvertTo-Json
@@ -33,7 +33,7 @@ try {
     # Essayer d'envoyer un email de test
     $emailResponse = Invoke-RestMethod -Uri "$NOTIFICATION_SERVICE_URL/notifications/test" -Method POST -Body $testEmailData -Headers $headers
     Write-Host "✅ Email de test envoyé!" -ForegroundColor Green
-    Write-Host "Vérifiez votre boîte email: jacky.kouang@saintjeaningenieur.org" -ForegroundColor Yellow
+    Write-Host "Vérifiez votre boîte email: votre-email@example.com" -ForegroundColor Yellow
 } catch {
     Write-Host "⚠️ Endpoint de test email non disponible (normal)" -ForegroundColor Yellow
     Write-Host "La configuration sera testée via la réinitialisation de mot de passe" -ForegroundColor Yellow
@@ -45,7 +45,7 @@ Write-Host "`n3. Configuration SMTP actuelle..." -ForegroundColor Cyan
 Write-Host "Configuration depuis .env:" -ForegroundColor Yellow
 Write-Host "  MAIL_HOST: smtp.gmail.com" -ForegroundColor Gray
 Write-Host "  MAIL_PORT: 587" -ForegroundColor Gray
-Write-Host "  MAIL_USERNAME: jacky.kouang@saintjeaningenieur.org" -ForegroundColor Gray
+Write-Host "  MAIL_USERNAME: votre-email@example.com" -ForegroundColor Gray
 Write-Host "  MAIL_PASSWORD: [MASQUÉ]" -ForegroundColor Gray
 Write-Host "  MAIL_SMTP_AUTH: true" -ForegroundColor Gray
 Write-Host "  MAIL_SMTP_STARTTLS_ENABLE: true" -ForegroundColor Gray

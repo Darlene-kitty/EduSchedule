@@ -74,8 +74,8 @@ L'utilisateur reçoit un email contenant :
 # Configuration SMTP (déjà configurée)
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
-MAIL_USERNAME=jacky.kouang@saintjeaningenieur.org
-MAIL_PASSWORD=uvkb ltoz uuhx tizv
+MAIL_USERNAME=votre-email@gmail.com
+MAIL_PASSWORD=votre-mot-de-passe-app
 
 # Configuration de l'application
 FRONTEND_URL=http://localhost:3000
