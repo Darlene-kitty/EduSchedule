@@ -5,6 +5,7 @@ import cm.iusjc.userservice.service.AuthService;
 import cm.iusjc.userservice.service.PasswordResetService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@Slf4j
 public class AuthController {
     
     private final AuthService authService;
@@ -46,10 +48,21 @@ public class AuthController {
     }
     
     @PostMapping("/logout")
-    public ResponseEntity<String> logout(@RequestBody RefreshTokenRequest request) {
-        // Révoquer le refresh token
-        authService.revokeRefreshToken(request.getRefreshToken());
-        return ResponseEntity.ok("Logged out successfully");
+    public ResponseEntity<String> logout(@RequestBody(required = false) RefreshTokenRequest request) {
+        try {
+            // Révoquer le refresh token si fourni
+            if (request != null && request.getRefreshToken() != null && !request.getRefreshToken().isEmpty()) {
+                authService.revokeRefreshToken(request.getRefreshToken());
+                log.info("Refresh token revoked successfully");
+            } else {
+                log.info("Logout without refresh token - client-side logout only");
+            }
+            return ResponseEntity.ok("Logged out successfully");
+        } catch (Exception e) {
+            log.error("Error during logout: {}", e.getMessage());
+            // Même en cas d'erreur, on confirme la déconnexion côté client
+            return ResponseEntity.ok("Logged out successfully");
+        }
     }
     
     // === ENDPOINTS POUR LA RÉINITIALISATION DE MOT DE PASSE ===
@@ -68,7 +81,7 @@ public class AuthController {
     }
     
     @GetMapping("/reset-password/validate")
-    public ResponseEntity<ApiResponse> validateResetToken(@RequestParam String token) {
+    public ResponseEntity<ApiResponse> validateResetToken(@RequestParam("token") String token) {
         boolean isValid = passwordResetService.validateResetToken(token);
         
         if (isValid) {

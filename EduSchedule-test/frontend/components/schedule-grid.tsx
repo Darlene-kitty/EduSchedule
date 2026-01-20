@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { useDroppable } from "@dnd-kit/core"
 import { CourseCard } from "@/components/course-card"
 import type { Course } from "@/types/schedule"
@@ -33,8 +34,8 @@ export function ScheduleGrid({ courses }: ScheduleGridProps) {
           ))}
 
           {timeSlots.map((timeSlot) => (
-            <>
-              <div key={`time-${timeSlot}`} className="flex items-start justify-end pr-4 pt-2">
+            <React.Fragment key={`row-${timeSlot}`}>
+              <div className="flex items-start justify-end pr-4 pt-2">
                 <span className="text-sm text-gray-500 font-medium">{timeSlot}</span>
               </div>
               {days.map((day) => {
@@ -47,7 +48,7 @@ export function ScheduleGrid({ courses }: ScheduleGridProps) {
                   />
                 )
               })}
-            </>
+            </React.Fragment>
           ))}
         </div>
       </div>

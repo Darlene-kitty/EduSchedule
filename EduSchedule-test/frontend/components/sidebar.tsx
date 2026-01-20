@@ -11,6 +11,7 @@ import {
   BarChart3,
   Bell,
   LogOut,
+  User,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -26,6 +27,7 @@ const menuItems = [
     key: "dashboard",
     roles: ["admin", "teacher", "student"],
   },
+  { icon: User, label: "Mon Profil", href: "/profile", key: "profile", roles: ["admin", "teacher", "student"] },
   { icon: Users, label: "Utilisateurs", href: "/users", key: "users", roles: ["admin"] },
   {
     icon: Clock,

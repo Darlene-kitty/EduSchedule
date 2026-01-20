@@ -28,6 +28,6 @@ public class RegisterRequest {
     private String password;
     
     @NotBlank(message = "Role is required")
-    @Pattern(regexp = "^(ADMIN|TEACHER)$", message = "Role must be ADMIN or TEACHER")
+    @Pattern(regexp = "^(ADMIN|TEACHER|STUDENT)$", message = "Role must be ADMIN, TEACHER or STUDENT")
     private String role;
 }

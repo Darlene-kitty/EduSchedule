@@ -32,8 +32,13 @@ export const API_CONFIG = {
     users: {
       base: '/api/users',
       byId: (id: string) => `/api/users/${id}`,
-      profile: '/api/users/profile',
       me: '/api/auth/me',
+    },
+    profile: {
+      base: '/api/profile',
+      changePassword: '/api/profile/change-password',
+      users: '/api/profile/users',
+      userById: (id: string) => `/api/profile/users/${id}`,
     },
     // Resource Service
     resources: {

@@ -32,6 +32,15 @@ public class User {
     @Column(nullable = false)
     private Boolean enabled = true;
     
+    @Column(name = "account_non_expired", nullable = false)
+    private Boolean accountNonExpired = true;
+    
+    @Column(name = "account_non_locked", nullable = false)
+    private Boolean accountNonLocked = true;
+    
+    @Column(name = "credentials_non_expired", nullable = false)
+    private Boolean credentialsNonExpired = true;
+    
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
     
