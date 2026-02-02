@@ -11,6 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Eye, EyeOff, User, Lock } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { profileService } from '@/services/profile.service'
+import { Sidebar } from '@/components/sidebar'
+import { Header } from '@/components/header'
+import { AppLayout } from '@/components/app-layout'
 import type { ProfileUpdateRequest, PasswordChangeRequest } from '@/services/profile.service'
 
 export default function ProfilePage() {
@@ -129,20 +132,17 @@ export default function ProfilePage() {
 
   if (!isAuthenticated || !authUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div>Chargement...</div>
-      </div>
+      <AppLayout activePage="profile" title="Mon Profil" subtitle="Chargement...">
+        <div className="flex items-center justify-center h-full">
+          <div>Chargement...</div>
+        </div>
+      </AppLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Mon Profil</h1>
-          <p className="text-gray-600">Gérez vos informations personnelles et votre sécurité</p>
-        </div>
-
+    <AppLayout activePage="profile" title="Mon Profil" subtitle="Gérez vos informations personnelles et votre sécurité">
+      <div className="max-w-4xl mx-auto">
         <Tabs defaultValue="profile" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="profile" className="flex items-center gap-2">
@@ -318,16 +318,7 @@ export default function ProfilePage() {
             <AlertDescription>{message}</AlertDescription>
           </Alert>
         )}
-
-        <div className="mt-8 text-center">
-          <Button 
-            variant="outline" 
-            onClick={() => router.push('/dashboard')}
-          >
-            Retour au tableau de bord
-          </Button>
-        </div>
       </div>
-    </div>
+    </AppLayout>
   )
 }

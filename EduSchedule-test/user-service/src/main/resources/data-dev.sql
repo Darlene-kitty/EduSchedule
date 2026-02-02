@@ -9,3 +9,6 @@ INSERT INTO users (username, email, password, role, enabled, account_non_expired
 
 INSERT INTO users (username, email, password, role, enabled, account_non_expired, account_non_locked, credentials_non_expired, created_at, updated_at) VALUES 
 ('teacher2', 'teacher2@iusjc.cm', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'TEACHER', true, true, true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO users (username, email, password, role, enabled, account_non_expired, account_non_locked, credentials_non_expired, created_at, updated_at) VALUES 
+('student1', 'student1@iusjc.cm', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'STUDENT', true, true, true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);

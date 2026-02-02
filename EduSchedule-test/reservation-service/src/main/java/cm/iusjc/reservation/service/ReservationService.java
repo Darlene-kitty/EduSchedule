@@ -23,13 +23,14 @@ public class ReservationService {
     
     private final ReservationRepository reservationRepository;
     private final ConflictDetectionService conflictDetectionService;
+    private final CacheService cacheService;
     
     @Transactional
     public ReservationDTO createReservation(ReservationRequest request) {
         log.info("Creating new reservation for resource: {} by user: {}", 
                 request.getResourceId(), request.getUserId());
         
-        // Vérifier les conflits
+        // Vérifier les conflits avec cache
         List<Reservation> conflicts = conflictDetectionService.checkConflicts(
             request.getResourceId(),
             request.getStartTime(),
@@ -65,6 +66,9 @@ public class ReservationService {
         
         Reservation savedReservation = reservationRepository.save(reservation);
         log.info("Reservation created successfully: {}", savedReservation.getId());
+        
+        // Invalider les caches liés à cette ressource
+        cacheService.invalidateCacheForResource(request.getResourceId());
         
         return mapToDTO(savedReservation);
     }
@@ -259,3 +263,4 @@ public class ReservationService {
         
         return dto;
     }
+}

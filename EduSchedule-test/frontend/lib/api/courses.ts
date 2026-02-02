@@ -48,15 +48,7 @@ export interface CourseFilters {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
-// Headers avec authentification
-const getAuthHeaders = () => {
-  const token = getAuthToken()
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': token ? `Bearer ${token}` : '',
-    'Origin': 'http://localhost:3000'
-  }
-}
+import { getAuthHeaders } from '../api-client'
 
 export const coursesApi = {
   // Vérifier la santé du service

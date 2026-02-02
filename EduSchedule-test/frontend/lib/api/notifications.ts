@@ -1,5 +1,5 @@
 // API service pour la gestion des notifications
-import { getAuthToken } from '../auth'
+import { getAuthHeaders } from '../api-client'
 
 export interface Notification {
   id: number
@@ -33,16 +33,6 @@ export interface TestEmailRequest {
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
-
-// Headers avec authentification
-const getAuthHeaders = () => {
-  const token = getAuthToken()
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': token ? `Bearer ${token}` : '',
-    'Origin': 'http://localhost:3000'
-  }
-}
 
 export const notificationsApi = {
   // Récupérer toutes les notifications

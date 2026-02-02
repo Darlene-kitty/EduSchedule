@@ -91,7 +91,7 @@ class ApiClient {
   ): Promise<T> {
     const { requiresAuth = true, params, ...fetchOptions } = options
 
-    const headers: HeadersInit = {
+    let requestHeaders: HeadersInit = {
       'Content-Type': 'application/json',
       ...fetchOptions.headers,
     }
@@ -99,7 +99,10 @@ class ApiClient {
     if (requiresAuth) {
       const token = this.getToken()
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`
+        requestHeaders = {
+          ...requestHeaders,
+          'Authorization': `Bearer ${token}`
+        }
       }
     }
 
@@ -112,7 +115,7 @@ class ApiClient {
       
       const response = await fetch(fullUrl, {
         ...fetchOptions,
-        headers,
+        headers: requestHeaders,
         signal: controller.signal,
       })
 
@@ -191,3 +194,17 @@ class ApiClient {
 }
 
 export const apiClient = new ApiClient()
+
+// Helper function pour obtenir les headers avec authentification
+export function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem('accessToken')
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  }
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+  
+  return headers
+}

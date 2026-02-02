@@ -74,6 +74,16 @@ export const API_CONFIG = {
       base: '/api/v1/reports',
       generate: '/api/v1/reports/generate',
     },
+    // Analytics Service
+    analytics: {
+      base: '/api/v1/analytics',
+      dashboardStats: '/api/v1/analytics/dashboard-stats',
+      roomOccupancy: '/api/v1/analytics/room-occupancy',
+      hourlyOccupancy: '/api/v1/analytics/hourly-occupancy',
+      weeklyData: '/api/v1/analytics/weekly-data',
+      roomTypeDistribution: '/api/v1/analytics/room-type-distribution',
+      export: '/api/v1/analytics/export',
+    },
   },
 } as const
 

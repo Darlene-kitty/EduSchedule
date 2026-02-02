@@ -55,7 +55,15 @@ CREATE TABLE IF NOT EXISTS notifications (
     type VARCHAR(20) NOT NULL,
     status VARCHAR(20) DEFAULT 'PENDING',
     sent_at TIMESTAMP NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    scheduled_for TIMESTAMP NULL,
+    event_type VARCHAR(50) NULL,
+    event_id BIGINT NULL,
+    priority VARCHAR(10) DEFAULT 'NORMAL',
+    retry_count INT DEFAULT 0,
+    max_retries INT DEFAULT 3,
+    template_name VARCHAR(100) NULL,
+    metadata TEXT NULL
 );
 
 -- Table pour refresh tokens
@@ -77,6 +85,10 @@ CREATE INDEX IF NOT EXISTS idx_users_enabled ON users(enabled);
 CREATE INDEX IF NOT EXISTS idx_schedules_dates ON schedules(start_time, end_time);
 CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status);
 CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient);
+CREATE INDEX IF NOT EXISTS idx_notifications_event_id ON notifications(event_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_event_type ON notifications(event_type);
+CREATE INDEX IF NOT EXISTS idx_notifications_scheduled_for ON notifications(scheduled_for);
+CREATE INDEX IF NOT EXISTS idx_notifications_priority ON notifications(priority);
 
 -- Tables pour school-service (écoles et filières)
 CREATE TABLE IF NOT EXISTS schools (

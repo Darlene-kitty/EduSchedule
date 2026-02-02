@@ -148,7 +148,7 @@ class ResourceService {
     if (minCapacity) {
       params.minCapacity = minCapacity
     }
-    params.disponible = true
+    params.disponible = 'true'
 
     return apiClient.get<Salle[]>(API_CONFIG.endpoints.resources.salles, { params })
   }

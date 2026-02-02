@@ -245,7 +245,7 @@ export function CoursesView() {
                 key={department}
                 variant={selectedDepartment === department ? "default" : "outline"}
                 size="sm"
-                onClick={() => setSelectedDepartment(department)}
+                onClick={() => setSelectedDepartment(department || '')}
                 className={selectedDepartment === department ? "bg-[#15803D] hover:bg-[#15803D]/90" : ""}
               >
                 {department}

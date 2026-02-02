@@ -4,10 +4,12 @@ import cm.iusjc.scheduling.dto.ScheduleDTO;
 import cm.iusjc.scheduling.dto.ScheduleRequest;
 import cm.iusjc.scheduling.entity.Schedule;
 import cm.iusjc.scheduling.repository.ScheduleRepository;
+import cm.iusjc.scheduling.event.ScheduleChangedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,7 @@ public class ScheduleService {
     
     private final ScheduleRepository scheduleRepository;
     private final NotificationPublisher notificationPublisher;
+    private final ApplicationEventPublisher eventPublisher;
     
     @Transactional
     @CacheEvict(value = "schedules", allEntries = true)
@@ -41,6 +44,10 @@ public class ScheduleService {
         
         // Publier événement vers RabbitMQ
         notificationPublisher.publishScheduleCreated(savedSchedule);
+        
+        // Publier événement pour notifications automatiques
+        eventPublisher.publishEvent(new ScheduleChangedEvent(this, savedSchedule, 
+            ScheduleChangedEvent.ChangeType.CREATED, getCurrentUserId()));
         
         log.info("Schedule created: {}", savedSchedule.getId());
         return convertToDTO(savedSchedule);
@@ -87,22 +94,40 @@ public class ScheduleService {
     @Transactional
     @CacheEvict(value = "schedules", key = "#id")
     public ScheduleDTO updateSchedule(Long id, ScheduleRequest request) {
-        Schedule schedule = scheduleRepository.findById(id)
+        Schedule oldSchedule = scheduleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Schedule not found"));
         
-        schedule.setTitle(request.getTitle());
-        schedule.setDescription(request.getDescription());
-        schedule.setStartTime(request.getStartTime());
-        schedule.setEndTime(request.getEndTime());
-        schedule.setRoom(request.getRoom());
-        schedule.setTeacher(request.getTeacher());
-        schedule.setCourse(request.getCourse());
-        schedule.setGroupName(request.getGroupName());
+        // Créer une copie de l'ancien emploi du temps pour les notifications
+        Schedule oldScheduleCopy = new Schedule();
+        oldScheduleCopy.setId(oldSchedule.getId());
+        oldScheduleCopy.setTitle(oldSchedule.getTitle());
+        oldScheduleCopy.setDescription(oldSchedule.getDescription());
+        oldScheduleCopy.setStartTime(oldSchedule.getStartTime());
+        oldScheduleCopy.setEndTime(oldSchedule.getEndTime());
+        oldScheduleCopy.setRoom(oldSchedule.getRoom());
+        oldScheduleCopy.setTeacher(oldSchedule.getTeacher());
+        oldScheduleCopy.setCourse(oldSchedule.getCourse());
+        oldScheduleCopy.setGroupName(oldSchedule.getGroupName());
+        oldScheduleCopy.setStatus(oldSchedule.getStatus());
         
-        Schedule updatedSchedule = scheduleRepository.save(schedule);
+        // Mettre à jour
+        oldSchedule.setTitle(request.getTitle());
+        oldSchedule.setDescription(request.getDescription());
+        oldSchedule.setStartTime(request.getStartTime());
+        oldSchedule.setEndTime(request.getEndTime());
+        oldSchedule.setRoom(request.getRoom());
+        oldSchedule.setTeacher(request.getTeacher());
+        oldSchedule.setCourse(request.getCourse());
+        oldSchedule.setGroupName(request.getGroupName());
+        
+        Schedule updatedSchedule = scheduleRepository.save(oldSchedule);
         
         // Publier événement
         notificationPublisher.publishScheduleUpdated(updatedSchedule);
+        
+        // Publier événement pour notifications automatiques
+        eventPublisher.publishEvent(new ScheduleChangedEvent(this, updatedSchedule, oldScheduleCopy,
+            ScheduleChangedEvent.ChangeType.UPDATED, getCurrentUserId()));
         
         log.info("Schedule updated: {}", updatedSchedule.getId());
         return convertToDTO(updatedSchedule);
@@ -111,15 +136,46 @@ public class ScheduleService {
     @Transactional
     @CacheEvict(value = "schedules", key = "#id")
     public void deleteSchedule(Long id) {
-        if (!scheduleRepository.existsById(id)) {
-            throw new RuntimeException("Schedule not found");
-        }
-        scheduleRepository.deleteById(id);
+        Schedule schedule = scheduleRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Schedule not found"));
+        
+        // Marquer comme annulé au lieu de supprimer
+        schedule.setStatus("CANCELLED");
+        scheduleRepository.save(schedule);
         
         // Publier événement
         notificationPublisher.publishScheduleDeleted(id);
         
-        log.info("Schedule deleted: {}", id);
+        // Publier événement pour notifications automatiques
+        eventPublisher.publishEvent(new ScheduleChangedEvent(this, schedule,
+            ScheduleChangedEvent.ChangeType.CANCELLED, getCurrentUserId()));
+        
+        log.info("Schedule cancelled: {}", id);
+    }
+    
+    @Transactional
+    @CacheEvict(value = "schedules", key = "#id")
+    public void cancelSchedule(Long id, String reason) {
+        Schedule schedule = scheduleRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Schedule not found"));
+        
+        schedule.setStatus("CANCELLED");
+        if (reason != null) {
+            schedule.setDescription(schedule.getDescription() + " [ANNULÉ: " + reason + "]");
+        }
+        scheduleRepository.save(schedule);
+        
+        // Publier événement pour notifications automatiques
+        eventPublisher.publishEvent(new ScheduleChangedEvent(this, schedule,
+            ScheduleChangedEvent.ChangeType.CANCELLED, getCurrentUserId()));
+        
+        log.info("Schedule cancelled with reason: {} - {}", id, reason);
+    }
+    
+    private Long getCurrentUserId() {
+        // TODO: Récupérer l'ID de l'utilisateur connecté depuis le contexte de sécurité
+        // Pour l'instant, retourner un ID par défaut
+        return 1L;
     }
     
     private ScheduleDTO convertToDTO(Schedule schedule) {

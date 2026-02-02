@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -54,6 +55,8 @@ public class ReservationRequest {
     
     @Size(max = 500, message = "Notes must not exceed 500 characters")
     private String notes;
+    
+    private List<String> requiredEquipments; // List of required equipment
     
     // Validation personnalisée
     @AssertTrue(message = "End time must be after start time")

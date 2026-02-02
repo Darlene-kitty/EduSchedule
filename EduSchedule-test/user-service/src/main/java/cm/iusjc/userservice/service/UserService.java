@@ -22,6 +22,7 @@ public class UserService {
     
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserEventPublisher userEventPublisher;
     private final WelcomeEmailService welcomeEmailService;
     
     @Transactional
@@ -40,6 +41,8 @@ public class UserService {
         
         User user = new User();
         user.setUsername(request.getUsername());
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(request.getRole());
@@ -51,14 +54,31 @@ public class UserService {
         
         User savedUser = userRepository.save(user);
         
-        // Envoyer l'email de bienvenue avec le mot de passe en clair
+        // Publier l'événement de création d'utilisateur
+        userEventPublisher.publishUserCreated(
+            savedUser.getId(), 
+            savedUser.getUsername(), 
+            savedUser.getEmail(), 
+            savedUser.getRole(),
+            "Default School" // Valeur par défaut pour schoolName
+        );
+        
+        // Envoyer l'email de bienvenue approprié selon le rôle
         try {
-            welcomeEmailService.sendWelcomeEmail(
-                savedUser.getEmail(), 
-                savedUser.getUsername(), 
-                request.getPassword() // Mot de passe en clair pour l'email
-            );
-            log.info("Welcome email sent for user: {}", savedUser.getUsername());
+            switch (savedUser.getRole().toUpperCase()) {
+                case "TEACHER":
+                    welcomeEmailService.sendTeacherWelcomeEmail(savedUser);
+                    log.info("Teacher welcome email sent for user: {}", savedUser.getUsername());
+                    break;
+                case "ADMIN":
+                    welcomeEmailService.sendAdminWelcomeEmail(savedUser);
+                    log.info("Admin welcome email sent for user: {}", savedUser.getUsername());
+                    break;
+                default:
+                    welcomeEmailService.sendWelcomeEmail(savedUser);
+                    log.info("Standard welcome email sent for user: {}", savedUser.getUsername());
+                    break;
+            }
         } catch (Exception e) {
             log.error("Failed to send welcome email for user: {}. Error: {}", savedUser.getUsername(), e.getMessage());
             // Ne pas faire échouer la création si l'email échoue
@@ -120,6 +140,8 @@ public class UserService {
         return new UserDTO(
                 user.getId(),
                 user.getUsername(),
+                user.getFirstName(),
+                user.getLastName(),
                 user.getEmail(),
                 user.getRole(),
                 user.getEnabled(),

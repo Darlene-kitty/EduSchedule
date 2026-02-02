@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 @Repository
@@ -28,4 +29,7 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
     List<Schedule> findByTeacherAndDateRange(@Param("teacher") String teacher,
                                              @Param("startDate") LocalDateTime startDate,
                                              @Param("endDate") LocalDateTime endDate);
+    
+    @Query("SELECT s FROM Schedule s WHERE s.teacher = :teacher AND DATE(s.startTime) = :date")
+    List<Schedule> findByTeacherAndDate(@Param("teacher") String teacher, @Param("date") LocalDate date);
 }
