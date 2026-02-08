@@ -15,6 +15,7 @@ import {
   User,
   Edit,
   Trash2,
+  Eye,
   Loader2,
   AlertCircle,
   GraduationCap,
@@ -108,6 +109,32 @@ export function CoursesView() {
   }
 
   const uniqueDepartments = Array.from(new Set(courses.map(c => c.department).filter(Boolean)))
+
+  const handleViewCourse = async (courseId: number) => {
+    try {
+      const course = await coursesApi.getCourseById(courseId)
+      // Ici vous pouvez ouvrir une modal de détails ou naviguer vers une page de détails
+      toast({
+        title: "Détails du cours",
+        description: `${course.name} - ${course.hoursPerWeek}h/semaine`,
+      })
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors du chargement des détails'
+      toast({
+        title: "Erreur",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleEditCourse = (course: Course) => {
+    // Ici vous pouvez ouvrir une modal d'édition
+    toast({
+      title: "Édition",
+      description: `Édition du cours ${course.name}`,
+    })
+  }
 
   const handleDeleteCourse = async (courseId: number) => {
     if (!confirm("Êtes-vous sûr de vouloir supprimer ce cours ?")) {
@@ -314,7 +341,21 @@ export function CoursesView() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1 gap-2 bg-transparent">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 gap-2 bg-transparent"
+                    onClick={() => handleViewCourse(course.id)}
+                  >
+                    <Eye className="w-3 h-3" />
+                    Voir
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 gap-2 bg-transparent"
+                    onClick={() => handleEditCourse(course)}
+                  >
                     <Edit className="w-3 h-3" />
                     Modifier
                   </Button>

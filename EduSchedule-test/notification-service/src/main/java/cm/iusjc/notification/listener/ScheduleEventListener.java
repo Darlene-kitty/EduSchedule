@@ -1,7 +1,9 @@
 package cm.iusjc.notification.listener;
 
+import cm.iusjc.notification.dto.ScheduleChangeEventDTO;
 import cm.iusjc.notification.service.NotificationService;
 import cm.iusjc.notification.service.ReminderService;
+import cm.iusjc.notification.service.ScheduleNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -21,6 +23,7 @@ public class ScheduleEventListener {
     
     private final NotificationService notificationService;
     private final ReminderService reminderService;
+    private final ScheduleNotificationService scheduleNotificationService;
     
     @RabbitListener(queues = "schedule-notifications")
     public void handleScheduleEvent(Map<String, Object> message) {
@@ -28,27 +31,41 @@ public class ScheduleEventListener {
         log.info("Received schedule event: {}", event);
         
         try {
-            switch (event) {
-                case "schedule.created":
-                    handleScheduleCreated(message);
-                    break;
-                case "schedule.updated":
-                    handleScheduleUpdated(message);
-                    break;
-                case "schedule.deleted":
-                    handleScheduleDeleted(message);
-                    break;
-                case "room.changed":
-                    handleRoomChanged(message);
-                    break;
-                case "course.cancelled":
-                    handleCourseCancelled(message);
-                    break;
-                default:
-                    log.warn("Unknown event type: {}", event);
-            }
+            // Convert to ScheduleChangeEventDTO for enhanced processing
+            ScheduleChangeEventDTO eventDTO = convertToScheduleChangeEvent(message, event);
+            
+            // Process with enhanced notification service
+            scheduleNotificationService.processScheduleChangeEvent(eventDTO);
+            
         } catch (Exception e) {
             log.error("Error processing schedule event", e);
+        }
+    }
+    
+    @RabbitListener(queues = "teacher-availability-notifications")
+    public void handleTeacherAvailabilityEvent(Map<String, Object> message) {
+        String event = (String) message.get("event");
+        log.info("Received teacher availability event: {}", event);
+        
+        try {
+            switch (event) {
+                case "availability.created":
+                    handleAvailabilityCreated(message);
+                    break;
+                case "availability.updated":
+                    handleAvailabilityUpdated(message);
+                    break;
+                case "availability.conflict":
+                    handleAvailabilityConflict(message);
+                    break;
+                case "multi-school.assigned":
+                    handleMultiSchoolAssignment(message);
+                    break;
+                default:
+                    log.warn("Unknown availability event type: {}", event);
+            }
+        } catch (Exception e) {
+            log.error("Error processing teacher availability event", e);
         }
     }
     
@@ -79,115 +96,152 @@ public class ScheduleEventListener {
         }
     }
     
-    private void handleScheduleCreated(Map<String, Object> message) {
-        String title = (String) message.get("title");
-        String teacher = (String) message.get("teacher");
-        String groupName = (String) message.get("groupName");
-        String startTime = (String) message.get("startTime");
-        Long scheduleId = ((Number) message.get("scheduleId")).longValue();
+    private ScheduleChangeEventDTO convertToScheduleChangeEvent(Map<String, Object> message, String event) {
+        ScheduleChangeEventDTO eventDTO = new ScheduleChangeEventDTO();
         
-        // Obtenir les utilisateurs affectés
-        List<String> affectedUsers = getAffectedUsers(message);
+        switch (event) {
+            case "schedule.created":
+                eventDTO.setEventType("CREATED");
+                break;
+            case "schedule.updated":
+                eventDTO.setEventType("UPDATED");
+                break;
+            case "schedule.deleted":
+                eventDTO.setEventType("DELETED");
+                break;
+            case "course.cancelled":
+                eventDTO.setEventType("CANCELLED");
+                break;
+            case "room.changed":
+                eventDTO.setEventType("ROOM_CHANGED");
+                break;
+            default:
+                eventDTO.setEventType("UPDATED");
+        }
         
-        Map<String, Object> scheduleData = new HashMap<>();
-        scheduleData.put("title", title);
-        scheduleData.put("teacher", teacher);
-        scheduleData.put("groupName", groupName);
-        scheduleData.put("startTime", startTime);
+        eventDTO.setScheduleId(getLongValue(message, "scheduleId"));
+        eventDTO.setTitle((String) message.get("title"));
+        eventDTO.setCourseName((String) message.get("title"));
+        eventDTO.setCourseCode((String) message.get("courseCode"));
+        eventDTO.setTeacherName((String) message.get("teacher"));
+        eventDTO.setTeacherEmail((String) message.get("teacherEmail"));
+        eventDTO.setGroupName((String) message.get("groupName"));
+        eventDTO.setRoom((String) message.get("room"));
+        eventDTO.setPreviousRoom((String) message.get("oldRoom"));
+        eventDTO.setSchoolName((String) message.get("schoolName"));
+        eventDTO.setChangeReason((String) message.get("reason"));
+        eventDTO.setChangeDescription((String) message.get("changeDescription"));
         
-        // Créer des rappels pour tous les utilisateurs affectés
-        reminderService.createScheduleChangeReminders(scheduleId, "SCHEDULE_CREATED", affectedUsers, scheduleData);
+        eventDTO.setNotificationChannels(Arrays.asList("EMAIL"));
+        eventDTO.setSendImmediately(true);
+        eventDTO.setReminderMinutesBefore(30);
         
-        log.info("Reminders created for schedule.created event: {}", scheduleId);
+        if ("CANCELLED".equals(eventDTO.getEventType()) || "ROOM_CHANGED".equals(eventDTO.getEventType())) {
+            eventDTO.setPriority("HIGH");
+        } else {
+            eventDTO.setPriority("NORMAL");
+        }
+        
+        eventDTO.setEventTimestamp(LocalDateTime.now());
+        
+        return eventDTO;
     }
     
-    private void handleScheduleUpdated(Map<String, Object> message) {
-        String title = (String) message.get("title");
-        Long scheduleId = ((Number) message.get("scheduleId")).longValue();
-        String teacher = (String) message.get("teacher");
-        String groupName = (String) message.get("groupName");
-        String startTime = (String) message.get("startTime");
+    private void handleAvailabilityCreated(Map<String, Object> message) {
+        Long teacherId = getLongValue(message, "teacherId");
+        String teacherEmail = (String) message.get("teacherEmail");
+        String dayOfWeek = (String) message.get("dayOfWeek");
+        String timeSlot = (String) message.get("timeSlot");
         
-        List<String> affectedUsers = getAffectedUsers(message);
+        String subject = "✅ Nouvelle disponibilité enregistrée";
+        String messageText = String.format(
+            "Votre disponibilité a été enregistrée avec succès :\n\n" +
+            "📅 Jour : %s\n" +
+            "⏰ Créneau : %s\n\n" +
+            "Cette disponibilité sera prise en compte lors de la planification des cours.",
+            dayOfWeek, timeSlot
+        );
         
-        Map<String, Object> scheduleData = new HashMap<>();
-        scheduleData.put("title", title);
-        scheduleData.put("teacher", teacher);
-        scheduleData.put("groupName", groupName);
-        scheduleData.put("startTime", startTime);
+        if (teacherEmail != null) {
+            notificationService.createNotification(teacherEmail, subject, messageText, "EMAIL");
+        }
         
-        // Créer des rappels pour la modification
-        reminderService.createScheduleChangeReminders(scheduleId, "SCHEDULE_UPDATED", affectedUsers, scheduleData);
-        
-        log.info("Reminders created for schedule.updated event: {}", scheduleId);
+        log.info("Availability creation notification sent to teacher: {}", teacherId);
     }
     
-    private void handleScheduleDeleted(Map<String, Object> message) {
-        Long scheduleId = ((Number) message.get("scheduleId")).longValue();
-        String title = (String) message.get("title");
-        String teacher = (String) message.get("teacher");
-        String groupName = (String) message.get("groupName");
-        String startTime = (String) message.get("startTime");
+    private void handleAvailabilityUpdated(Map<String, Object> message) {
+        Long teacherId = getLongValue(message, "teacherId");
+        String teacherEmail = (String) message.get("teacherEmail");
+        String changeDescription = (String) message.get("changeDescription");
         
-        List<String> affectedUsers = getAffectedUsers(message);
+        String subject = "🔄 Disponibilité modifiée";
+        String messageText = String.format(
+            "Vos disponibilités ont été mises à jour :\n\n" +
+            "📝 Modifications : %s\n\n" +
+            "Les nouveaux créneaux seront pris en compte pour la planification.",
+            changeDescription != null ? changeDescription : "Créneaux mis à jour"
+        );
         
-        Map<String, Object> scheduleData = new HashMap<>();
-        scheduleData.put("title", title);
-        scheduleData.put("teacher", teacher);
-        scheduleData.put("groupName", groupName);
-        scheduleData.put("startTime", startTime);
+        if (teacherEmail != null) {
+            notificationService.createNotification(teacherEmail, subject, messageText, "EMAIL");
+        }
         
-        reminderService.createScheduleChangeReminders(scheduleId, "SCHEDULE_DELETED", affectedUsers, scheduleData);
-        
-        log.info("Reminders created for schedule.deleted event: {}", scheduleId);
+        log.info("Availability update notification sent to teacher: {}", teacherId);
     }
     
-    private void handleRoomChanged(Map<String, Object> message) {
-        Long reservationId = ((Number) message.get("reservationId")).longValue();
-        String oldRoom = (String) message.get("oldRoom");
-        String newRoom = (String) message.get("newRoom");
-        String title = (String) message.get("title");
-        String startTime = (String) message.get("startTime");
+    private void handleAvailabilityConflict(Map<String, Object> message) {
+        Long teacherId = getLongValue(message, "teacherId");
+        String teacherEmail = (String) message.get("teacherEmail");
+        String conflictDetails = (String) message.get("conflictDetails");
+        String conflictType = (String) message.get("conflictType");
         
-        List<String> affectedUsers = getAffectedUsers(message);
+        String subject = "⚠️ Conflit de disponibilité détecté";
+        String messageText = String.format(
+            "Un conflit a été détecté dans vos disponibilités :\n\n" +
+            "🔍 Type de conflit : %s\n" +
+            "📋 Détails : %s\n\n" +
+            "Veuillez vérifier et ajuster vos créneaux de disponibilité.",
+            conflictType != null ? conflictType : "Chevauchement de créneaux",
+            conflictDetails != null ? conflictDetails : "Conflit détecté"
+        );
         
-        Map<String, Object> reservationData = new HashMap<>();
-        reservationData.put("title", title);
-        reservationData.put("startTime", startTime);
-        reservationData.put("oldRoom", oldRoom);
-        reservationData.put("newRoom", newRoom);
+        if (teacherEmail != null) {
+            notificationService.createNotification(teacherEmail, subject, messageText, "EMAIL");
+        }
         
-        reminderService.createRoomChangeReminders(reservationId, oldRoom, newRoom, affectedUsers, reservationData);
+        notificationService.createNotification("admin@iusjc.cm", subject, messageText, "EMAIL");
         
-        log.info("Room change reminders created for reservation: {}", reservationId);
+        log.info("Availability conflict notification sent for teacher: {}", teacherId);
     }
     
-    private void handleCourseCancelled(Map<String, Object> message) {
-        Long scheduleId = ((Number) message.get("scheduleId")).longValue();
-        String title = (String) message.get("title");
-        String teacher = (String) message.get("teacher");
-        String groupName = (String) message.get("groupName");
-        String startTime = (String) message.get("startTime");
-        String reason = (String) message.getOrDefault("reason", "Non spécifiée");
+    private void handleMultiSchoolAssignment(Map<String, Object> message) {
+        Long teacherId = getLongValue(message, "teacherId");
+        String teacherEmail = (String) message.get("teacherEmail");
+        String schoolName = (String) message.get("schoolName");
+        String workingDays = (String) message.get("workingDays");
         
-        List<String> affectedUsers = getAffectedUsers(message);
+        String subject = "🏫 Nouvelle affectation multi-établissements";
+        String messageText = String.format(
+            "Vous avez été affecté(e) à un nouvel établissement :\n\n" +
+            "🏫 École : %s\n" +
+            "📅 Jours de travail : %s\n\n" +
+            "Veuillez mettre à jour vos disponibilités en conséquence.",
+            schoolName != null ? schoolName : "Non spécifié",
+            workingDays != null ? workingDays : "À définir"
+        );
         
-        Map<String, Object> scheduleData = new HashMap<>();
-        scheduleData.put("title", title);
-        scheduleData.put("teacher", teacher);
-        scheduleData.put("groupName", groupName);
-        scheduleData.put("startTime", startTime);
+        if (teacherEmail != null) {
+            notificationService.createNotification(teacherEmail, subject, messageText, "EMAIL");
+        }
         
-        reminderService.createCancellationReminders(scheduleId, affectedUsers, scheduleData, reason);
-        
-        log.info("Cancellation reminders created for schedule: {}", scheduleId);
+        log.info("Multi-school assignment notification sent to teacher: {}", teacherId);
     }
     
     private void handleReservationCreated(Map<String, Object> message) {
         String resourceName = (String) message.get("resourceName");
         String startTime = (String) message.get("startTime");
         String endTime = (String) message.get("endTime");
-        Long reservationId = ((Number) message.get("reservationId")).longValue();
+        Long reservationId = getLongValue(message, "reservationId");
         
         List<String> affectedUsers = getAffectedUsers(message);
         
@@ -212,7 +266,7 @@ public class ScheduleEventListener {
         String resourceName = (String) message.get("resourceName");
         String startTime = (String) message.get("startTime");
         String endTime = (String) message.get("endTime");
-        Long reservationId = ((Number) message.get("reservationId")).longValue();
+        Long reservationId = getLongValue(message, "reservationId");
         
         List<String> affectedUsers = getAffectedUsers(message);
         
@@ -235,7 +289,7 @@ public class ScheduleEventListener {
     private void handleReservationCancelled(Map<String, Object> message) {
         String resourceName = (String) message.get("resourceName");
         String startTime = (String) message.get("startTime");
-        Long reservationId = ((Number) message.get("reservationId")).longValue();
+        Long reservationId = getLongValue(message, "reservationId");
         String reason = (String) message.getOrDefault("reason", "Non spécifiée");
         
         List<String> affectedUsers = getAffectedUsers(message);
@@ -262,7 +316,6 @@ public class ScheduleEventListener {
         String startTime = (String) message.get("startTime");
         String conflictDetails = (String) message.get("conflictDetails");
         
-        // Notifier les administrateurs
         List<String> adminUsers = Arrays.asList("admin@iusjc.cm", "planning@iusjc.cm");
         
         String subject = "Conflit de salle détecté";
@@ -282,23 +335,25 @@ public class ScheduleEventListener {
         log.info("Conflict notifications sent for room: {}", resourceName);
     }
     
-    /**
-     * Extraire les utilisateurs affectés du message
-     */
+    private Long getLongValue(Map<String, Object> message, String key) {
+        Object value = message.get(key);
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        return null;
+    }
+    
     private List<String> getAffectedUsers(Map<String, Object> message) {
-        // Par défaut, utiliser l'enseignant et l'admin
         List<String> users = Arrays.asList("admin@iusjc.cm");
         
         if (message.containsKey("teacherEmail")) {
             users = Arrays.asList((String) message.get("teacherEmail"), "admin@iusjc.cm");
         } else if (message.containsKey("teacher")) {
-            // Construire l'email à partir du nom (exemple simple)
             String teacher = (String) message.get("teacher");
             String teacherEmail = teacher.toLowerCase().replace(" ", ".") + "@iusjc.cm";
             users = Arrays.asList(teacherEmail, "admin@iusjc.cm");
         }
         
-        // Ajouter les étudiants si disponibles
         if (message.containsKey("studentEmails")) {
             @SuppressWarnings("unchecked")
             List<String> studentEmails = (List<String>) message.get("studentEmails");

@@ -55,7 +55,9 @@ services:
       - eduschedule-network
 
   eureka-server:
-    image: steeltoeoss/eureka-server:latest
+    build:
+      context: ./eureka-server
+      dockerfile: Dockerfile
     container_name: eduschedule-eureka
     ports:
       - "8761:8761"
@@ -77,7 +79,7 @@ services:
       - eduschedule-network
 
   # ============================================
-  # MICROSERVICES SPRING BOOT
+  # CORE MICROSERVICES
   # ============================================
   config-server:
     build:
@@ -111,16 +113,22 @@ services:
     networks:
       - eduschedule-network
 
+  # ============================================
+  # BUSINESS MICROSERVICES
+  # ============================================
   user-service:
     build:
       context: ./user-service
       dockerfile: Dockerfile
     container_name: eduschedule-user-service
+    ports:
+      - "8081:8081"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=iusjc
       - SPRING_DATASOURCE_PASSWORD=iusjc2025
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SERVER_PORT=8081
     depends_on:
       mysql:
         condition: service_healthy
@@ -134,16 +142,61 @@ services:
       context: ./resource-service
       dockerfile: Dockerfile
     container_name: eduschedule-resource-service
+    ports:
+      - "8082:8082"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=iusjc
       - SPRING_DATASOURCE_PASSWORD=iusjc2025
-      - REDIS_HOST=redis
+      - SPRING_DATA_REDIS_HOST=redis
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SERVER_PORT=8082
     depends_on:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - eduschedule-network
+
+  school-service:
+    build:
+      context: ./school-service
+      dockerfile: Dockerfile
+    container_name: eduschedule-school-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=iusjc
+      - SPRING_DATASOURCE_PASSWORD=iusjc2025
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SERVER_PORT=8083
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - eduschedule-network
+
+  course-service:
+    build:
+      context: ./course-service
+      dockerfile: Dockerfile
+    container_name: eduschedule-course-service
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=iusjc
+      - SPRING_DATASOURCE_PASSWORD=iusjc2025
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SERVER_PORT=8084
+    depends_on:
+      mysql:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
@@ -155,6 +208,8 @@ services:
       context: ./scheduling-service
       dockerfile: Dockerfile
     container_name: eduschedule-scheduling-service
+    ports:
+      - "8085:8085"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=iusjc
@@ -164,6 +219,7 @@ services:
       - RABBITMQ_DEFAULT_USER=iusjc
       - RABBITMQ_DEFAULT_PASS=iusjc2025
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SERVER_PORT=8085
     depends_on:
       mysql:
         condition: service_healthy
@@ -176,11 +232,34 @@ services:
     networks:
       - eduschedule-network
 
+  reservation-service:
+    build:
+      context: ./reservation-service
+      dockerfile: Dockerfile
+    container_name: eduschedule-reservation-service
+    ports:
+      - "8086:8086"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=iusjc
+      - SPRING_DATASOURCE_PASSWORD=iusjc2025
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SERVER_PORT=8086
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - eduschedule-network
+
   notification-service:
     build:
       context: ./notification-service
       dockerfile: Dockerfile
     container_name: eduschedule-notification-service
+    ports:
+      - "8087:8087"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=iusjc
@@ -193,6 +272,7 @@ services:
       - MAIL_USERNAME=${MAIL_USERNAME}
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SERVER_PORT=8087
     depends_on:
       mysql:
         condition: service_healthy
@@ -203,16 +283,191 @@ services:
     networks:
       - eduschedule-network
 
+  reporting-service:
+    build:
+      context: ./reporting-service
+      dockerfile: Dockerfile
+    container_name: eduschedule-reporting-service
+    ports:
+      - "8088:8088"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=iusjc
+      - SPRING_DATASOURCE_PASSWORD=iusjc2025
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SERVER_PORT=8088
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - eduschedule-network
+
+  # ============================================
+  # ADDITIONAL SERVICES
+  # ============================================
+  calendar-service:
+    build:
+      context: ./calendar-service
+      dockerfile: Dockerfile
+    container_name: eduschedule-calendar-service
+    ports:
+      - "8089:8089"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=iusjc
+      - SPRING_DATASOURCE_PASSWORD=iusjc2025
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SERVER_PORT=8089
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - eduschedule-network
+
+  room-service:
+    build:
+      context: ./room-service
+      dockerfile: Dockerfile
+    container_name: eduschedule-room-service
+    ports:
+      - "8090:8090"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=iusjc
+      - SPRING_DATASOURCE_PASSWORD=iusjc2025
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SERVER_PORT=8090
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - eduschedule-network
+
+  event-service:
+    build:
+      context: ./event-service
+      dockerfile: Dockerfile
+    container_name: eduschedule-event-service
+    ports:
+      - "8091:8091"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=iusjc
+      - SPRING_DATASOURCE_PASSWORD=iusjc2025
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SERVER_PORT=8091
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - eduschedule-network
+
+  teacher-availability-service:
+    build:
+      context: ./teacher-availability-service
+      dockerfile: Dockerfile
+    container_name: eduschedule-teacher-availability-service
+    ports:
+      - "8092:8092"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=iusjc
+      - SPRING_DATASOURCE_PASSWORD=iusjc2025
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SERVER_PORT=8092
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - eduschedule-network
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: eduschedule-ai-service
+    ports:
+      - "8093:8093"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=iusjc
+      - SPRING_DATASOURCE_PASSWORD=iusjc2025
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SERVER_PORT=8093
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - eduschedule-network
+
+  maintenance-service:
+    build:
+      context: ./maintenance-service
+      dockerfile: Dockerfile
+    container_name: eduschedule-maintenance-service
+    ports:
+      - "8094:8094"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=iusjc
+      - SPRING_DATASOURCE_PASSWORD=iusjc2025
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SERVER_PORT=8094
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - eduschedule-network
+
+  ent-integration-service:
+    build:
+      context: ./ent-integration-service
+      dockerfile: Dockerfile
+    container_name: eduschedule-ent-integration-service
+    ports:
+      - "8095:8095"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=iusjc
+      - SPRING_DATASOURCE_PASSWORD=iusjc2025
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SERVER_PORT=8095
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - eduschedule-network
+
   # ============================================
   # FRONTEND
   # ============================================
   frontend:
-    image: nginx:alpine
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: eduschedule-frontend
     ports:
-      - "3000:80"
-    volumes:
-      - ./frontend:/usr/share/nginx/html:ro
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    depends_on:
+      - api-gateway
     networks:
       - eduschedule-network
 

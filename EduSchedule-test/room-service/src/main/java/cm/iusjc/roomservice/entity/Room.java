@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "rooms")
@@ -17,32 +18,40 @@ public class Room {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Column(nullable = false, unique = true, length = 50)
-    private String code; // Ex: A101, B203, Lab1
-    
     @Column(nullable = false, length = 100)
-    private String nom; // Changed from 'name' to 'nom' for frontend compatibility
+    private String name;
+    
+    @Column(unique = true, length = 50)
+    private String code;
+    
+    @Column(nullable = false, length = 50)
+    private String type; // CLASSROOM, LABORATORY, AMPHITHEATER, OFFICE, etc.
+    
+    @Column(nullable = false)
+    private Integer capacity;
+    
+    @Column(nullable = false, length = 50)
+    private String building;
+    
+    @Column(nullable = false)
+    private Integer floor;
     
     @Column(length = 500)
     private String description;
     
-    @Column(nullable = false)
-    private String type; // Changed from enum to String for simplicity
+    @ElementCollection
+    @CollectionTable(name = "room_equipments", joinColumns = @JoinColumn(name = "room_id"))
+    @Column(name = "equipment")
+    private List<String> equipments;
     
     @Column(nullable = false)
-    private Integer capacite; // Changed from 'capacity' to 'capacite'
+    private boolean accessible = false; // Accessible aux personnes à mobilité réduite
+    
+    @Column(nullable = false)
+    private boolean available = true; // Disponible pour réservation
     
     @Column(name = "school_id", nullable = false)
     private Long schoolId;
-    
-    @Column(length = 50)
-    private String batiment; // Changed from 'buildingId' to 'batiment'
-    
-    @Column
-    private Integer etage; // Changed from 'floor' to 'etage'
-    
-    @Column(nullable = false)
-    private Boolean disponible = true; // Changed from 'active' to 'disponible'
     
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

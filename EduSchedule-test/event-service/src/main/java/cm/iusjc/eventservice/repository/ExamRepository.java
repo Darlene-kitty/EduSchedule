@@ -28,6 +28,9 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
     // Recherche par créateur
     Page<Exam> findByCreatedByOrderByStartDateTimeDesc(Long createdBy, Pageable pageable);
     
+    // Recherche par enseignant
+    Page<Exam> findByTeacherIdOrderByStartDateTimeDesc(Long teacherId, Pageable pageable);
+    
     // Recherche par ressource
     Page<Exam> findByResourceIdOrderByStartDateTimeDesc(Long resourceId, Pageable pageable);
     
@@ -51,6 +54,14 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
     // Examens du jour
     @Query("SELECT e FROM Exam e WHERE DATE(e.startDateTime) = DATE(:date) ORDER BY e.startDateTime")
     List<Exam> findExamsByDate(@Param("date") LocalDateTime date);
+    
+    // Examens d'aujourd'hui
+    @Query("SELECT e FROM Exam e WHERE DATE(e.startDateTime) = CURRENT_DATE ORDER BY e.startDateTime")
+    List<Exam> findTodayExams();
+    
+    // Examens de la semaine
+    @Query("SELECT e FROM Exam e WHERE e.startDateTime BETWEEN :startOfWeek AND :endOfWeek ORDER BY e.startDateTime")
+    List<Exam> findWeekExams(@Param("startOfWeek") LocalDateTime startOfWeek, @Param("endOfWeek") LocalDateTime endOfWeek);
     
     // Statistiques par type
     @Query("SELECT e.type, COUNT(e) FROM Exam e GROUP BY e.type")

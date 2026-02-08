@@ -8,21 +8,26 @@ Plateforme complète de gestion d'emploi du temps pour établissements d'enseign
 
 ### Démarrage Complet (Recommandé)
 ```bash
-# Windows
-.\start-all-dev.bat
+# Windows - Tous les microservices
+.\start-services-complets.bat
+```
 
-# Linux/Mac
-chmod +x start-all.sh
-./start-all.sh
+### Démarrage Services Opérationnels (Optimisé)
+```bash
+# Windows - Services essentiels uniquement
+.\start-services-operationnels.bat
 ```
 
 ### Démarrage Backend Seulement
 ```bash
-# Windows
+# Backend sans frontend (pour développement)
 .\start-backend-only.bat
+```
 
-# Linux/Mac
-./start-backend-only.sh
+### Construction Préalable (Optionnel)
+```bash
+# Construction de tous les services
+.\build-all-services.bat
 ```
 
 ### Accès aux Services
@@ -43,18 +48,24 @@ chmod +x start-all.sh
 
 ## 🏗️ Architecture Microservices
 
-### Services Backend (Spring Boot)
-- **🔐 User Service** - Authentification, gestion utilisateurs
-- **📅 Calendar Service** - Intégration Google Calendar
-- **🏫 School Service** - Gestion multi-établissements
-- **📚 Course Service** - Cours et groupes d'étudiants
-- **🏢 Room Service** - Gestion des salles et ressources
-- **📋 Reservation Service** - Réservations et conflits
-- **⏰ Scheduling Service** - Génération d'emplois du temps
-- **🔔 Notification Service** - Notifications multi-canal
-- **🤖 AI Service** - Intelligence artificielle prédictive
-- **📊 Reporting Service** - Rapports et analytics
-- **🔧 Maintenance Service** - Monitoring et maintenance
+### Services Backend (Spring Boot) - 17 Services
+- **🔐 User Service** (8081) - Authentification, gestion utilisateurs
+- **🏫 School Service** (8083) - Gestion multi-établissements
+- **📚 Course Service** (8084) - Cours et groupes d'étudiants
+- **🏢 Resource Service** (8082) - Gestion des salles et ressources
+- **🏢 Room Service** (8090) - Gestion avancée des salles
+- **📋 Reservation Service** (8086) - Réservations et conflits
+- **⏰ Scheduling Service** (8085) - Génération d'emplois du temps
+- **👨‍🏫 Teacher Availability Service** (8092) - Disponibilités enseignants
+- **📅 Calendar Service** (8089) - Intégration Google Calendar
+- **🔔 Notification Service** (8087) - Notifications multi-canal
+- **📊 Reporting Service** (8088) - Rapports et analytics
+- **🤖 AI Service** (8093) - Intelligence artificielle prédictive
+- **📅 Event Service** (8091) - Gestion des événements
+- **🔧 Maintenance Service** (8094) - Monitoring et maintenance
+- **🔗 ENT Integration Service** (8095) - Intégration ENT
+- **⚙️ Config Server** (8888) - Configuration centralisée
+- **🌐 API Gateway** (8080) - Point d'entrée unique
 
 ### Frontend (React/Next.js)
 - **Interface moderne** avec Tailwind CSS
@@ -64,12 +75,14 @@ chmod +x start-all.sh
 - **Responsive design** mobile-first
 
 ### Infrastructure
-- **🔍 Service Discovery**: Eureka Server
-- **🌐 API Gateway**: Spring Cloud Gateway
-- **💾 Base de données**: MySQL 8.0
-- **⚡ Cache**: Redis
-- **📨 Messaging**: RabbitMQ
-- **📊 Monitoring**: Prometheus + Grafana
+- **🔍 Service Discovery**: Eureka Server (8761)
+- **🌐 API Gateway**: Spring Cloud Gateway (8080)
+- **⚙️ Configuration**: Config Server (8888)
+- **💾 Base de données**: MySQL 8.0 (3306)
+- **⚡ Cache**: Redis (6379)
+- **📨 Messaging**: RabbitMQ (5672/15672)
+- **📊 Monitoring**: Zipkin (9411)
+- **🐳 Containerisation**: Docker & Docker Compose
 
 ## ✅ Fonctionnalités Complètes
 
@@ -157,31 +170,20 @@ chmod +x start-all.sh
 
 ## 📚 Documentation Complète
 
-### 🚀 Guides de Démarrage
+### 🚀 Guides Essentiels
 - **[LIRE_EN_PREMIER.md](./LIRE_EN_PREMIER.md)** - Point de départ essentiel
-- **[DEMARRAGE_RAPIDE.md](./DEMARRAGE_RAPIDE.md)** - Guide de démarrage express
-- **[CONFIGURATION_ENV.md](./CONFIGURATION_ENV.md)** - Configuration environnement
-- **[CONFIGURATION_PORTS.md](./CONFIGURATION_PORTS.md)** - Ports et services
-- **[CONFIGURATION_SMTP.md](./CONFIGURATION_SMTP.md)** - Configuration emails
-
-### 📖 Guides Fonctionnels
 - **[GUIDE_DISPONIBILITES_ENSEIGNANTS.md](./GUIDE_DISPONIBILITES_ENSEIGNANTS.md)** - Gestion des disponibilités
 - **[GUIDE_FONCTIONNALITES_AVANCEES.md](./GUIDE_FONCTIONNALITES_AVANCEES.md)** - Fonctionnalités avancées
 - **[VERIFICATION_FONCTIONNALITES.md](./VERIFICATION_FONCTIONNALITES.md)** - Tests fonctionnels
-- **[VERIFICATION_GESTION_RESSOURCES_CONFLITS.md](./VERIFICATION_GESTION_RESSOURCES_CONFLITS.md)** - Gestion conflits
-- **[VERIFICATION_TABLEAUX_BORD_RAPPORTS.md](./VERIFICATION_TABLEAUX_BORD_RAPPORTS.md)** - Tableaux de bord
 
 ### 🔧 Documentation Technique
-- **[ETAT_IMPLEMENTATION_SERVICES.md](./ETAT_IMPLEMENTATION_SERVICES.md)** - État des services
-- **[SERVICES_OPERATIONNELS.md](./SERVICES_OPERATIONNELS.md)** - Services opérationnels
-- **[FINALISATION_COMPLETE.md](./FINALISATION_COMPLETE.md)** - Finalisation projet
 - **[PLAN_IMPLEMENTATION_FONCTIONNALITES.md](./PLAN_IMPLEMENTATION_FONCTIONNALITES.md)** - Plan d'implémentation
+- **[INTEGRATION_FRONTEND_BACKEND.md](./INTEGRATION_FRONTEND_BACKEND.md)** - Intégration complète
 
 ### 💻 Documentation Frontend
 - **[frontend/README.md](./frontend/README.md)** - Documentation frontend complète
 - **[frontend/docs/INTEGRATION_SUMMARY.md](./frontend/docs/INTEGRATION_SUMMARY.md)** - Résumé intégration
 - **[frontend/docs/MIGRATION_GUIDE.md](./frontend/docs/MIGRATION_GUIDE.md)** - Guide de migration
-- **[frontend/AMELIORATIONS_UX_UI.md](./frontend/AMELIORATIONS_UX_UI.md)** - Améliorations UX/UI
 
 ## 🔧 Configuration Avancée
 
@@ -235,44 +237,38 @@ export const API_CONFIG = {
 
 ### Démarrage des Services
 ```bash
-# Démarrage complet
-.\start-all-dev.bat
+# Démarrage complet (tous les microservices)
+.\start-services-complets.bat
 
-# Backend seulement
-.\start-backend-only.bat
-
-# Services opérationnels seulement
+# Services opérationnels optimisés
 .\start-services-operationnels.bat
 
-# Frontend rapide
-.\start-frontend-fast.bat
+# Backend seulement (pour développement)
+.\start-backend-only.bat
+
+# Développement avec hot-reload
+.\start-all-dev.bat
 ```
 
-### Tests et Vérification
+### Construction et Tests
 ```bash
+# Construction de tous les services
+.\build-all-services.bat
+
 # Test complet du système
+.\test-all-services-complete.ps1
+
+# Test des services essentiels
+.\test-all-services.ps1
+
+# Test rapide
 .\test-complete.ps1
-
-# Test des services avancés
-.\test-advanced-features.ps1
-
-# Test de connexion rapide
-.\quick-test-system.ps1
-
-# Vérification configuration email
-.\check-email-config.ps1
 ```
 
 ### Gestion des Utilisateurs
 ```bash
 # Créer un utilisateur admin
 .\create-admin-user.ps1
-
-# Créer un utilisateur via API Gateway
-.\create-user-via-gateway.ps1
-
-# Générer un nouveau token
-.\generate-new-token.ps1
 ```
 
 ### Maintenance
@@ -280,11 +276,11 @@ export const API_CONFIG = {
 # Arrêter tous les services
 .\stop-all-services.bat
 
-# Optimiser les performances
-.\optimize-performance.ps1
+# Vérifier l'état des services
+.\check-services-status.bat
 
-# Mise à jour base de données
-.\update-database.ps1
+# Diagnostiquer la connectivité API
+.\diagnose-api-connectivity.ps1
 ```
 
 ## 🐛 Dépannage & Support
@@ -451,11 +447,57 @@ Ce projet est sous licence **MIT**. Voir le fichier [LICENSE](./LICENSE) pour pl
 **Nouveau sur le projet ?** Commencez par :
 
 1. **[LIRE_EN_PREMIER.md](./LIRE_EN_PREMIER.md)** - Comprendre le projet
-2. **[DEMARRAGE_RAPIDE.md](./DEMARRAGE_RAPIDE.md)** - Lancer en 5 minutes
-3. **`.\start-all-dev.bat`** - Démarrer tous les services
+2. **`.\build-all-services.bat`** - Construire les services (première fois)
+3. **`.\start-services-complets.bat`** - Démarrer tous les services
 4. **http://localhost:3000** - Accéder à l'interface
 
-**Besoin d'aide ?** Consultez la documentation complète ci-dessus ou les nombreux guides disponibles dans le projet.
+**Besoin d'aide ?** Consultez la documentation complète ci-dessus ou les guides disponibles dans le projet.
+
+## 📁 Structure du Projet
+
+```
+eduschedule/
+├── 📂 Services Backend (Spring Boot)
+│   ├── api-gateway/              # Point d'entrée API (8080)
+│   ├── eureka-server/            # Service Discovery (8761)
+│   ├── config-server/            # Configuration centralisée (8888)
+│   ├── user-service/             # Authentification & Utilisateurs (8081)
+│   ├── school-service/           # Gestion établissements (8083)
+│   ├── course-service/           # Cours & Groupes (8084)
+│   ├── room-service/             # Salles & Ressources (8090)
+│   ├── resource-service/         # Gestion ressources (8082)
+│   ├── scheduling-service/       # Emplois du temps (8085)
+│   ├── reservation-service/      # Réservations (8086)
+│   ├── teacher-availability-service/ # Disponibilités (8092)
+│   ├── calendar-service/         # Google Calendar (8089)
+│   ├── notification-service/     # Notifications (8087)
+│   ├── reporting-service/        # Rapports (8088)
+│   ├── ai-service/               # Intelligence artificielle (8093)
+│   ├── event-service/            # Événements (8091)
+│   ├── maintenance-service/      # Monitoring (8094)
+│   └── ent-integration-service/  # Intégration ENT (8095)
+│
+├── 📂 frontend/                  # Application React/Next.js
+│   ├── components/               # Composants réutilisables
+│   ├── lib/                      # Utilitaires & API
+│   ├── pages/                    # Pages Next.js
+│   └── public/                   # Assets statiques
+│
+├── 📂 Scripts & Configuration
+│   ├── *.bat                     # Scripts Windows
+│   ├── *.ps1                     # Scripts PowerShell
+│   ├── *.sql                     # Scripts SQL
+│   ├── docker-compose.yml        # Configuration Docker
+│   ├── .env                      # Variables d'environnement
+│   └── pom.xml                   # Configuration Maven parent
+│
+└── 📂 Documentation
+    ├── README.md                 # Ce fichier
+    ├── LIRE_EN_PREMIER.md        # Guide de démarrage
+    ├── GUIDE_*.md                # Guides fonctionnels
+    ├── VERIFICATION_*.md         # Guides de vérification
+    └── PLAN_*.md                 # Plans d'implémentation
+```
 
 ---
 

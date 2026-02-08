@@ -144,6 +144,33 @@ const menuItems = [
     key: "ai-insights", 
     roles: ["admin"] 
   },
+  
+  // Section Optimisations Avancées - Phase 3
+  { 
+    icon: Brain, 
+    label: "IA Assignation", 
+    href: "/intelligent-assignment", 
+    key: "intelligent-assignment", 
+    roles: ["admin"],
+    badge: "IA"
+  },
+  { 
+    icon: TrendingUp, 
+    label: "Analytics Avancés", 
+    href: "/advanced-analytics", 
+    key: "advanced-analytics", 
+    roles: ["admin"],
+    badge: "PRO"
+  },
+  
+  // Section Configuration
+  { 
+    icon: Settings, 
+    label: "Paramètres", 
+    href: "/settings", 
+    key: "settings", 
+    roles: ["admin"] 
+  },
 ]
 
 interface SidebarProps {

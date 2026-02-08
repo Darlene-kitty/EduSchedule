@@ -88,6 +88,30 @@ public class ConflictDetectionService {
     }
     
     /**
+     * Vérifie s'il y a un conflit de ressource (retourne true si conflit)
+     */
+    public boolean hasAnyResourceConflict(Long resourceId, LocalDateTime startDateTime, LocalDateTime endDateTime) {
+        return !isResourceAvailable(resourceId, startDateTime, endDateTime);
+    }
+    
+    /**
+     * Vérifie s'il y a un conflit de ressource en excluant un examen spécifique
+     */
+    public boolean hasAnyResourceConflict(Long resourceId, LocalDateTime startDateTime, LocalDateTime endDateTime, Long excludeEventId, Long excludeExamId) {
+        List<Object> allConflicts = new ArrayList<>();
+        
+        // Ajouter les conflits d'événements
+        List<Event> eventConflicts = checkEventConflicts(resourceId, startDateTime, endDateTime, excludeEventId);
+        allConflicts.addAll(eventConflicts);
+        
+        // Ajouter les conflits d'examens
+        List<Exam> examConflicts = checkExamConflicts(resourceId, startDateTime, endDateTime, excludeExamId);
+        allConflicts.addAll(examConflicts);
+        
+        return !allConflicts.isEmpty();
+    }
+    
+    /**
      * Trouve les créneaux libres pour une ressource sur une journée
      */
     public List<TimeSlot> findAvailableSlots(Long resourceId, LocalDateTime date, int slotDurationMinutes) {

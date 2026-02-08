@@ -7,11 +7,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import jakarta.persistence.QueryHint;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -19,243 +17,231 @@ import java.util.Optional;
 @Repository
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
     
-    // Recherche de conflits optimisée avec index et cache
-    @Query(value = "SELECT r.* FROM reservations r " +
-           "WHERE r.resource_id = :resourceId " +
-           "AND r.status IN ('PENDING', 'CONFIRMED') " +
-           "AND r.start_time <= :endTime " +
-           "AND r.end_time >= :startTime " +
-           "AND (:excludeId IS NULL OR r.id != :excludeId) " +
-           "ORDER BY r.start_time", 
-           nativeQuery = true)
-    @QueryHints({
-        @QueryHint(name = "org.hibernate.cacheable", value = "true"),
-        @QueryHint(name = "org.hibernate.cacheRegion", value = "conflictQueries")
-    })
-    List<Reservation> findConflictingReservations(
-        @Param("resourceId") Long resourceId,
-        @Param("startTime") LocalDateTime startTime,
-        @Param("endTime") LocalDateTime endTime,
-        @Param("excludeId") Long excludeId
-    );
+    // Recherche de base
+    List<Reservation> findByTitleContainingIgnoreCase(String title);
+    boolean existsByTitle(String title);
     
-    // Recherche de conflits avec setup/cleanup optimisée
-    @Query(value = "SELECT r.* FROM reservations r " +
-           "WHERE r.resource_id = :resourceId " +
-           "AND r.status IN ('PENDING', 'CONFIRMED') " +
-           "AND (r.start_time - INTERVAL COALESCE(r.setup_time, 0) MINUTE) <= :endTime " +
-           "AND (r.end_time + INTERVAL COALESCE(r.cleanup_time, 0) MINUTE) >= :startTime " +
-           "AND (:excludeId IS NULL OR r.id != :excludeId) " +
-           "ORDER BY r.start_time", 
-           nativeQuery = true)
-    @QueryHints({
-        @QueryHint(name = "org.hibernate.cacheable", value = "true"),
-        @QueryHint(name = "org.hibernate.cacheRegion", value = "conflictQueries")
-    })
-    List<Reservation> findConflictingReservationsWithSetup(
-        @Param("resourceId") Long resourceId,
-        @Param("startTime") LocalDateTime startTime,
-        @Param("endTime") LocalDateTime endTime,
-        @Param("excludeId") Long excludeId
-    );
-    
-    // Recherche rapide de disponibilité par ressource et jour
-    @Query(value = "SELECT COUNT(*) FROM reservations r " +
-           "WHERE r.resource_id = :resourceId " +
-           "AND r.status IN ('PENDING', 'CONFIRMED') " +
-           "AND DATE(r.start_time) = DATE(:date)", 
-           nativeQuery = true)
-    @QueryHints(@QueryHint(name = "org.hibernate.cacheable", value = "true"))
-    Long countReservationsForResourceAndDate(
-        @Param("resourceId") Long resourceId,
-        @Param("date") LocalDateTime date
-    );
-    
-    // Index optimisé pour les conflits multi-ressources
-    @Query(value = "SELECT r.* FROM reservations r " +
-           "WHERE r.resource_id IN (:resourceIds) " +
-           "AND r.status IN ('PENDING', 'CONFIRMED') " +
-           "AND r.start_time <= :endTime " +
-           "AND r.end_time >= :startTime " +
-           "ORDER BY r.resource_id, r.start_time", 
-           nativeQuery = true)
-    @QueryHints(@QueryHint(name = "org.hibernate.cacheable", value = "true"))
-    List<Reservation> findConflictingReservationsForMultipleResources(
-        @Param("resourceIds") List<Long> resourceIds,
-        @Param("startTime") LocalDateTime startTime,
-        @Param("endTime") LocalDateTime endTime
-    );
-    
-    // Réservations par ressource
-    List<Reservation> findByResourceIdAndStatusIn(Long resourceId, List<ReservationStatus> statuses);
-    
-    // Réservations par utilisateur
+    // Recherche par utilisateur
+    List<Reservation> findByUserId(Long userId);
     List<Reservation> findByUserIdOrderByStartTimeDesc(Long userId);
-    
     Page<Reservation> findByUserIdOrderByStartTimeDesc(Long userId, Pageable pageable);
+    long countByUserId(Long userId);
     
-    // Réservations par cours
-    List<Reservation> findByCourseIdOrderByStartTime(Long courseId);
+    // Recherche par ressource
+    List<Reservation> findByResourceId(Long resourceId);
+    List<Reservation> findByResourceIdOrderByStartTimeAsc(Long resourceId);
+    Page<Reservation> findByResourceIdOrderByStartTimeAsc(Long resourceId, Pageable pageable);
+    long countByResourceId(Long resourceId);
     
-    // Réservations par groupe de cours
-    List<Reservation> findByCourseGroupIdOrderByStartTime(Long courseGroupId);
+    // Recherche par cours
+    List<Reservation> findByCourseId(Long courseId);
+    List<Reservation> findByCourseIdOrderByStartTimeAsc(Long courseId);
+    long countByCourseId(Long courseId);
     
-    // Réservations par période
-    @Query("SELECT r FROM Reservation r WHERE r.startTime >= :startDate " +
-           "AND r.endTime <= :endDate ORDER BY r.startTime")
-    List<Reservation> findByDateRange(
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate
-    );
+    // Recherche par groupe de cours
+    List<Reservation> findByCourseGroupId(Long courseGroupId);
+    List<Reservation> findByCourseGroupIdOrderByStartTimeAsc(Long courseGroupId);
+    long countByCourseGroupId(Long courseGroupId);
     
-    // Réservations par ressource et période
-    @Query("SELECT r FROM Reservation r WHERE r.resourceId = :resourceId " +
-           "AND r.startTime >= :startDate AND r.endTime <= :endDate " +
-           "ORDER BY r.startTime")
-    List<Reservation> findByResourceAndDateRange(
-        @Param("resourceId") Long resourceId,
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate
-    );
+    // Recherche par statut
+    List<Reservation> findByStatus(ReservationStatus status);
+    List<Reservation> findByStatusOrderByStartTimeAsc(ReservationStatus status);
+    Page<Reservation> findByStatusOrderByStartTimeAsc(ReservationStatus status, Pageable pageable);
+    long countByStatus(ReservationStatus status);
     
-    // Réservations par statut
-    List<Reservation> findByStatusOrderByStartTime(ReservationStatus status);
+    // Recherche par type
+    List<Reservation> findByType(ReservationType type);
+    List<Reservation> findByTypeOrderByStartTimeAsc(ReservationType type);
+    long countByType(ReservationType type);
     
-    Page<Reservation> findByStatusOrderByStartTime(ReservationStatus status, Pageable pageable);
+    // Recherche par période
+    List<Reservation> findByStartTimeBetween(LocalDateTime start, LocalDateTime end);
+    List<Reservation> findByStartTimeBetweenOrderByStartTimeAsc(LocalDateTime start, LocalDateTime end);
     
-    // Réservations par type
-    List<Reservation> findByTypeOrderByStartTime(ReservationType type);
+    List<Reservation> findByEndTimeBetween(LocalDateTime start, LocalDateTime end);
+    
+    @Query("SELECT r FROM Reservation r WHERE r.startTime >= :start AND r.endTime <= :end")
+    List<Reservation> findReservationsInPeriod(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    
+    // Recherche par date
+    @Query("SELECT r FROM Reservation r WHERE DATE(r.startTime) = DATE(:date)")
+    List<Reservation> findByDate(@Param("date") LocalDateTime date);
+    
+    @Query("SELECT r FROM Reservation r WHERE DATE(r.startTime) = DATE(:date) ORDER BY r.startTime ASC")
+    List<Reservation> findByDateOrderByStartTime(@Param("date") LocalDateTime date);
+    
+    // Conflits de réservation
+    @Query("SELECT r FROM Reservation r WHERE r.resourceId = :resourceId AND " +
+           "r.status IN ('PENDING', 'CONFIRMED') AND " +
+           "((r.startTime <= :startTime AND r.endTime > :startTime) OR " +
+           "(r.startTime < :endTime AND r.endTime >= :endTime) OR " +
+           "(r.startTime >= :startTime AND r.endTime <= :endTime)) AND " +
+           "r.id != :excludeId")
+    List<Reservation> findResourceConflicts(@Param("resourceId") Long resourceId,
+                                          @Param("startTime") LocalDateTime startTime,
+                                          @Param("endTime") LocalDateTime endTime,
+                                          @Param("excludeId") Long excludeId);
+    
+    @Query("SELECT r FROM Reservation r WHERE r.userId = :userId AND " +
+           "r.status IN ('PENDING', 'CONFIRMED') AND " +
+           "((r.startTime <= :startTime AND r.endTime > :startTime) OR " +
+           "(r.startTime < :endTime AND r.endTime >= :endTime) OR " +
+           "(r.startTime >= :startTime AND r.endTime <= :endTime)) AND " +
+           "r.id != :excludeId")
+    List<Reservation> findUserConflicts(@Param("userId") Long userId,
+                                      @Param("startTime") LocalDateTime startTime,
+                                      @Param("endTime") LocalDateTime endTime,
+                                      @Param("excludeId") Long excludeId);
+    
+    // Recherche avancée
+    @Query("SELECT r FROM Reservation r WHERE " +
+           "(:title IS NULL OR LOWER(r.title) LIKE LOWER(CONCAT('%', :title, '%'))) AND " +
+           "(:userId IS NULL OR r.userId = :userId) AND " +
+           "(:resourceId IS NULL OR r.resourceId = :resourceId) AND " +
+           "(:courseId IS NULL OR r.courseId = :courseId) AND " +
+           "(:status IS NULL OR r.status = :status) AND " +
+           "(:type IS NULL OR r.type = :type)")
+    List<Reservation> findReservationsWithFilters(@Param("title") String title,
+                                                 @Param("userId") Long userId,
+                                                 @Param("resourceId") Long resourceId,
+                                                 @Param("courseId") Long courseId,
+                                                 @Param("status") ReservationStatus status,
+                                                 @Param("type") ReservationType type);
+    
+    // Recherche textuelle globale
+    @Query("SELECT r FROM Reservation r WHERE " +
+           "LOWER(r.title) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(r.description) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(r.notes) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
+    List<Reservation> searchReservations(@Param("searchTerm") String searchTerm);
     
     // Réservations récurrentes
-    List<Reservation> findByParentReservationIdOrderByStartTime(Long parentId);
+    List<Reservation> findByParentReservationId(Long parentReservationId);
+    List<Reservation> findByParentReservationIdOrderByStartTimeAsc(Long parentReservationId);
+    
+    @Query("SELECT r FROM Reservation r WHERE r.recurringPattern IS NOT NULL AND r.recurringPattern != ''")
+    List<Reservation> findRecurringReservations();
     
     // Réservations en attente d'approbation
-    @Query("SELECT r FROM Reservation r WHERE r.status = 'PENDING' " +
-           "ORDER BY r.createdAt")
+    @Query("SELECT r FROM Reservation r WHERE r.status = 'PENDING' ORDER BY r.createdAt ASC")
     List<Reservation> findPendingReservations();
     
-    // Réservations à venir pour un utilisateur
-    @Query("SELECT r FROM Reservation r WHERE r.userId = :userId " +
-           "AND r.startTime > :now AND r.status IN ('PENDING', 'CONFIRMED') " +
-           "ORDER BY r.startTime")
-    List<Reservation> findUpcomingReservationsForUser(
-        @Param("userId") Long userId,
-        @Param("now") LocalDateTime now
-    );
+    @Query("SELECT r FROM Reservation r WHERE r.status = 'PENDING' ORDER BY r.createdAt ASC")
+    Page<Reservation> findPendingReservations(Pageable pageable);
     
-    // Réservations du jour pour une ressource
-    @Query("SELECT r FROM Reservation r WHERE r.resourceId = :resourceId " +
-           "AND DATE(r.startTime) = DATE(:date) " +
-           "AND r.status IN ('PENDING', 'CONFIRMED') " +
-           "ORDER BY r.startTime")
-    List<Reservation> findTodayReservationsForResource(
-        @Param("resourceId") Long resourceId,
-        @Param("date") LocalDateTime date
-    );
+    // Réservations à venir
+    @Query("SELECT r FROM Reservation r WHERE r.startTime > :now AND r.status = 'CONFIRMED' ORDER BY r.startTime ASC")
+    List<Reservation> findUpcomingReservations(@Param("now") LocalDateTime now);
+    
+    @Query("SELECT r FROM Reservation r WHERE r.startTime > :now AND r.status = 'CONFIRMED' ORDER BY r.startTime ASC")
+    Page<Reservation> findUpcomingReservations(@Param("now") LocalDateTime now, Pageable pageable);
+    
+    // Réservations en cours
+    @Query("SELECT r FROM Reservation r WHERE r.startTime <= :now AND r.endTime > :now AND r.status = 'CONFIRMED'")
+    List<Reservation> findCurrentReservations(@Param("now") LocalDateTime now);
+    
+    // Réservations passées
+    @Query("SELECT r FROM Reservation r WHERE r.endTime < :now ORDER BY r.startTime DESC")
+    List<Reservation> findPastReservations(@Param("now") LocalDateTime now);
+    
+    @Query("SELECT r FROM Reservation r WHERE r.endTime < :now ORDER BY r.startTime DESC")
+    Page<Reservation> findPastReservations(@Param("now") LocalDateTime now, Pageable pageable);
+    
+    // Réservations de la semaine
+    @Query("SELECT r FROM Reservation r WHERE r.startTime >= :weekStart AND r.startTime < :weekEnd ORDER BY r.startTime ASC")
+    List<Reservation> findWeeklyReservations(@Param("weekStart") LocalDateTime weekStart, @Param("weekEnd") LocalDateTime weekEnd);
+    
+    // Réservations du mois
+    @Query("SELECT r FROM Reservation r WHERE r.startTime >= :monthStart AND r.startTime < :monthEnd ORDER BY r.startTime ASC")
+    List<Reservation> findMonthlyReservations(@Param("monthStart") LocalDateTime monthStart, @Param("monthEnd") LocalDateTime monthEnd);
     
     // Statistiques
-    @Query("SELECT COUNT(r) FROM Reservation r WHERE r.status = :status")
-    Long countByStatus(@Param("status") ReservationStatus status);
+    @Query("SELECT r.status, COUNT(r) FROM Reservation r GROUP BY r.status")
+    List<Object[]> getReservationCountByStatus();
     
-    @Query("SELECT COUNT(r) FROM Reservation r WHERE r.resourceId = :resourceId " +
-           "AND r.startTime >= :startDate AND r.endTime <= :endDate")
-    Long countByResourceAndDateRange(
-        @Param("resourceId") Long resourceId,
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate
-    );
+    @Query("SELECT r.type, COUNT(r) FROM Reservation r GROUP BY r.type")
+    List<Object[]> getReservationCountByType();
     
-    // Recherche avec filtres
-    @Query("SELECT r FROM Reservation r WHERE " +
-           "(:resourceId IS NULL OR r.resourceId = :resourceId) AND " +
-           "(:userId IS NULL OR r.userId = :userId) AND " +
-           "(:status IS NULL OR r.status = :status) AND " +
-           "(:type IS NULL OR r.type = :type) AND " +
-           "(:startDate IS NULL OR r.startTime >= :startDate) AND " +
-           "(:endDate IS NULL OR r.endTime <= :endDate) " +
-           "ORDER BY r.startTime")
-    Page<Reservation> findWithFilters(
-        @Param("resourceId") Long resourceId,
-        @Param("userId") Long userId,
-        @Param("status") ReservationStatus status,
-        @Param("type") ReservationType type,
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate,
-        Pageable pageable
-    );
+    @Query("SELECT r.resourceId, COUNT(r) FROM Reservation r GROUP BY r.resourceId ORDER BY COUNT(r) DESC")
+    List<Object[]> getReservationCountByResource();
     
-    // Réservations par utilisateur avec pagination optimisée
-    @Query(value = "SELECT r.* FROM reservations r " +
-           "WHERE r.user_id = :userId " +
-           "ORDER BY r.start_time DESC " +
-           "LIMIT :limit OFFSET :offset", 
-           nativeQuery = true)
-    List<Reservation> findByUserIdOrderByStartTimeDescOptimized(
-        @Param("userId") Long userId,
-        @Param("limit") int limit,
-        @Param("offset") int offset
-    );
+    @Query("SELECT r.userId, COUNT(r) FROM Reservation r GROUP BY r.userId ORDER BY COUNT(r) DESC")
+    List<Object[]> getReservationCountByUser();
     
-    // Recherche avec filtres optimisée
-    @Query(value = "SELECT r.* FROM reservations r WHERE " +
-           "(:resourceId IS NULL OR r.resource_id = :resourceId) AND " +
-           "(:userId IS NULL OR r.user_id = :userId) AND " +
-           "(:status IS NULL OR r.status = :status) AND " +
-           "(:type IS NULL OR r.type = :type) AND " +
-           "(:startDate IS NULL OR r.start_time >= :startDate) AND " +
-           "(:endDate IS NULL OR r.end_time <= :endDate) " +
-           "ORDER BY r.start_time " +
-           "LIMIT :limit OFFSET :offset", 
-           nativeQuery = true)
-    List<Reservation> findWithFiltersOptimized(
-        @Param("resourceId") Long resourceId,
-        @Param("userId") Long userId,
-        @Param("status") String status,
-        @Param("type") String type,
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate,
-        @Param("limit") int limit,
-        @Param("offset") int offset
-    );
+    @Query("SELECT DATE(r.startTime), COUNT(r) FROM Reservation r GROUP BY DATE(r.startTime) ORDER BY DATE(r.startTime)")
+    List<Object[]> getReservationCountByDate();
     
-    // Statistiques d'occupation par ressource et période
-    @Query(value = "SELECT " +
-           "r.resource_id, " +
-           "COUNT(*) as total_reservations, " +
-           "SUM(TIMESTAMPDIFF(MINUTE, r.start_time, r.end_time)) as total_minutes, " +
-           "AVG(TIMESTAMPDIFF(MINUTE, r.start_time, r.end_time)) as avg_duration " +
-           "FROM reservations r " +
-           "WHERE r.start_time >= :startDate " +
-           "AND r.end_time <= :endDate " +
-           "AND r.status IN ('CONFIRMED', 'COMPLETED') " +
-           "GROUP BY r.resource_id " +
-           "ORDER BY total_minutes DESC", 
-           nativeQuery = true)
-    @QueryHints(@QueryHint(name = "org.hibernate.cacheable", value = "true"))
-    List<Object[]> getOccupancyStatsByResourceAndPeriod(
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate
-    );
+    @Query("SELECT HOUR(r.startTime), COUNT(r) FROM Reservation r GROUP BY HOUR(r.startTime) ORDER BY HOUR(r.startTime)")
+    List<Object[]> getReservationCountByHour();
     
-    // Créneaux libres pour une ressource
-    @Query(value = "SELECT " +
-           "CASE " +
-           "  WHEN LAG(r.end_time) OVER (ORDER BY r.start_time) IS NULL THEN :dayStart " +
-           "  ELSE LAG(r.end_time) OVER (ORDER BY r.start_time) " +
-           "END as free_start, " +
-           "r.start_time as free_end " +
-           "FROM reservations r " +
-           "WHERE r.resource_id = :resourceId " +
-           "AND DATE(r.start_time) = DATE(:date) " +
-           "AND r.status IN ('PENDING', 'CONFIRMED') " +
-           "ORDER BY r.start_time", 
-           nativeQuery = true)
-    List<Object[]> findFreeSlots(
-        @Param("resourceId") Long resourceId,
-        @Param("date") LocalDateTime date,
-        @Param("dayStart") LocalDateTime dayStart
-    );
+    // Réservations approuvées par
+    List<Reservation> findByApprovedBy(Long approvedBy);
+    List<Reservation> findByApprovedByOrderByApprovedAtDesc(Long approvedBy);
     
-    // Réservation liée à un emploi du temps
-    Optional<Reservation> findByScheduleId(Long scheduleId);
+    // Réservations annulées par
+    List<Reservation> findByCancelledBy(Long cancelledBy);
+    List<Reservation> findByCancelledByOrderByCancelledAtDesc(Long cancelledBy);
+    
+    // Réservations avec emploi du temps
+    List<Reservation> findByScheduleId(Long scheduleId);
+    
+    // Réservations nécessitant une action
+    @Query("SELECT r FROM Reservation r WHERE r.status = 'PENDING' AND r.createdAt < :cutoffTime")
+    List<Reservation> findStaleReservations(@Param("cutoffTime") LocalDateTime cutoffTime);
+    
+    // Utilisation des ressources
+    @Query("SELECT r.resourceId, AVG(TIMESTAMPDIFF(MINUTE, r.startTime, r.endTime)) FROM Reservation r " +
+           "WHERE r.status = 'CONFIRMED' GROUP BY r.resourceId")
+    List<Object[]> getAverageReservationDurationByResource();
+    
+    @Query("SELECT COUNT(r) FROM Reservation r WHERE r.resourceId = :resourceId AND " +
+           "r.status = 'CONFIRMED' AND r.startTime >= :start AND r.endTime <= :end")
+    Long getResourceUtilizationCount(@Param("resourceId") Long resourceId,
+                                   @Param("start") LocalDateTime start,
+                                   @Param("end") LocalDateTime end);
+    
+    // Méthodes pour la détection de conflits avec temps de préparation
+    @Query("SELECT r FROM Reservation r WHERE r.resourceId = :resourceId AND " +
+           "r.status IN ('PENDING', 'CONFIRMED') AND " +
+           "((r.startTime <= :startTime AND r.endTime > :startTime) OR " +
+           "(r.startTime < :endTime AND r.endTime >= :endTime) OR " +
+           "(r.startTime >= :startTime AND r.endTime <= :endTime)) AND " +
+           "(:excludeId IS NULL OR r.id != :excludeId)")
+    List<Reservation> findConflictingReservationsWithSetup(@Param("resourceId") Long resourceId,
+                                                          @Param("startTime") LocalDateTime startTime,
+                                                          @Param("endTime") LocalDateTime endTime,
+                                                          @Param("excludeId") Long excludeId);
+    
+    // Méthodes pour la détection de conflits sur plusieurs ressources
+    @Query("SELECT r FROM Reservation r WHERE r.resourceId IN :resourceIds AND " +
+           "r.status IN ('PENDING', 'CONFIRMED') AND " +
+           "((r.startTime <= :startTime AND r.endTime > :startTime) OR " +
+           "(r.startTime < :endTime AND r.endTime >= :endTime) OR " +
+           "(r.startTime >= :startTime AND r.endTime <= :endTime))")
+    List<Reservation> findConflictingReservationsForMultipleResources(@Param("resourceIds") List<Long> resourceIds,
+                                                                     @Param("startTime") LocalDateTime startTime,
+                                                                     @Param("endTime") LocalDateTime endTime);
+    
+    // Compter les réservations pour une ressource à une date donnée
+    @Query("SELECT COUNT(r) FROM Reservation r WHERE r.resourceId = :resourceId AND " +
+           "DATE(r.startTime) = DATE(:date) AND r.status IN ('PENDING', 'CONFIRMED')")
+    Long countReservationsForResourceAndDate(@Param("resourceId") Long resourceId,
+                                            @Param("date") LocalDateTime date);
+    
+    // Méthode pour trouver les réservations en conflit (alias)
+    @Query("SELECT r FROM Reservation r WHERE r.resourceId = :resourceId AND " +
+           "r.status IN ('PENDING', 'CONFIRMED') AND " +
+           "((r.startTime <= :startTime AND r.endTime > :startTime) OR " +
+           "(r.startTime < :endTime AND r.endTime >= :endTime) OR " +
+           "(r.startTime >= :startTime AND r.endTime <= :endTime))")
+    List<Reservation> findConflictingReservations(@Param("resourceId") Long resourceId,
+                                                 @Param("startTime") LocalDateTime startTime,
+                                                 @Param("endTime") LocalDateTime endTime);
+    
+    // Recherche par ressource et période
+    @Query("SELECT r FROM Reservation r WHERE r.resourceId = :resourceId AND " +
+           "r.startTime >= :startTime AND r.startTime <= :endTime")
+    List<Reservation> findByResourceIdAndStartTimeBetween(@Param("resourceId") Long resourceId,
+                                                         @Param("startTime") LocalDateTime startTime,
+                                                         @Param("endTime") LocalDateTime endTime);
 }

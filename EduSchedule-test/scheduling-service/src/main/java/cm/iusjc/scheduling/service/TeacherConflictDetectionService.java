@@ -270,19 +270,19 @@ public class TeacherConflictDetectionService {
     }
     
     private ScheduleDTO convertToDTO(Schedule schedule) {
-        return new ScheduleDTO(
-                schedule.getId(),
-                schedule.getTitle(),
-                schedule.getDescription(),
-                schedule.getStartTime(),
-                schedule.getEndTime(),
-                schedule.getRoom(),
-                schedule.getTeacher(),
-                schedule.getCourse(),
-                schedule.getGroupName(),
-                schedule.getStatus(),
-                schedule.getCreatedAt(),
-                schedule.getUpdatedAt()
-        );
+        ScheduleDTO dto = new ScheduleDTO();
+        dto.setId(schedule.getId());
+        dto.setTitle(schedule.getTitle());
+        dto.setDescription(schedule.getDescription());
+        dto.setStartTime(schedule.getStartTime());
+        dto.setEndTime(schedule.getEndTime());
+        dto.setRoom(schedule.getRoom());
+        dto.setTeacher(schedule.getTeacher());
+        dto.setCourse(schedule.getCourse());
+        dto.setGroupName(schedule.getGroupName());
+        dto.setStatus(schedule.getStatus());
+        dto.setCreatedAt(schedule.getCreatedAt());
+        dto.setUpdatedAt(schedule.getUpdatedAt());
+        return dto;
     }
 }

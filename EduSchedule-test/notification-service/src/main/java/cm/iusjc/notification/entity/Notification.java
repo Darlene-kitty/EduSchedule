@@ -17,10 +17,15 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
+    @Column(name = "user_id")
+    private Long userId;
+    
     @Column(nullable = false)
     private String recipient;
     
     private String subject;
+    
+    private String title;
     
     @Column(columnDefinition = "TEXT", nullable = false)
     private String message;
@@ -31,11 +36,32 @@ public class Notification {
     @Column(nullable = false, length = 20)
     private String status = "PENDING"; // PENDING, SENT, FAILED, SCHEDULED
     
+    @Column(name = "channel", length = 20)
+    private String channel; // EMAIL, SMS, PUSH
+    
+    @Column(name = "related_entity_type", length = 50)
+    private String relatedEntityType;
+    
+    @Column(name = "related_entity_id")
+    private Long relatedEntityId;
+    
+    @Column(name = "is_read")
+    private boolean read = false;
+    
+    @Column(name = "read_at")
+    private LocalDateTime readAt;
+    
+    @Column(name = "is_sent")
+    private boolean sent = false;
+    
     @Column(name = "sent_at")
     private LocalDateTime sentAt;
     
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+    
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
     
     // Nouveaux champs pour les rappels et notifications avancées
     @Column(name = "scheduled_for")
@@ -65,5 +91,11 @@ public class Notification {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+    
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 }

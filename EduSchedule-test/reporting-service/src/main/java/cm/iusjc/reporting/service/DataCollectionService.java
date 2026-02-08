@@ -3,11 +3,13 @@ package cm.iusjc.reporting.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,7 +43,7 @@ public class DataCollectionService {
                 .get()
                 .uri(userServiceUrl + "/api/users")
                 .retrieve()
-                .bodyToMono(List.class)
+                .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
                 .timeout(Duration.ofSeconds(10))
                 .doOnError(error -> log.error("Error collecting user data: {}", error.getMessage()))
                 .onErrorReturn(List.of());
@@ -55,7 +57,7 @@ public class DataCollectionService {
                 .get()
                 .uri(userServiceUrl + "/api/users/statistics")
                 .retrieve()
-                .bodyToMono(Map.class)
+                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                 .timeout(Duration.ofSeconds(10))
                 .doOnError(error -> log.error("Error collecting user statistics: {}", error.getMessage()))
                 .onErrorReturn(Map.of());
@@ -69,7 +71,7 @@ public class DataCollectionService {
                 .get()
                 .uri(courseServiceUrl + "/api/v1/cours")
                 .retrieve()
-                .bodyToMono(List.class)
+                .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
                 .timeout(Duration.ofSeconds(10))
                 .doOnError(error -> log.error("Error collecting course data: {}", error.getMessage()))
                 .onErrorReturn(List.of());
@@ -83,7 +85,7 @@ public class DataCollectionService {
                 .get()
                 .uri(reservationServiceUrl + "/api/reservations")
                 .retrieve()
-                .bodyToMono(List.class)
+                .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
                 .timeout(Duration.ofSeconds(10))
                 .doOnError(error -> log.error("Error collecting reservation data: {}", error.getMessage()))
                 .onErrorReturn(List.of());
@@ -97,7 +99,7 @@ public class DataCollectionService {
                 .get()
                 .uri(schedulingServiceUrl + "/api/v1/emplois")
                 .retrieve()
-                .bodyToMono(List.class)
+                .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
                 .timeout(Duration.ofSeconds(10))
                 .doOnError(error -> log.error("Error collecting schedule data: {}", error.getMessage()))
                 .onErrorReturn(List.of());
@@ -111,7 +113,7 @@ public class DataCollectionService {
                 .get()
                 .uri(resourceServiceUrl + "/api/v1/resources")
                 .retrieve()
-                .bodyToMono(List.class)
+                .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
                 .timeout(Duration.ofSeconds(10))
                 .doOnError(error -> log.error("Error collecting resource data: {}", error.getMessage()))
                 .onErrorReturn(List.of());
@@ -128,13 +130,13 @@ public class DataCollectionService {
                 collectScheduleData(),
                 collectResourceData()
         ).map(tuple -> {
-            return Map.of(
-                "users", tuple.getT1(),
-                "courses", tuple.getT2(),
-                "reservations", tuple.getT3(),
-                "schedules", tuple.getT4(),
-                "resources", tuple.getT5()
-            );
+            Map<String, Object> result = new HashMap<>();
+            result.put("users", tuple.getT1());
+            result.put("courses", tuple.getT2());
+            result.put("reservations", tuple.getT3());
+            result.put("schedules", tuple.getT4());
+            result.put("resources", tuple.getT5());
+            return result;
         }).doOnError(error -> log.error("Error collecting all data: {}", error.getMessage()))
         .onErrorReturn(Map.of());
     }

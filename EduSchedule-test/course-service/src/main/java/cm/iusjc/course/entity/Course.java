@@ -44,11 +44,17 @@ public class Course {
     @Column(name = "teacher_id")
     private Long teacherId; // ID de l'enseignant responsable
     
+    @Column(name = "school_id")
+    private Long schoolId; // ID de l'école
+    
+    @Column(name = "hours_per_week")
+    private Integer hoursPerWeek; // Nombre d'heures par semaine
+    
     @Column(name = "max_students")
     private Integer maxStudents; // Nombre maximum d'étudiants
     
     @Column(nullable = false)
-    private Boolean active = true;
+    private boolean active = true;
     
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

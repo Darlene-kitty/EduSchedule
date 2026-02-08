@@ -1,16 +1,17 @@
 package cm.iusjc.notification.controller;
 
 import cm.iusjc.notification.dto.NotificationDTO;
-import cm.iusjc.notification.entity.Notification;
 import cm.iusjc.notification.service.NotificationService;
-import cm.iusjc.notification.service.ReminderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 
@@ -22,232 +23,447 @@ import java.util.Map;
 public class NotificationController {
     
     private final NotificationService notificationService;
-    private final ReminderService reminderService;
     
-    @GetMapping
-    public ResponseEntity<List<NotificationDTO>> getAllNotifications() {
-        return ResponseEntity.ok(notificationService.getAllNotifications());
-    }
-    
-    @GetMapping("/{id}")
-    public ResponseEntity<NotificationDTO> getNotificationById(@PathVariable Long id) {
-        return ResponseEntity.ok(notificationService.getNotificationById(id));
-    }
-    
-    @GetMapping("/recipient/{recipient}")
-    public ResponseEntity<List<NotificationDTO>> getNotificationsByRecipient(@PathVariable String recipient) {
-        return ResponseEntity.ok(notificationService.getNotificationsByRecipient(recipient));
-    }
-    
-    @GetMapping("/status/{status}")
-    public ResponseEntity<List<NotificationDTO>> getNotificationsByStatus(@PathVariable String status) {
-        return ResponseEntity.ok(notificationService.getNotificationsByStatus(status));
-    }
-    
+    /**
+     * Crée une nouvelle notification
+     */
     @PostMapping
-    public ResponseEntity<NotificationDTO> createNotification(@RequestBody Map<String, String> request) {
-        String recipient = request.get("recipient");
-        String subject = request.get("subject");
-        String message = request.get("message");
-        String type = request.getOrDefault("type", "EMAIL");
-        
-        NotificationDTO notification = notificationService.createNotification(recipient, subject, message, type);
-        return ResponseEntity.status(HttpStatus.CREATED).body(notification);
-    }
-    
-    @PostMapping("/{id}/send")
-    public ResponseEntity<Void> sendNotification(@PathVariable Long id) {
-        notificationService.sendNotification(id);
-        return ResponseEntity.ok().build();
-    }
-    
-    @PostMapping("/send")
-    public ResponseEntity<Map<String, String>> sendDirectEmail(@RequestBody Map<String, String> request) {
+    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    public ResponseEntity<Map<String, Object>> createNotification(@Valid @RequestBody NotificationDTO notificationDTO) {
         try {
-            String to = request.get("to");
-            String subject = request.get("subject");
-            String message = request.get("message");
-            String type = request.getOrDefault("type", "EMAIL");
+            log.info("Creating notification for user: {}", notificationDTO.getUserId());
+            NotificationDTO createdNotification = notificationService.createNotification(notificationDTO);
             
-            if (to == null || subject == null || message == null) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "status", "error",
-                    "message", "Les champs 'to', 'subject' et 'message' sont requis"
-                ));
-            }
-            
-            // Créer et envoyer immédiatement la notification
-            NotificationDTO notification = notificationService.createNotification(to, subject, message, type);
-            notificationService.sendNotification(notification.getId());
-            
-            return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Email envoyé avec succès",
-                "notificationId", notification.getId().toString(),
-                "recipient", to
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "success", true,
+                "message", "Notification created successfully",
+                "data", createdNotification
             ));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "status", "error",
-                "message", "Échec de l'envoi de l'email: " + e.getMessage()
-            ));
-        }
-    }
-    
-    @PostMapping("/test-email")
-    public ResponseEntity<Map<String, String>> testEmail(@RequestBody Map<String, String> request) {
-        try {
-            String recipient = request.getOrDefault("recipient", "test@example.com");
-            String subject = request.getOrDefault("subject", "Test Email - EduSchedule");
-            String message = request.getOrDefault("message", "Ceci est un email de test depuis EduSchedule. Si vous recevez cet email, la configuration SMTP fonctionne correctement!");
-            
-            NotificationDTO notification = notificationService.createNotification(recipient, subject, message, "EMAIL");
-            
-            return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Email de test envoyé avec succès",
-                "notificationId", notification.getId().toString(),
-                "recipient", recipient
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "status", "error",
-                "message", "Échec de l'envoi de l'email: " + e.getMessage()
-            ));
-        }
-    }
-    
-    // Nouveaux endpoints pour les rappels
-    
-    @PostMapping("/reminders")
-    public ResponseEntity<Map<String, Object>> createReminder(@RequestBody Map<String, Object> request) {
-        try {
-            String recipient = (String) request.get("recipient");
-            String subject = (String) request.get("subject");
-            String message = (String) request.get("message");
-            String scheduledForStr = (String) request.get("scheduledFor");
-            String eventType = (String) request.get("eventType");
-            Long eventId = request.containsKey("eventId") ? ((Number) request.get("eventId")).longValue() : null;
-            String priority = (String) request.getOrDefault("priority", "NORMAL");
-            String templateName = (String) request.get("templateName");
-            
-            @SuppressWarnings("unchecked")
-            Map<String, Object> metadata = (Map<String, Object>) request.get("metadata");
-            
-            LocalDateTime scheduledFor = LocalDateTime.parse(scheduledForStr);
-            
-            Long reminderId = reminderService.createReminder(
-                recipient, subject, message, scheduledFor, eventType, eventId, priority, templateName, metadata
-            );
-            
-            return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Reminder created successfully",
-                "reminderId", reminderId
-            ));
-        } catch (Exception e) {
-            log.error("Error creating reminder", e);
+            log.error("Error creating notification: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
-                "status", "error",
+                "success", false,
                 "message", e.getMessage()
             ));
         }
     }
     
-    @GetMapping("/reminders/user/{userEmail}")
-    public ResponseEntity<List<Notification>> getScheduledRemindersForUser(@PathVariable String userEmail) {
-        List<Notification> reminders = reminderService.getScheduledRemindersForUser(userEmail);
-        return ResponseEntity.ok(reminders);
-    }
-    
-    @DeleteMapping("/reminders/{reminderId}")
-    public ResponseEntity<Map<String, String>> cancelReminder(@PathVariable Long reminderId) {
+    /**
+     * Crée des notifications en masse
+     */
+    @PostMapping("/bulk")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> createBulkNotifications(
+            @RequestBody Map<String, Object> request) {
         try {
-            reminderService.cancelReminder(reminderId);
-            return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Reminder cancelled successfully"
+            @SuppressWarnings("unchecked")
+            List<Long> userIds = (List<Long>) request.get("userIds");
+            NotificationDTO template = new NotificationDTO();
+            template.setTitle((String) request.get("title"));
+            template.setMessage((String) request.get("message"));
+            template.setType((String) request.get("type"));
+            template.setPriority((String) request.get("priority"));
+            template.setChannel((String) request.get("channel"));
+            
+            log.info("Creating bulk notifications for {} users", userIds.size());
+            List<NotificationDTO> createdNotifications = notificationService.createBulkNotifications(userIds, template);
+            
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "success", true,
+                "message", "Bulk notifications created successfully",
+                "data", createdNotifications,
+                "total", createdNotifications.size()
             ));
         } catch (Exception e) {
-            log.error("Error cancelling reminder", e);
+            log.error("Error creating bulk notifications: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
-                "status", "error",
+                "success", false,
                 "message", e.getMessage()
             ));
         }
     }
     
-    @PostMapping("/schedule-change")
-    public ResponseEntity<Map<String, String>> notifyScheduleChange(@RequestBody Map<String, Object> request) {
+    /**
+     * Récupère toutes les notifications
+     */
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> getAllNotifications() {
         try {
-            Long scheduleId = ((Number) request.get("scheduleId")).longValue();
-            String changeType = (String) request.get("changeType");
-            @SuppressWarnings("unchecked")
-            List<String> affectedUsers = (List<String>) request.get("affectedUsers");
-            @SuppressWarnings("unchecked")
-            Map<String, Object> scheduleData = (Map<String, Object>) request.get("scheduleData");
-            
-            reminderService.createScheduleChangeReminders(scheduleId, changeType, affectedUsers, scheduleData);
+            List<NotificationDTO> notifications = notificationService.getAllNotifications();
             
             return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Schedule change notifications created successfully"
+                "success", true,
+                "data", notifications,
+                "total", notifications.size()
             ));
         } catch (Exception e) {
-            log.error("Error creating schedule change notifications", e);
+            log.error("Error fetching notifications: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
-                "status", "error",
+                "success", false,
                 "message", e.getMessage()
             ));
         }
     }
     
-    @PostMapping("/room-change")
-    public ResponseEntity<Map<String, String>> notifyRoomChange(@RequestBody Map<String, Object> request) {
+    /**
+     * Récupère les notifications avec pagination
+     */
+    @GetMapping("/paginated")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> getAllNotificationsPaginated(Pageable pageable) {
         try {
-            Long reservationId = ((Number) request.get("reservationId")).longValue();
-            String oldRoom = (String) request.get("oldRoom");
-            String newRoom = (String) request.get("newRoom");
-            @SuppressWarnings("unchecked")
-            List<String> affectedUsers = (List<String>) request.get("affectedUsers");
-            @SuppressWarnings("unchecked")
-            Map<String, Object> reservationData = (Map<String, Object>) request.get("reservationData");
-            
-            reminderService.createRoomChangeReminders(reservationId, oldRoom, newRoom, affectedUsers, reservationData);
+            Page<NotificationDTO> notificationsPage = notificationService.getAllNotifications(pageable);
             
             return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Room change notifications created successfully"
+                "success", true,
+                "data", notificationsPage.getContent(),
+                "page", notificationsPage.getNumber(),
+                "size", notificationsPage.getSize(),
+                "totalElements", notificationsPage.getTotalElements(),
+                "totalPages", notificationsPage.getTotalPages()
             ));
         } catch (Exception e) {
-            log.error("Error creating room change notifications", e);
+            log.error("Error fetching paginated notifications: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
-                "status", "error",
+                "success", false,
                 "message", e.getMessage()
             ));
         }
     }
     
-    @PostMapping("/cancellation")
-    public ResponseEntity<Map<String, String>> notifyCancellation(@RequestBody Map<String, Object> request) {
+    /**
+     * Récupère une notification par ID
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> getNotificationById(@PathVariable Long id) {
         try {
-            Long scheduleId = ((Number) request.get("scheduleId")).longValue();
-            @SuppressWarnings("unchecked")
-            List<String> affectedUsers = (List<String>) request.get("affectedUsers");
-            @SuppressWarnings("unchecked")
-            Map<String, Object> scheduleData = (Map<String, Object>) request.get("scheduleData");
-            String reason = (String) request.getOrDefault("reason", "Non spécifiée");
-            
-            reminderService.createCancellationReminders(scheduleId, affectedUsers, scheduleData, reason);
+            return notificationService.getNotificationById(id)
+                    .map(notification -> ResponseEntity.ok(Map.of(
+                        "success", true,
+                        "data", notification
+                    )))
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            log.error("Error fetching notification by ID {}: {}", id, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Récupère les notifications d'un utilisateur
+     */
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<Map<String, Object>> getNotificationsByUser(@PathVariable Long userId) {
+        try {
+            List<NotificationDTO> notifications = notificationService.getNotificationsByUser(userId);
             
             return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Cancellation notifications created successfully"
+                "success", true,
+                "data", notifications,
+                "total", notifications.size()
             ));
         } catch (Exception e) {
-            log.error("Error creating cancellation notifications", e);
+            log.error("Error fetching notifications for user {}: {}", userId, e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
-                "status", "error",
+                "success", false,
+                "message", e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Récupère les notifications d'un utilisateur avec pagination
+     */
+    @GetMapping("/user/{userId}/paginated")
+    public ResponseEntity<Map<String, Object>> getNotificationsByUserPaginated(
+            @PathVariable Long userId, Pageable pageable) {
+        try {
+            Page<NotificationDTO> notificationsPage = notificationService.getNotificationsByUser(userId, pageable);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", notificationsPage.getContent(),
+                "page", notificationsPage.getNumber(),
+                "size", notificationsPage.getSize(),
+                "totalElements", notificationsPage.getTotalElements(),
+                "totalPages", notificationsPage.getTotalPages()
+            ));
+        } catch (Exception e) {
+            log.error("Error fetching paginated notifications for user {}: {}", userId, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Récupère les notifications non lues d'un utilisateur
+     */
+    @GetMapping("/user/{userId}/unread")
+    public ResponseEntity<Map<String, Object>> getUnreadNotificationsByUser(@PathVariable Long userId) {
+        try {
+            List<NotificationDTO> unreadNotifications = notificationService.getUnreadNotificationsByUser(userId);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", unreadNotifications,
+                "total", unreadNotifications.size()
+            ));
+        } catch (Exception e) {
+            log.error("Error fetching unread notifications for user {}: {}", userId, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Récupère les notifications par type
+     */
+    @GetMapping("/type/{type}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> getNotificationsByType(@PathVariable String type) {
+        try {
+            List<NotificationDTO> notifications = notificationService.getNotificationsByType(type);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", notifications,
+                "total", notifications.size()
+            ));
+        } catch (Exception e) {
+            log.error("Error fetching notifications by type {}: {}", type, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Récupère les notifications en attente
+     */
+    @GetMapping("/pending")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> getPendingNotifications() {
+        try {
+            List<NotificationDTO> pendingNotifications = notificationService.getPendingNotifications();
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", pendingNotifications,
+                "total", pendingNotifications.size()
+            ));
+        } catch (Exception e) {
+            log.error("Error fetching pending notifications: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Met à jour une notification
+     */
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    public ResponseEntity<Map<String, Object>> updateNotification(
+            @PathVariable Long id, 
+            @Valid @RequestBody NotificationDTO notificationDTO) {
+        try {
+            NotificationDTO updatedNotification = notificationService.updateNotification(id, notificationDTO);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Notification updated successfully",
+                "data", updatedNotification
+            ));
+        } catch (Exception e) {
+            log.error("Error updating notification {}: {}", id, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Marque une notification comme lue
+     */
+    @PatchMapping("/{id}/mark-read")
+    public ResponseEntity<Map<String, Object>> markAsRead(@PathVariable Long id) {
+        try {
+            NotificationDTO updatedNotification = notificationService.markAsRead(id);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Notification marked as read",
+                "data", updatedNotification
+            ));
+        } catch (Exception e) {
+            log.error("Error marking notification as read {}: {}", id, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Marque toutes les notifications d'un utilisateur comme lues
+     */
+    @PatchMapping("/user/{userId}/mark-all-read")
+    public ResponseEntity<Map<String, Object>> markAllAsReadForUser(@PathVariable Long userId) {
+        try {
+            notificationService.markAllAsReadForUser(userId);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "All notifications marked as read for user"
+            ));
+        } catch (Exception e) {
+            log.error("Error marking all notifications as read for user {}: {}", userId, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Marque une notification comme envoyée
+     */
+    @PatchMapping("/{id}/mark-sent")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> markAsSent(@PathVariable Long id) {
+        try {
+            NotificationDTO updatedNotification = notificationService.markAsSent(id);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Notification marked as sent",
+                "data", updatedNotification
+            ));
+        } catch (Exception e) {
+            log.error("Error marking notification as sent {}: {}", id, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Supprime une notification
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> deleteNotification(@PathVariable Long id) {
+        try {
+            notificationService.deleteNotification(id);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Notification deleted successfully"
+            ));
+        } catch (Exception e) {
+            log.error("Error deleting notification {}: {}", id, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Supprime toutes les notifications lues d'un utilisateur
+     */
+    @DeleteMapping("/user/{userId}/read")
+    public ResponseEntity<Map<String, Object>> deleteReadNotificationsForUser(@PathVariable Long userId) {
+        try {
+            notificationService.deleteReadNotificationsForUser(userId);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Read notifications deleted for user"
+            ));
+        } catch (Exception e) {
+            log.error("Error deleting read notifications for user {}: {}", userId, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Recherche des notifications
+     */
+    @GetMapping("/search")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> searchNotifications(@RequestParam String searchTerm) {
+        try {
+            List<NotificationDTO> notifications = notificationService.searchNotifications(searchTerm);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", notifications,
+                "total", notifications.size()
+            ));
+        } catch (Exception e) {
+            log.error("Error searching notifications: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Obtient les statistiques des notifications
+     */
+    @GetMapping("/statistics")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> getNotificationStatistics() {
+        try {
+            NotificationService.NotificationStatistics stats = notificationService.getNotificationStatistics();
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", stats
+            ));
+        } catch (Exception e) {
+            log.error("Error fetching notification statistics: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Compte les notifications non lues d'un utilisateur
+     */
+    @GetMapping("/user/{userId}/unread-count")
+    public ResponseEntity<Map<String, Object>> getUnreadCount(@PathVariable Long userId) {
+        try {
+            long unreadCount = notificationService.countUnreadNotificationsForUser(userId);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", Map.of("unreadCount", unreadCount)
+            ));
+        } catch (Exception e) {
+            log.error("Error fetching unread count for user {}: {}", userId, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
                 "message", e.getMessage()
             ));
         }

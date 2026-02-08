@@ -20,6 +20,7 @@ import {
   Package,
   Edit,
   Trash2,
+  Eye,
   CheckCircle2,
   XCircle,
   AlertCircle,
@@ -151,6 +152,32 @@ export function ResourcesView() {
         variant: "destructive",
       })
     }
+  }
+
+  const handleViewResource = async (resourceId: number) => {
+    try {
+      const resource = await resourcesApi.getResourceById(resourceId)
+      // Ici vous pouvez ouvrir une modal de détails ou naviguer vers une page de détails
+      toast({
+        title: "Détails de la ressource",
+        description: `${resource.nom} - Capacité: ${resource.capacite}`,
+      })
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors du chargement des détails'
+      toast({
+        title: "Erreur",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleEditResource = (resource: Resource) => {
+    // Ici vous pouvez ouvrir une modal d'édition
+    toast({
+      title: "Édition",
+      description: `Édition de la ressource ${resource.nom}`,
+    })
   }
 
   const handleDeleteResource = async (resourceId: number) => {
@@ -328,7 +355,21 @@ export function ResourcesView() {
                   </div>
 
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1 gap-2 bg-transparent">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 gap-2 bg-transparent"
+                      onClick={() => handleViewResource(resource.id)}
+                    >
+                      <Eye className="w-3 h-3" />
+                      Voir
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 gap-2 bg-transparent"
+                      onClick={() => handleEditResource(resource)}
+                    >
                       <Edit className="w-3 h-3" />
                       Modifier
                     </Button>

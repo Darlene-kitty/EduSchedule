@@ -21,11 +21,18 @@ public class School {
 
     private String code;
     private String address;
+    private String city;
+    private String postalCode;
+    private String country;
     private String phone;
     private String email;
+    private String website;
+    
+    @Column(length = 1000)
+    private String description;
 
     @Column(nullable = false)
-    private Boolean active = true;
+    private boolean active = true;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

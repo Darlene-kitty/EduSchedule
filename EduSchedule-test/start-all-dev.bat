@@ -1,12 +1,13 @@
 @echo off
 echo ========================================
-echo REDIRECTION VERS SERVICES OPERATIONNELS
+echo   DEMARRAGE COMPLET - EDUSCHEDULE
+echo   Tous les services disponibles
 echo ========================================
 echo.
-echo Ce script redirige vers le nouveau script optimise
-echo qui demarre uniquement les services operationnels.
+echo Ce script demarre TOUS les 17 microservices
+echo pour un environnement de developpement complet.
 echo.
-echo Demarrage du script optimise...
+echo Demarrage du script complet...
 echo.
 
-call start-services-operationnels.bat
+call start-all-services-complete.bat
