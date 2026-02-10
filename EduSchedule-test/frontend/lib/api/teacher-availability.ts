@@ -45,6 +45,12 @@ export enum AvailabilityStatus {
   SUSPENDED = 'SUSPENDED'
 }
 
+export enum AvailabilityType {
+  AVAILABLE = 'AVAILABLE',
+  PREFERRED = 'PREFERRED',
+  UNAVAILABLE = 'UNAVAILABLE'
+}
+
 export interface CreateAvailabilityRequest {
   teacherId: number
   effectiveDate: string // YYYY-MM-DD
@@ -282,6 +288,24 @@ export const availabilityUtils = {
       SUSPENDED: 'bg-yellow-100 text-yellow-700'
     }
     return colors[status]
+  },
+
+  getAvailabilityTypeLabel(type: AvailabilityType): string {
+    const labels = {
+      AVAILABLE: 'Disponible',
+      PREFERRED: 'Préféré',
+      UNAVAILABLE: 'Indisponible'
+    }
+    return labels[type]
+  },
+
+  getAvailabilityTypeColor(type: AvailabilityType): string {
+    const colors = {
+      AVAILABLE: 'bg-green-100 text-green-700',
+      PREFERRED: 'bg-blue-100 text-blue-700',
+      UNAVAILABLE: 'bg-red-100 text-red-700'
+    }
+    return colors[type]
   },
 
   formatTimeSlot(startTime: string, endTime: string): string {
