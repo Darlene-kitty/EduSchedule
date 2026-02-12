@@ -9,6 +9,7 @@ import type { User, UserRole } from '@/contexts/auth-context'
 export interface LoginRequest {
   username: string  // Backend attend 'username', pas 'email'
   password: string
+  rememberMe?: boolean
 }
 
 export interface LoginResponse {

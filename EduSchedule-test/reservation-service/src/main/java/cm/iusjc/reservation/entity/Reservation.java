@@ -55,6 +55,9 @@ public class Reservation {
     @Column(name = "parent_reservation_id")
     private Long parentReservationId; // Pour les réservations récurrentes
     
+    @Column(name = "schedule_id")
+    private Long scheduleId; // Lien vers l'emploi du temps
+    
     @Column(name = "expected_attendees")
     private Integer expectedAttendees; // Nombre d'participants attendus
     

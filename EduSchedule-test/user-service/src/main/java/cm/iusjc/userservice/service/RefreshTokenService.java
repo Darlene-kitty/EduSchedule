@@ -22,24 +22,39 @@ public class RefreshTokenService {
     @Value("${jwt.refresh.expiration:604800000}") // 7 jours par défaut
     private Long refreshTokenDurationMs;
     
+    @Value("${jwt.refresh.remember-me-expiration:2592000000}") // 30 jours pour Remember Me
+    private Long rememberMeRefreshTokenDurationMs;
+    
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserRepository userRepository;
     
     @Transactional
     public RefreshToken createRefreshToken(Long userId) {
+        return createRefreshToken(userId, false);
+    }
+    
+    @Transactional
+    public RefreshToken createLongLivedRefreshToken(Long userId) {
+        return createRefreshToken(userId, true);
+    }
+    
+    @Transactional
+    private RefreshToken createRefreshToken(Long userId, boolean rememberMe) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
         
         // Supprimer l'ancien refresh token s'il existe
         refreshTokenRepository.findByUser(user).ifPresent(refreshTokenRepository::delete);
         
+        long duration = rememberMe ? rememberMeRefreshTokenDurationMs : refreshTokenDurationMs;
+        
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUser(user);
         refreshToken.setToken(UUID.randomUUID().toString());
-        refreshToken.setExpiryDate(LocalDateTime.now().plusSeconds(refreshTokenDurationMs / 1000));
+        refreshToken.setExpiryDate(LocalDateTime.now().plusSeconds(duration / 1000));
         
         refreshToken = refreshTokenRepository.save(refreshToken);
-        log.info("Refresh token created for user: {}", user.getUsername());
+        log.info("Refresh token created for user: {} (Remember Me: {})", user.getUsername(), rememberMe);
         
         return refreshToken;
     }

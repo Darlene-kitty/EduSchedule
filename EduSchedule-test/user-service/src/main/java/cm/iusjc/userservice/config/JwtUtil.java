@@ -22,6 +22,9 @@ public class JwtUtil {
     @Value("${jwt.expiration}")
     private Long expiration;
     
+    @Value("${jwt.remember-me-expiration:2592000000}") // 30 jours par défaut
+    private Long rememberMeExpiration;
+    
     private Key getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes());
     }
@@ -52,17 +55,24 @@ public class JwtUtil {
     }
     
     public String generateToken(String username, String role) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("role", role);
-        return createToken(claims, username);
+        return generateToken(username, role, false);
     }
     
-    private String createToken(Map<String, Object> claims, String subject) {
+    public String generateToken(String username, String role, boolean rememberMe) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", role);
+        claims.put("rememberMe", rememberMe);
+        return createToken(claims, username, rememberMe);
+    }
+    
+    private String createToken(Map<String, Object> claims, String subject, boolean rememberMe) {
+        long tokenExpiration = rememberMe ? rememberMeExpiration : expiration;
+        
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .setExpiration(new Date(System.currentTimeMillis() + tokenExpiration))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
@@ -75,5 +85,11 @@ public class JwtUtil {
     public String extractRole(String token) {
         Claims claims = extractAllClaims(token);
         return claims.get("role", String.class);
+    }
+    
+    public Boolean isRememberMeToken(String token) {
+        Claims claims = extractAllClaims(token);
+        return claims.get("rememberMe", Boolean.class) != null && 
+               claims.get("rememberMe", Boolean.class);
     }
 }

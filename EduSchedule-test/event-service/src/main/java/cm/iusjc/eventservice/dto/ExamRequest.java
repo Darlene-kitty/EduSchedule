@@ -46,6 +46,10 @@ public class ExamRequest {
     @Min(value = 1, message = "Max students must be at least 1")
     private Integer maxStudents;
     
+    private Long teacherId;
+    
     private String instructions;
     private String materialsAllowed;
+    
+    private java.util.List<SupervisorRequest> supervisors;
 }

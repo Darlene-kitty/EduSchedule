@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Sidebar } from "./sidebar"
 import { Header } from "./header"
 import { Card } from "@/components/ui/card"
@@ -24,52 +24,90 @@ import {
 } from "lucide-react"
 import { reservationsApi, Reservation, ReservationStatus, ReservationType } from "@/lib/api/reservations"
 import { useToast } from "@/hooks/use-toast"
+import { usePerformance, useOptimizedPagination, useOptimizedCache } from "@/hooks/use-performance"
 
 export function ReservationsView() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedStatus, setSelectedStatus] = useState<string>("all")
-  const [selectedType, setSelectedType] = useState<string>("all")
-  const [reservations, setReservations] = useState<Reservation[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { measureAsync } = usePerformance('ReservationsView')
   const { toast } = useToast()
 
-  // Charger les réservations au montage du composant
-  useEffect(() => {
-    loadReservations()
-  }, [])
+  // Cache optimisé pour les réservations
+  const {
+    data: reservations = [],
+    loading,
+    error,
+    refetch,
+    invalidate
+  } = useOptimizedCache(
+    'reservations',
+    () => measureAsync(
+      () => reservationsApi.searchReservations({}),
+      'loadReservations'
+    ),
+    { ttl: 2 * 60 * 1000 } // 2 minutes de cache
+  )
 
-  const loadReservations = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      // Pour l'instant, on charge toutes les réservations
-      // Dans une vraie application, on pourrait implémenter une pagination
-      const reservationsData = await reservationsApi.searchReservations({})
-      setReservations(reservationsData)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erreur lors du chargement des réservations'
-      setError(errorMessage)
-      toast({
-        title: "Erreur",
-        description: errorMessage,
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+  // États pour les filtres
+  const [selectedStatus, setSelectedStatus] = useState<string>("all")
+  const [selectedType, setSelectedType] = useState<string>("all")
 
-  const filteredReservations = reservations.filter((reservation) => {
-    const matchesSearch =
-      reservation.purpose.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      reservation.id.toString().includes(searchQuery)
-    const matchesStatus = selectedStatus === "all" || reservation.status === selectedStatus
-    const matchesType = selectedType === "all" || reservation.type === selectedType
-    return matchesSearch && matchesStatus && matchesType
-  })
+  // Filtrage optimisé avec useMemo
+  const filteredReservations = useMemo(() => {
+    if (!reservations) return []
+    return reservations.filter((reservation) => {
+      const matchesStatus = selectedStatus === "all" || reservation.status === selectedStatus
+      const matchesType = selectedType === "all" || reservation.type === selectedType
+      return matchesStatus && matchesType
+    })
+  }, [reservations, selectedStatus, selectedType])
 
-  const getStatusColor = (status: ReservationStatus) => {
+  // Pagination optimisée
+  const {
+    currentItems,
+    currentPage,
+    totalPages,
+    totalItems,
+    searchQuery,
+    setSearchQuery,
+    goToPage,
+    nextPage,
+    prevPage,
+    hasNextPage,
+    hasPrevPage
+  } = useOptimizedPagination(filteredReservations, 12) // 12 items par page
+
+  // Statistiques mémorisées
+  const stats = useMemo(() => {
+    if (!reservations) return []
+    return [
+      { 
+        label: "Total réservations", 
+        value: reservations.length, 
+        color: "bg-blue-500", 
+        icon: Calendar 
+      },
+      {
+        label: "Approuvées",
+        value: reservations.filter((r) => r.status === ReservationStatus.APPROVED).length,
+        color: "bg-green-500",
+        icon: CheckCircle2,
+      },
+      {
+        label: "En attente",
+        value: reservations.filter((r) => r.status === ReservationStatus.PENDING).length,
+        color: "bg-yellow-500",
+        icon: Clock,
+      },
+      {
+        label: "Annulées",
+        value: reservations.filter((r) => r.status === ReservationStatus.CANCELLED).length,
+        color: "bg-red-500",
+        icon: XCircle,
+      },
+    ]
+  }, [reservations])
+
+  // Fonctions optimisées avec useCallback
+  const getStatusColor = useCallback((status: ReservationStatus) => {
     switch (status) {
       case ReservationStatus.APPROVED:
         return "bg-green-100 text-green-700"
@@ -82,9 +120,9 @@ export function ReservationsView() {
       default:
         return "bg-gray-100 text-gray-700"
     }
-  }
+  }, [])
 
-  const getStatusIcon = (status: ReservationStatus) => {
+  const getStatusIcon = useCallback((status: ReservationStatus) => {
     switch (status) {
       case ReservationStatus.APPROVED:
         return CheckCircle2
@@ -96,9 +134,9 @@ export function ReservationsView() {
       default:
         return AlertCircle
     }
-  }
+  }, [])
 
-  const getStatusLabel = (status: ReservationStatus) => {
+  const getStatusLabel = useCallback((status: ReservationStatus) => {
     switch (status) {
       case ReservationStatus.APPROVED:
         return "Approuvée"
@@ -111,9 +149,9 @@ export function ReservationsView() {
       default:
         return status
     }
-  }
+  }, [])
 
-  const getTypeColor = (type: ReservationType) => {
+  const getTypeColor = useCallback((type: ReservationType) => {
     switch (type) {
       case ReservationType.COURSE:
         return "bg-blue-100 text-blue-700"
@@ -126,9 +164,9 @@ export function ReservationsView() {
       default:
         return "bg-gray-100 text-gray-700"
     }
-  }
+  }, [])
 
-  const getTypeLabel = (type: ReservationType) => {
+  const getTypeLabel = useCallback((type: ReservationType) => {
     switch (type) {
       case ReservationType.COURSE:
         return "Cours"
@@ -141,20 +179,17 @@ export function ReservationsView() {
       default:
         return type
     }
-  }
+  }, [])
 
-  const handleApproveReservation = async (reservationId: number) => {
+  const handleApproveReservation = useCallback(async (reservationId: number) => {
     try {
-      // Dans une vraie application, on récupérerait l'ID de l'utilisateur connecté
       const currentUserId = 1 // Placeholder
-      await reservationsApi.approveReservation(reservationId, currentUserId)
+      await measureAsync(
+        () => reservationsApi.approveReservation(reservationId, currentUserId),
+        'approveReservation'
+      )
       
-      // Mettre à jour l'état local
-      setReservations(prev => prev.map(res => 
-        res.id === reservationId 
-          ? { ...res, status: ReservationStatus.APPROVED, approvedBy: currentUserId, approvedAt: new Date().toISOString() }
-          : res
-      ))
+      invalidate() // Invalider le cache pour recharger les données
       
       toast({
         title: "Succès",
@@ -168,28 +203,19 @@ export function ReservationsView() {
         variant: "destructive",
       })
     }
-  }
+  }, [measureAsync, invalidate, toast])
 
-  const handleCancelReservation = async (reservationId: number) => {
+  const handleCancelReservation = useCallback(async (reservationId: number) => {
     const reason = prompt("Raison de l'annulation (optionnel):")
     
     try {
-      // Dans une vraie application, on récupérerait l'ID de l'utilisateur connecté
       const currentUserId = 1 // Placeholder
-      await reservationsApi.cancelReservation(reservationId, currentUserId, reason || undefined)
+      await measureAsync(
+        () => reservationsApi.cancelReservation(reservationId, currentUserId, reason || undefined),
+        'cancelReservation'
+      )
       
-      // Mettre à jour l'état local
-      setReservations(prev => prev.map(res => 
-        res.id === reservationId 
-          ? { 
-              ...res, 
-              status: ReservationStatus.CANCELLED, 
-              cancelledBy: currentUserId, 
-              cancelledAt: new Date().toISOString(),
-              cancellationReason: reason || undefined
-            }
-          : res
-      ))
+      invalidate() // Invalider le cache pour recharger les données
       
       toast({
         title: "Succès",
@@ -203,9 +229,9 @@ export function ReservationsView() {
         variant: "destructive",
       })
     }
-  }
+  }, [measureAsync, invalidate, toast])
 
-  const formatDateTime = (dateTime: string) => {
+  const formatDateTime = useCallback((dateTime: string) => {
     return new Date(dateTime).toLocaleString('fr-FR', {
       day: '2-digit',
       month: '2-digit',
@@ -213,29 +239,7 @@ export function ReservationsView() {
       hour: '2-digit',
       minute: '2-digit'
     })
-  }
-
-  const stats = [
-    { label: "Total réservations", value: reservations.length, color: "bg-blue-500", icon: Calendar },
-    {
-      label: "Approuvées",
-      value: reservations.filter((r) => r.status === ReservationStatus.APPROVED).length,
-      color: "bg-green-500",
-      icon: CheckCircle2,
-    },
-    {
-      label: "En attente",
-      value: reservations.filter((r) => r.status === ReservationStatus.PENDING).length,
-      color: "bg-yellow-500",
-      icon: Clock,
-    },
-    {
-      label: "Annulées",
-      value: reservations.filter((r) => r.status === ReservationStatus.CANCELLED).length,
-      color: "bg-red-500",
-      icon: XCircle,
-    },
-  ]
+  }, [])
 
   if (loading) {
     return (
@@ -264,8 +268,8 @@ export function ReservationsView() {
             <div className="text-center">
               <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">Erreur de chargement</h3>
-              <p className="text-muted-foreground mb-4">{error}</p>
-              <Button onClick={loadReservations}>Réessayer</Button>
+              <p className="text-muted-foreground mb-4">{error.message}</p>
+              <Button onClick={refetch}>Réessayer</Button>
             </div>
           </main>
         </div>
@@ -343,9 +347,37 @@ export function ReservationsView() {
             ))}
           </div>
 
+          {/* Pagination Info */}
+          <div className="flex justify-between items-center mb-4">
+            <p className="text-sm text-muted-foreground">
+              Affichage de {currentItems.length} sur {totalItems} réservations
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={prevPage}
+                disabled={!hasPrevPage}
+              >
+                Précédent
+              </Button>
+              <span className="flex items-center px-3 text-sm">
+                Page {currentPage} sur {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={nextPage}
+                disabled={!hasNextPage}
+              >
+                Suivant
+              </Button>
+            </div>
+          </div>
+
           {/* Reservations Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredReservations.map((reservation) => {
+            {currentItems.map((reservation) => {
               const StatusIcon = getStatusIcon(reservation.status)
               return (
                 <Card key={reservation.id} className="p-5 hover:shadow-lg transition-shadow">
@@ -449,7 +481,7 @@ export function ReservationsView() {
             })}
           </div>
 
-          {filteredReservations.length === 0 && (
+          {currentItems.length === 0 && (
             <div className="text-center py-12">
               <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">Aucune réservation trouvée</h3>
@@ -458,6 +490,51 @@ export function ReservationsView() {
                   ? "Aucune réservation ne correspond à vos critères de recherche."
                   : "Commencez par créer votre première réservation."}
               </p>
+            </div>
+          )}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex justify-center mt-8">
+              <div className="flex gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => goToPage(1)}
+                  disabled={currentPage === 1}
+                >
+                  1
+                </Button>
+                {currentPage > 3 && <span className="px-2">...</span>}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const page = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i
+                  if (page <= totalPages && page > 1 && page < totalPages) {
+                    return (
+                      <Button
+                        key={page}
+                        variant={currentPage === page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => goToPage(page)}
+                        className={currentPage === page ? "bg-[#15803D] hover:bg-[#15803D]/90" : ""}
+                      >
+                        {page}
+                      </Button>
+                    )
+                  }
+                  return null
+                })}
+                {currentPage < totalPages - 2 && <span className="px-2">...</span>}
+                {totalPages > 1 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                  >
+                    {totalPages}
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </main>

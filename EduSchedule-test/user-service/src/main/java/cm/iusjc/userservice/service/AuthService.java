@@ -47,13 +47,15 @@ public class AuthService {
             User user = userRepository.findByUsername(request.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found"));
             
-            // Générer le token JWT
-            String token = jwtUtil.generateToken(user.getUsername(), user.getRole());
+            // Générer le token JWT avec ou sans Remember Me
+            String token = jwtUtil.generateToken(user.getUsername(), user.getRole(), request.isRememberMe());
             
-            // Générer le refresh token
-            RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
+            // Générer le refresh token avec durée adaptée
+            RefreshToken refreshToken = request.isRememberMe() 
+                ? refreshTokenService.createLongLivedRefreshToken(user.getId())
+                : refreshTokenService.createRefreshToken(user.getId());
             
-            log.info("User logged in successfully: {}", request.getUsername());
+            log.info("User logged in successfully: {} (Remember Me: {})", request.getUsername(), request.isRememberMe());
             
             return new LoginResponse(
                     token,

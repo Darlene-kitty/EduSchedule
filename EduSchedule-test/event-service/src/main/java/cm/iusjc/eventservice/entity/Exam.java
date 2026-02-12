@@ -48,6 +48,9 @@ public class Exam {
     @Column(name = "registered_students")
     private Integer registeredStudents = 0;
     
+    @Column(name = "teacher_id")
+    private Long teacherId;
+    
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ExamStatus status = ExamStatus.SCHEDULED;

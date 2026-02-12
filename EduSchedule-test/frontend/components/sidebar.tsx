@@ -12,6 +12,11 @@ import {
   Bell,
   LogOut,
   User,
+  UserCheck,
+  Settings,
+  School,
+  Brain,
+  TrendingUp,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -23,12 +28,35 @@ const menuItems = [
   {
     icon: LayoutDashboard,
     label: "Tableau de bord",
-    href: "/",
+    href: "/dashboard",
     key: "dashboard",
     roles: ["admin", "teacher", "student"],
   },
-  { icon: User, label: "Mon Profil", href: "/profile", key: "profile", roles: ["admin", "teacher", "student"] },
-  { icon: Users, label: "Utilisateurs", href: "/users", key: "users", roles: ["admin"] },
+  { 
+    icon: User, 
+    label: "Mon Profil", 
+    href: "/profile", 
+    key: "profile", 
+    roles: ["admin", "teacher", "student"] 
+  },
+  
+  // Section Gestion des utilisateurs
+  { 
+    icon: Users, 
+    label: "Utilisateurs", 
+    href: "/users", 
+    key: "users", 
+    roles: ["admin"] 
+  },
+  { 
+    icon: School, 
+    label: "Écoles", 
+    href: "/schools", 
+    key: "schools", 
+    roles: ["admin"] 
+  },
+  
+  // Section Planning et Emplois du temps
   {
     icon: Clock,
     label: "Emplois du temps",
@@ -38,15 +66,53 @@ const menuItems = [
   },
   {
     icon: Calendar,
+    label: "Calendrier",
+    href: "/calendar",
+    key: "calendar",
+    roles: ["admin", "teacher", "student"],
+  },
+  { 
+    icon: UserCheck, 
+    label: "Disponibilités", 
+    href: "/teacher-availability", 
+    key: "teacher-availability", 
+    roles: ["admin", "teacher"] 
+  },
+  
+  // Section Réservations et Ressources
+  {
+    icon: Calendar,
     label: "Réservation salles",
     href: "/reservations",
     key: "reservations",
     roles: ["admin", "teacher"],
   },
-  { icon: BookOpen, label: "Cours & Groupes", href: "/courses", key: "courses", roles: ["admin", "teacher"] },
-  { icon: Package, label: "Ressources", href: "/resources", key: "resources", roles: ["admin"] },
-  { icon: AlertTriangle, label: "Conflits", href: "/conflicts", key: "conflicts", roles: ["admin"], badge: 3 },
-  { icon: BarChart3, label: "Rapports", href: "/reports", key: "reports", roles: ["admin"] },
+  { 
+    icon: Package, 
+    label: "Ressources", 
+    href: "/resources", 
+    key: "resources", 
+    roles: ["admin", "teacher"] 
+  },
+  
+  // Section Cours et Formation
+  { 
+    icon: BookOpen, 
+    label: "Cours & Groupes", 
+    href: "/courses", 
+    key: "courses", 
+    roles: ["admin", "teacher"] 
+  },
+  
+  // Section Gestion et Monitoring
+  { 
+    icon: AlertTriangle, 
+    label: "Conflits", 
+    href: "/conflicts", 
+    key: "conflicts", 
+    roles: ["admin"], 
+    badge: 3 
+  },
   {
     icon: Bell,
     label: "Notifications",
@@ -55,7 +121,56 @@ const menuItems = [
     roles: ["admin", "teacher", "student"],
     badge: 2,
   },
-  { icon: Calendar, label: "Calendrier", href: "/calendar", key: "calendar", roles: ["admin", "teacher", "student"] },
+  
+  // Section Analytics et Rapports
+  { 
+    icon: BarChart3, 
+    label: "Rapports", 
+    href: "/reports", 
+    key: "reports", 
+    roles: ["admin"] 
+  },
+  { 
+    icon: TrendingUp, 
+    label: "Analytics", 
+    href: "/analytics", 
+    key: "analytics", 
+    roles: ["admin"] 
+  },
+  { 
+    icon: Brain, 
+    label: "IA Prédictive", 
+    href: "/ai-insights", 
+    key: "ai-insights", 
+    roles: ["admin"] 
+  },
+  
+  // Section Optimisations Avancées - Phase 3
+  { 
+    icon: Brain, 
+    label: "IA Assignation", 
+    href: "/intelligent-assignment", 
+    key: "intelligent-assignment", 
+    roles: ["admin"],
+    badge: "IA"
+  },
+  { 
+    icon: TrendingUp, 
+    label: "Analytics Avancés", 
+    href: "/advanced-analytics", 
+    key: "advanced-analytics", 
+    roles: ["admin"],
+    badge: "PRO"
+  },
+  
+  // Section Configuration
+  { 
+    icon: Settings, 
+    label: "Paramètres", 
+    href: "/settings", 
+    key: "settings", 
+    roles: ["admin"] 
+  },
 ]
 
 interface SidebarProps {

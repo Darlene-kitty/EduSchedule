@@ -6,6 +6,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Configuration pour Docker build
+  output: 'standalone',
   // Optimisations pour accélérer le développement
   experimental: {
     turbo: {

@@ -22,7 +22,11 @@ export const rolePermissions: Record<UserRole, string[]> = {
     "view_notifications",
     "create_course",
   ],
-
+  student: [
+    "view_own_schedule",
+    "view_resources",
+    "view_notifications",
+  ]
 }
 
 export function hasPermission(role: UserRole, permission: string): boolean {

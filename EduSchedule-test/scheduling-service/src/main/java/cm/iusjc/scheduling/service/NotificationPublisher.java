@@ -1,6 +1,7 @@
 package cm.iusjc.scheduling.service;
 
 import cm.iusjc.scheduling.entity.Schedule;
+import cm.iusjc.scheduling.dto.NotificationRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -47,5 +48,18 @@ public class NotificationPublisher {
         
         rabbitTemplate.convertAndSend(EXCHANGE, "schedule.deleted", message);
         log.info("Published schedule.deleted event for schedule: {}", scheduleId);
+    }
+    
+    public void publishNotification(String routingKey, NotificationRequest notificationRequest) {
+        Map<String, Object> message = new HashMap<>();
+        message.put("event", "notification");
+        message.put("userId", notificationRequest.getUserId());
+        message.put("title", notificationRequest.getSubject());
+        message.put("message", notificationRequest.getContent());
+        message.put("type", notificationRequest.getType());
+        message.put("priority", notificationRequest.getPriority());
+        
+        rabbitTemplate.convertAndSend(EXCHANGE, routingKey, message);
+        log.info("Published notification event with routing key: {}", routingKey);
     }
 }
