@@ -1,0 +1,207 @@
+<app-layout activePage="courses" title="Cours" subtitle="Gérez les cours et programmes d'enseignement">
+  <div header-actions>
+    <button (click)="addCourse()" class="flex items-center gap-2 bg-[#15803D] hover:bg-[#15803D]/90 text-white px-4 py-2 rounded-lg transition-colors">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14"/>
+        <path d="M12 5v14"/>
+      </svg>
+      Ajouter un cours
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white p-4 rounded-lg shadow">
+      <div class="flex items-center gap-3">
+        <div class="bg-blue-500 w-12 h-12 rounded-lg flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-2xl font-bold">{{ stats.total }}</p>
+          <p class="text-sm text-gray-500">Total cours</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white p-4 rounded-lg shadow">
+      <div class="flex items-center gap-3">
+        <div class="bg-green-500 w-12 h-12 rounded-lg flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-2xl font-bold">{{ stats.totalHours }}</p>
+          <p class="text-sm text-gray-500">Heures/semaine</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white p-4 rounded-lg shadow">
+      <div class="flex items-center gap-3">
+        <div class="bg-purple-500 w-12 h-12 rounded-lg flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-2xl font-bold">{{ stats.departments }}</p>
+          <p class="text-sm text-gray-500">Départements</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white p-4 rounded-lg shadow">
+      <div class="flex items-center gap-3">
+        <div class="bg-orange-500 w-12 h-12 rounded-lg flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-2xl font-bold">{{ stats.withTeacher }}</p>
+          <p class="text-sm text-gray-500">Avec enseignant</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search and Filters -->
+  <div class="flex flex-col sm:flex-row gap-4 mb-6">
+    <div class="relative flex-1">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="m21 21-4.3-4.3"/>
+      </svg>
+      <input
+        type="text"
+        placeholder="Rechercher un cours..."
+        [(ngModel)]="searchQuery"
+        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#15803D]"
+      />
+    </div>
+  </div>
+
+  <!-- Department Filter -->
+  <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+    <button
+      (click)="selectedDepartment = 'all'"
+      [class]="selectedDepartment === 'all' ? 'bg-[#15803D] text-white' : 'bg-white text-gray-700 border border-gray-300'"
+      class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+    >
+      Tous
+    </button>
+    <button
+      *ngFor="let dept of uniqueDepartments"
+      (click)="selectedDepartment = dept ?? ''"
+      [class]="selectedDepartment === dept ? 'bg-[#15803D] text-white' : 'bg-white text-gray-700 border border-gray-300'"
+      class="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+    >
+      {{ dept }}
+    </button>
+  </div>
+
+  <!-- Courses Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div *ngFor="let course of filteredCourses" class="bg-white p-5 rounded-lg shadow hover:shadow-lg transition-shadow">
+      <div class="flex items-start justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <div class="bg-[#15803D] p-3 rounded-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="font-semibold">{{ course.name }}</h3>
+            <p class="text-sm text-gray-500">{{ course.code }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-2 mb-4">
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-gray-500">Type</span>
+          <span [class]="getTypeColor(course.type)" class="px-2 py-1 rounded text-xs font-medium">
+            {{ course.type }}
+          </span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-gray-500">Heures/semaine</span>
+          <div class="flex items-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <span class="text-sm font-medium">{{ course.hoursPerWeek }}h</span>
+          </div>
+        </div>
+        <div *ngIf="course.level" class="flex items-center justify-between">
+          <span class="text-sm text-gray-500">Niveau</span>
+          <span [class]="getLevelColor(course.level)" class="px-2 py-1 rounded text-xs font-medium">
+            {{ course.level }}
+          </span>
+        </div>
+        <div *ngIf="course.department" class="flex items-center justify-between">
+          <span class="text-sm text-gray-500">Département</span>
+          <span class="text-sm font-medium">{{ course.department }}</span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-4 border-t mb-4">
+        <span class="text-sm text-gray-500">
+          Créé le {{ course.createdAt | date:'dd/MM/yyyy' }}
+        </span>
+      </div>
+
+      <div class="flex gap-2">
+        <button
+          (click)="viewCourse(course)"
+          class="flex-1 flex items-center justify-center gap-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          Voir
+        </button>
+        <button
+          (click)="editCourse(course)"
+          class="flex-1 flex items-center justify-center gap-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+            <path d="m15 5 4 4"/>
+          </svg>
+          Modifier
+        </button>
+        <button
+          (click)="deleteCourse(course)"
+          class="flex items-center justify-center gap-2 px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-sm"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18"/>
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div *ngIf="filteredCourses.length === 0" class="text-center py-12">
+    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-gray-400 mb-4">
+      <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+      <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+    </svg>
+    <h3 class="text-lg font-semibold mb-2">Aucun cours trouvé</h3>
+    <p class="text-gray-500">
+      {{ searchQuery || selectedDepartment !== 'all' ? 'Aucun cours ne correspond à vos critères de recherche.' : 'Commencez par ajouter votre premier cours.' }}
+    </p>
+  </div>
+</app-layout>

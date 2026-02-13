@@ -1,0 +1,125 @@
+<div class="flex h-screen bg-gray-50">
+  <app-sidebar activePage="dashboard"></app-sidebar>
+  
+  <div class="flex-1 flex flex-col overflow-hidden">
+    <app-header 
+      title="Tableau de bord" 
+      subtitle="Vue d'ensemble de votre système de gestion académique">
+      <div class="flex gap-2">
+        <select class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+          <option value="day">Aujourd'hui</option>
+          <option value="week" selected>Cette semaine</option>
+          <option value="month">Ce mois</option>
+          <option value="quarter">Ce trimestre</option>
+        </select>
+        <button class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+          </svg>
+          Actualiser
+        </button>
+      </div>
+    </app-header>
+
+    <main class="flex-1 overflow-y-auto p-6">
+      <!-- Stats Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <div *ngFor="let stat of stats" class="bg-white p-6 rounded-lg shadow">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <p class="text-sm text-gray-500 mb-1">{{ stat.label }}</p>
+              <p class="text-3xl font-bold mb-2">{{ stat.value }}</p>
+              <div class="flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" [class]="stat.trend === 'up' ? 'text-green-500' : 'text-red-500'">
+                  <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+                  <polyline points="16 7 22 7 22 13"/>
+                </svg>
+                <span [class]="'text-sm font-medium ' + (stat.trend === 'up' ? 'text-green-500' : 'text-red-500')">
+                  {{ stat.change }}
+                </span>
+                <span class="text-sm text-gray-500">cette semaine</span>
+              </div>
+            </div>
+            <div [class]="stat.color + ' p-3 rounded-lg'">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Efficiency Score -->
+      <div class="mb-6">
+        <div class="bg-white p-6 rounded-lg shadow">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-semibold">Score d'Efficacité Global</h3>
+              <p class="text-sm text-gray-500">Optimisation de l'utilisation des ressources</p>
+            </div>
+            <div class="text-right">
+              <div class="text-3xl font-bold text-[#15803D]">{{ efficiencyScore }}%</div>
+              <div class="flex items-center gap-1 justify-end">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-500">
+                  <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+                  <polyline points="16 7 22 7 22 13"/>
+                </svg>
+                <span class="text-sm font-medium text-green-500">{{ efficiencyTrend }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="bg-[#15803D] h-2 rounded-full transition-all duration-500" [style.width.%]="efficiencyScore"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activities and Upcoming Courses -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Recent Activities -->
+        <div class="bg-white p-6 rounded-lg shadow">
+          <h3 class="text-lg font-semibold mb-4">Activités récentes</h3>
+          <div class="space-y-4">
+            <div *ngFor="let activity of recentActivities" class="flex items-start gap-3">
+              <div [class]="'p-2 rounded-lg ' + getActivityClass(activity.type)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" [class]="getActivityIconClass(activity.type)">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+              <div class="flex-1">
+                <p class="text-sm font-medium">{{ activity.message }}</p>
+                <p class="text-xs text-gray-500 mt-1">{{ activity.time }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upcoming Courses -->
+        <div class="bg-white p-6 rounded-lg shadow">
+          <h3 class="text-lg font-semibold mb-4">Prochains cours aujourd'hui</h3>
+          <div class="space-y-3">
+            <div *ngFor="let course of upcomingCourses" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <div [class]="'w-1 h-16 ' + course.color + ' rounded-full'"></div>
+              <div class="flex-1">
+                <p class="font-semibold text-sm">{{ course.subject }}</p>
+                <div class="flex items-center gap-2 mt-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  <p class="text-xs text-gray-500">{{ course.time }}</p>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">
+                  {{ course.room }} • {{ course.group }} • {{ course.professor }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
