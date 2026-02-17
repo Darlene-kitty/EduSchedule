@@ -77,18 +77,48 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Index pour optimisation
-CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
-CREATE INDEX IF NOT EXISTS idx_users_enabled ON users(enabled);
-CREATE INDEX IF NOT EXISTS idx_schedules_dates ON schedules(start_time, end_time);
-CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status);
-CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient);
-CREATE INDEX IF NOT EXISTS idx_notifications_event_id ON notifications(event_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_event_type ON notifications(event_type);
-CREATE INDEX IF NOT EXISTS idx_notifications_scheduled_for ON notifications(scheduled_for);
-CREATE INDEX IF NOT EXISTS idx_notifications_priority ON notifications(priority);
+-- Index pour optimisation (MySQL compatible: création idempotente)
+-- Utilisation d'une procédure pour créer les index seulement s'ils n'existent pas
+DELIMITER $$
+
+CREATE PROCEDURE IF NOT EXISTS create_index_if_not_exists(
+    IN p_table_name VARCHAR(255),
+    IN p_index_name VARCHAR(255),
+    IN p_index_columns VARCHAR(500)
+)
+BEGIN
+    DECLARE v_index_exists INT DEFAULT 0;
+    SELECT COUNT(*) INTO v_index_exists
+    FROM information_schema.statistics
+    WHERE table_schema = DATABASE()
+      AND table_name = p_table_name
+      AND index_name = p_index_name;
+    
+    IF v_index_exists = 0 THEN
+        SET @sql = CONCAT('CREATE INDEX ', p_index_name, ' ON ', p_table_name, '(', p_index_columns, ')');
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- Créer les index
+CALL create_index_if_not_exists('users', 'idx_users_username', 'username');
+CALL create_index_if_not_exists('users', 'idx_users_email', 'email');
+CALL create_index_if_not_exists('users', 'idx_users_role', 'role');
+CALL create_index_if_not_exists('users', 'idx_users_enabled', 'enabled');
+CALL create_index_if_not_exists('schedules', 'idx_schedules_dates', 'start_time, end_time');
+CALL create_index_if_not_exists('notifications', 'idx_notifications_status', 'status');
+CALL create_index_if_not_exists('notifications', 'idx_notifications_recipient', 'recipient');
+CALL create_index_if_not_exists('notifications', 'idx_notifications_event_id', 'event_id');
+CALL create_index_if_not_exists('notifications', 'idx_notifications_event_type', 'event_type');
+CALL create_index_if_not_exists('notifications', 'idx_notifications_scheduled_for', 'scheduled_for');
+CALL create_index_if_not_exists('notifications', 'idx_notifications_priority', 'priority');
+
+-- Nettoyer la procédure temporaire
+DROP PROCEDURE IF EXISTS create_index_if_not_exists;
 
 -- Tables pour school-service (écoles et filières)
 CREATE TABLE IF NOT EXISTS schools (
@@ -155,10 +185,10 @@ CREATE TABLE IF NOT EXISTS courses (
 );
 
 -- Amélioration de la table schedules
-ALTER TABLE schedules ADD COLUMN IF NOT EXISTS course_id BIGINT;
-ALTER TABLE schedules ADD COLUMN IF NOT EXISTS room_id BIGINT;
-ALTER TABLE schedules ADD COLUMN IF NOT EXISTS group_id BIGINT;
-ALTER TABLE schedules ADD COLUMN IF NOT EXISTS school_id BIGINT;
+ALTER TABLE schedules ADD COLUMN course_id BIGINT;
+ALTER TABLE schedules ADD COLUMN room_id BIGINT;
+ALTER TABLE schedules ADD COLUMN group_id BIGINT;
+ALTER TABLE schedules ADD COLUMN school_id BIGINT;
 
 -- Index pour optimisation
 CREATE INDEX idx_filieres_school ON filieres(school_id);
@@ -202,15 +232,42 @@ CREATE TABLE IF NOT EXISTS email_verification_tokens (
 );
 
 -- Ajouter colonnes pour les nouvelles fonctionnalités
-ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS remember_me_token VARCHAR(500);
-ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP NULL;
+ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN remember_me_token VARCHAR(500);
+ALTER TABLE users ADD COLUMN last_login TIMESTAMP NULL;
 
--- Index pour les tokens
-CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
-CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
-CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
-CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_token ON email_verification_tokens(token);
+-- Index pour les tokens (MySQL compatible: création idempotente)
+DELIMITER $$
+
+CREATE PROCEDURE IF NOT EXISTS create_index_if_not_exists(
+    IN p_table_name VARCHAR(255),
+    IN p_index_name VARCHAR(255),
+    IN p_index_columns VARCHAR(500)
+)
+BEGIN
+    DECLARE v_index_exists INT DEFAULT 0;
+    SELECT COUNT(*) INTO v_index_exists
+    FROM information_schema.statistics
+    WHERE table_schema = DATABASE()
+      AND table_name = p_table_name
+      AND index_name = p_index_name;
+    
+    IF v_index_exists = 0 THEN
+        SET @sql = CONCAT('CREATE INDEX ', p_index_name, ' ON ', p_table_name, '(', p_index_columns, ')');
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+    END IF;
+END$$
+
+DELIMITER ;
+
+CALL create_index_if_not_exists('refresh_tokens', 'idx_refresh_tokens_user', 'user_id');
+CALL create_index_if_not_exists('refresh_tokens', 'idx_refresh_tokens_token', 'token');
+CALL create_index_if_not_exists('password_reset_tokens', 'idx_password_reset_tokens_token', 'token');
+CALL create_index_if_not_exists('email_verification_tokens', 'idx_email_verification_tokens_token', 'token');
+
+DROP PROCEDURE IF EXISTS create_index_if_not_exists;
 
 -- Données de test
 INSERT INTO roles (name) VALUES ('ADMIN'), ('TEACHER') ON DUPLICATE KEY UPDATE name=name;
@@ -224,7 +281,7 @@ ON DUPLICATE KEY UPDATE username=username;
 
 -- Écoles de l'IUSJC
 INSERT INTO schools (name, code, description) VALUES 
-('Saint Jean Institute', 'SJI', 'École d\'ingénierie'),
+('Saint Jean Institute', 'SJI', "École d'ingénierie"),
 ('Saint Jean Medical', 'SJM', 'École de médecine'),
 ('PrepaVogt', 'PREPAV', 'Classes préparatoires'),
 ('CPGE', 'CPGE', 'Classes préparatoires aux grandes écoles')

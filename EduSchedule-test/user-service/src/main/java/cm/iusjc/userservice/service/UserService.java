@@ -5,6 +5,8 @@ import cm.iusjc.userservice.dto.UserDTO;
 import cm.iusjc.userservice.dto.ProfileUpdateRequest;
 import cm.iusjc.userservice.dto.PasswordChangeRequest;
 import cm.iusjc.userservice.entity.User;
+import cm.iusjc.userservice.entity.Role;
+import cm.iusjc.userservice.repository.RoleRepository;
 import cm.iusjc.userservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,10 +26,14 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserEventPublisher userEventPublisher;
     private final WelcomeEmailService welcomeEmailService;
-    
+    private final RoleRepository roleRepository;
+
     @Transactional
     public UserDTO createUser(RegisterRequest request) {
         log.info("Creating new user: {}", request.getUsername());
+
+        Role role = roleRepository.findByName(request.getRole().toUpperCase())
+                .orElseThrow(() -> new RuntimeException("Role '" + request.getRole().toUpperCase() + "' not found"));
         
         if (userRepository.existsByUsername(request.getUsername())) {
             log.warn("Username already exists: {}", request.getUsername());
@@ -45,7 +51,7 @@ public class UserService {
         user.setLastName(request.getLastName());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole(request.getRole());
+        user.setRole(role);
         user.setEnabled(true);
         // Définir les nouveaux champs Spring Security
         user.setAccountNonExpired(true);
@@ -59,13 +65,13 @@ public class UserService {
             savedUser.getId(), 
             savedUser.getUsername(), 
             savedUser.getEmail(), 
-            savedUser.getRole(),
+            savedUser.getRole().getName(),
             "Default School" // Valeur par défaut pour schoolName
         );
         
         // Envoyer l'email de bienvenue approprié selon le rôle
         try {
-            switch (savedUser.getRole().toUpperCase()) {
+            switch (savedUser.getRole().getName().toUpperCase()) {
                 case "TEACHER":
                     welcomeEmailService.sendTeacherWelcomeEmail(savedUser);
                     log.info("Teacher welcome email sent for user: {}", savedUser.getUsername());
@@ -108,7 +114,7 @@ public class UserService {
     }
     
     public List<UserDTO> getUsersByRole(String role) {
-        return userRepository.findByRole(role).stream()
+        return userRepository.findByRole_Name(role).stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
@@ -119,7 +125,8 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
         user.setEmail(request.getEmail());
-        user.setRole(request.getRole());
+        user.setRole(roleRepository.findByName(request.getRole().toUpperCase())
+                .orElseThrow(() -> new RuntimeException("Role '" + request.getRole().toUpperCase() + "' not found")));
         
         User updatedUser = userRepository.save(user);
         return convertToDTO(updatedUser);
@@ -143,7 +150,7 @@ public class UserService {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getEmail(),
-                user.getRole(),
+                user.getRole().getName(),
                 user.getEnabled(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
@@ -174,7 +181,8 @@ public class UserService {
         
         // Seuls les admins peuvent changer le rôle
         if (request.getRole() != null && !request.getRole().isEmpty()) {
-            user.setRole(request.getRole());
+            user.setRole(roleRepository.findByName(request.getRole().toUpperCase())
+                    .orElseThrow(() -> new RuntimeException("Role '" + request.getRole().toUpperCase() + "' not found")));
         }
         
         User updatedUser = userRepository.save(user);

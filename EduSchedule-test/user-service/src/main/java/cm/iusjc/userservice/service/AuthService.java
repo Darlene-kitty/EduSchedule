@@ -48,7 +48,7 @@ public class AuthService {
                     .orElseThrow(() -> new RuntimeException("User not found"));
             
             // Générer le token JWT avec ou sans Remember Me
-            String token = jwtUtil.generateToken(user.getUsername(), user.getRole(), request.isRememberMe());
+            String token = jwtUtil.generateToken(user.getUsername(), user.getRole().getName(), request.isRememberMe());
             
             // Générer le refresh token avec durée adaptée
             RefreshToken refreshToken = request.isRememberMe() 
@@ -64,7 +64,7 @@ public class AuthService {
                     user.getId(),
                     user.getUsername(),
                     user.getEmail(),
-                    user.getRole()
+                    user.getRole().getName()
             );
             
         } catch (AuthenticationException e) {
@@ -78,7 +78,7 @@ public class AuthService {
                 .map(refreshTokenService::verifyExpiration)
                 .map(RefreshToken::getUser)
                 .map(user -> {
-                    String newToken = jwtUtil.generateToken(user.getUsername(), user.getRole());
+                    String newToken = jwtUtil.generateToken(user.getUsername(), user.getRole().getName());
                     log.info("Token refreshed for user: {}", user.getUsername());
                     
                     return new LoginResponse(
@@ -88,7 +88,7 @@ public class AuthService {
                             user.getId(),
                             user.getUsername(),
                             user.getEmail(),
-                            user.getRole()
+                            user.getRole().getName()
                     );
                 })
                 .orElseThrow(() -> new RuntimeException("Invalid refresh token"));

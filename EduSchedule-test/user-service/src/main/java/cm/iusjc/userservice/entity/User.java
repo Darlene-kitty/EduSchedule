@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
+
 @Entity
 @Table(name = "users")
 @Data
@@ -32,8 +33,9 @@ public class User {
     @Column(nullable = false)
     private String password;
     
-    @Column(nullable = false, length = 20)
-    private String role; // ADMIN, TEACHER
+    @ManyToOne
+    @JoinColumn(name = "role_id", nullable = false)
+    private Role role; // ADMIN, TEACHER
     
     @Column(nullable = false)
     private Boolean enabled = true;
