@@ -33,12 +33,12 @@ export const routes: Routes = [
   },
   {
     path: 'profile',
-    loadComponent: () => import('./features/profile/profile').then(m => m.Profile),
+    loadComponent: () => import('./features/profile/profile').then(m => m.ProfileComponent),
     canActivate: [authGuard]
   },
   {
     path: 'users',
-    loadComponent: () => import('./features/users/users').then(m => m.Users),
+    loadComponent: () => import('./features/users/users').then(m => m.UsersComponent),
     canActivate: [authGuard]
   },
   {
@@ -48,22 +48,22 @@ export const routes: Routes = [
   },
   {
     path: 'schedule',
-    loadComponent: () => import('./features/schedule/schedule').then(m => m.Schedule),
+    loadComponent: () => import('./features/schedule/schedule').then(m => m.SchedulesComponent),
     canActivate: [authGuard]
   },
   {
     path: 'calendar',
-    loadComponent: () => import('./features/calendar/calendar').then(m => m.Calendar),
+    loadComponent: () => import('./features/calendar/calendar').then(m => m.CalendarComponent),
     canActivate: [authGuard]
   },
   {
     path: 'reservations',
-    loadComponent: () => import('./features/reservations/reservations').then(m => m.Reservations),
+    loadComponent: () => import('./features/reservations/reservations').then(m => m.ReservationsComponent),
     canActivate: [authGuard]
   },
   {
     path: 'resources',
-    loadComponent: () => import('./features/resources/resources').then(m => m.Resources),
+    loadComponent: () => import('./features/resources/resources').then(m => m.ResourcesComponent),
     canActivate: [authGuard]
   },
   {
@@ -73,22 +73,22 @@ export const routes: Routes = [
   },
   {
     path: 'conflicts',
-    loadComponent: () => import('./features/conflicts/conflicts').then(m => m.Conflicts),
+    loadComponent: () => import('./features/conflicts/conflicts').then(m => m.ConflictsComponent),
     canActivate: [authGuard]
   },
   {
     path: 'notifications',
-    loadComponent: () => import('./features/notifications/notifications').then(m => m.Notifications),
+    loadComponent: () => import('./features/notifications/notifications').then(m => m.NotificationsComponent),
     canActivate: [authGuard]
   },
   {
     path: 'reports',
-    loadComponent: () => import('./features/reports/reports').then(m => m.Reports),
+    loadComponent: () => import('./features/reports/reports').then(m => m.ReportsComponent),
     canActivate: [authGuard]
   },
   {
     path: 'teacher-availability',
-    loadComponent: () => import('./features/teacher-availability/teacher-availability').then(m => m.TeacherAvailability),
+    loadComponent: () => import('./features/teacher-availability/teacher-availability').then(m => m.TeacherAvailabilityComponent),
     canActivate: [authGuard]
   },
   {

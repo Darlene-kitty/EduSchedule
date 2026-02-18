@@ -1,1 +1,98 @@
-<p>calendar works!</p>
+<div class="calendar-page">
+  <div class="calendar-layout">
+
+    <!-- Calendrier -->
+    <div class="calendar-main">
+      <div class="card">
+
+        <div class="cal-header">
+          <h2>{{ monthName }}</h2>
+          <div class="cal-nav">
+            <button class="nav-btn" (click)="prevMonth()">
+              <mat-icon>chevron_left</mat-icon>
+            </button>
+            <button class="nav-btn today-btn" (click)="goToToday()">Aujourd'hui</button>
+            <button class="nav-btn" (click)="nextMonth()">
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <div class="cal-grid">
+          <div *ngFor="let day of weekDays" class="day-header">{{ day }}</div>
+          <div *ngFor="let _ of emptyDays" class="day-empty"></div>
+
+          <button
+            *ngFor="let day of daysArray"
+            class="day-cell"
+            [class.selected]="isSelected(day)"
+            [class.today]="isToday(day)"
+            (click)="selectDate(day)">
+            <span class="day-number">{{ day }}</span>
+            <div class="day-events">
+              <div *ngFor="let event of getEventsForDay(day).slice(0, 2)" class="event-dot"></div>
+              <span *ngIf="getEventsForDay(day).length > 2" class="event-more">
+                +{{ getEventsForDay(day).length - 2 }}
+              </span>
+            </div>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Panneau latéral -->
+    <div class="sidebar-panel">
+
+      <div class="card">
+        <div class="events-header">
+          <mat-icon class="events-icon">calendar_today</mat-icon>
+          <h3>{{ selectedDateLabel }}</h3>
+        </div>
+
+        <div *ngIf="selectedDateEvents.length === 0" class="no-events">
+          Aucun événement ce jour
+        </div>
+
+        <div *ngIf="selectedDateEvents.length > 0" class="events-list">
+          <div *ngFor="let event of selectedDateEvents" class="event-card">
+            <div class="event-card-top">
+              <h4>{{ event.title }}</h4>
+              <span class="badge" [ngClass]="getTypeClass(event.type)">{{ event.type }}</span>
+            </div>
+            <div class="event-card-details">
+              <div class="event-detail">
+                <mat-icon class="event-icon">schedule</mat-icon>
+                <span>{{ event.startTime }} - {{ event.endTime }}</span>
+              </div>
+              <div class="event-detail">
+                <mat-icon class="event-icon">place</mat-icon>
+                <span>{{ event.room }}</span>
+              </div>
+              <div class="event-detail">
+                <mat-icon class="event-icon">person</mat-icon>
+                <span>{{ event.professor }}</span>
+              </div>
+              <div class="event-detail">
+                <mat-icon class="event-icon">group</mat-icon>
+                <span>{{ event.group }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="legend-title">Légende</h3>
+        <div class="legend-list">
+          <div *ngFor="let type of legendTypes" class="legend-item">
+            <span class="legend-dot" [ngClass]="getLegendClass(type)"></span>
+            <mat-icon class="legend-icon">{{ getTypeIcon(type) }}</mat-icon>
+            <span>{{ type }}</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>

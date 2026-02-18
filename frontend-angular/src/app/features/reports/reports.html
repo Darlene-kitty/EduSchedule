@@ -1,1 +1,65 @@
-<p>reports works!</p>
+<div class="reports-page">
+
+  <!-- Barre d'actions -->
+  <div class="action-bar">
+    <button class="btn-outline">
+      <mat-icon>calendar_today</mat-icon> Cette semaine
+    </button>
+    <button class="btn-green">
+      <mat-icon>download</mat-icon> Exporter PDF
+    </button>
+  </div>
+
+  <!-- Métriques clés -->
+  <div class="metrics-grid">
+    <div *ngFor="let metric of metrics" class="metric-card">
+      <div class="metric-top">
+        <div class="metric-icon" [ngClass]="metric.color">
+          <mat-icon>{{ metric.icon }}</mat-icon>
+        </div>
+        <div>
+          <p class="metric-label">{{ metric.label }}</p>
+          <p class="metric-value">{{ metric.value }}</p>
+        </div>
+      </div>
+      <div class="metric-trend">
+        <mat-icon class="trend-up-icon">trending_up</mat-icon>
+        <span class="trend-value">{{ metric.trend }}</span>
+        <span class="trend-label">vs semaine dernière</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Graphiques ligne 1 -->
+  <div class="charts-grid">
+    <div class="card">
+      <h3>Activité hebdomadaire</h3>
+      <div class="chart-wrapper">
+        <canvas #weeklyChart></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Utilisation des salles (%)</h3>
+      <div class="chart-wrapper">
+        <canvas #roomChart></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Graphiques ligne 2 -->
+  <div class="charts-grid">
+    <div class="card">
+      <h3>Répartition des cours par matière</h3>
+      <div class="chart-wrapper">
+        <canvas #pieChart></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Charge de travail des professeurs (heures/semaine)</h3>
+      <div class="chart-wrapper">
+        <canvas #workloadChart></canvas>
+      </div>
+    </div>
+  </div>
+
+</div>

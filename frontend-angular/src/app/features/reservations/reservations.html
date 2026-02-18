@@ -1,1 +1,192 @@
-<p>reservations works!</p>
+<div class="reservations-page">
+
+  <div *ngIf="loading" class="centered">
+    <div class="spinner"></div>
+    <span>Chargement des réservations...</span>
+  </div>
+
+  <div *ngIf="!loading && error" class="centered">
+    <mat-icon class="error-icon">error</mat-icon>
+    <h3>Erreur de chargement</h3>
+    <p>{{ error }}</p>
+    <button class="btn-green" (click)="loadReservations()">Réessayer</button>
+  </div>
+
+  <div *ngIf="!loading && !error">
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon bg-blue"><mat-icon>calendar_today</mat-icon></div>
+        <div>
+          <p class="stat-value">{{ reservations.length }}</p>
+          <p class="stat-label">Total réservations</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon bg-green"><mat-icon>check_circle</mat-icon></div>
+        <div>
+          <p class="stat-value">{{ totalApproved }}</p>
+          <p class="stat-label">Approuvées</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon bg-yellow"><mat-icon>schedule</mat-icon></div>
+        <div>
+          <p class="stat-value">{{ totalPending }}</p>
+          <p class="stat-label">En attente</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon bg-red"><mat-icon>cancel</mat-icon></div>
+        <div>
+          <p class="stat-value">{{ totalCancelled }}</p>
+          <p class="stat-label">Annulées</p>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="message" class="alert" [class.alert-success]="!isError" [class.alert-error]="isError">
+      {{ message }}
+    </div>
+
+    <!-- Barre d'actions -->
+    <div class="actions-bar">
+      <div class="search-wrapper">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input
+          type="text"
+          placeholder="Rechercher une réservation..."
+          [(ngModel)]="searchQuery"
+          (ngModelChange)="onSearchChange()"
+          class="search-input" />
+      </div>
+      <div class="actions-right">
+        <button class="btn-outline">
+          <mat-icon>filter_list</mat-icon> Filtrer
+        </button>
+        <button class="btn-green">
+          <mat-icon>add</mat-icon> Nouvelle réservation
+        </button>
+      </div>
+    </div>
+
+    <!-- Filtres statut -->
+    <div class="filters-bar">
+      <button class="filter-btn" [class.active]="selectedStatus === 'all'" (click)="selectedStatus = 'all'; onStatusChange()">
+        Tous les statuts
+      </button>
+      <button
+        *ngFor="let status of statuses"
+        class="filter-btn"
+        [class.active]="selectedStatus === status"
+        (click)="selectedStatus = status; onStatusChange()">
+        {{ getStatusLabel(status) }}
+      </button>
+    </div>
+
+    <!-- Pagination info -->
+    <div class="pagination-info">
+      <p>Affichage de {{ currentItems.length }} sur {{ totalItems }} réservations</p>
+      <div class="pagination-controls">
+        <button class="btn-outline-sm" (click)="prevPage()" [disabled]="!hasPrevPage">Précédent</button>
+        <span class="page-info">Page {{ currentPage }} sur {{ totalPages }}</span>
+        <button class="btn-outline-sm" (click)="nextPage()" [disabled]="!hasNextPage">Suivant</button>
+      </div>
+    </div>
+
+    <!-- Grille -->
+    <div class="reservations-grid">
+      <div *ngFor="let reservation of currentItems" class="reservation-card">
+
+        <div class="card-top">
+          <div class="card-icon"><mat-icon>calendar_today</mat-icon></div>
+          <div>
+            <h3>#{{ reservation.id }}</h3>
+            <p class="card-purpose">{{ reservation.purpose || 'Aucune description' }}</p>
+          </div>
+        </div>
+
+        <div class="card-details">
+          <div class="detail-row">
+            <span class="detail-label">Type</span>
+            <span class="badge" [ngClass]="getTypeClass(reservation.type)">{{ getTypeLabel(reservation.type) }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Ressource</span>
+            <span class="detail-value">
+              <mat-icon class="detail-icon">place</mat-icon> ID: {{ reservation.resourceId }}
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Utilisateur</span>
+            <span class="detail-value">
+              <mat-icon class="detail-icon">person</mat-icon> ID: {{ reservation.userId }}
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Début</span>
+            <span class="detail-value">{{ formatDateTime(reservation.startDateTime) }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Fin</span>
+            <span class="detail-value">{{ formatDateTime(reservation.endDateTime) }}</span>
+          </div>
+        </div>
+
+        <div class="card-status">
+          <mat-icon [class]="'status-icon status-' + reservation.status.toLowerCase()">
+            {{ getStatusIcon(reservation.status) }}
+          </mat-icon>
+          <span class="badge flex-1" [ngClass]="getStatusClass(reservation.status)">
+            {{ getStatusLabel(reservation.status) }}
+          </span>
+        </div>
+
+        <div class="card-actions">
+          <ng-container *ngIf="reservation.status === 'PENDING'">
+            <button class="btn-approve flex-1" (click)="approveReservation(reservation.id)">
+              <mat-icon>check_circle</mat-icon> Approuver
+            </button>
+            <button class="btn-danger" (click)="cancelReservation(reservation.id)">
+              <mat-icon>cancel</mat-icon>
+            </button>
+          </ng-container>
+
+          <ng-container *ngIf="reservation.status === 'APPROVED'">
+            <button class="btn-outline flex-1">
+              <mat-icon>edit</mat-icon> Modifier
+            </button>
+            <button class="btn-danger" (click)="cancelReservation(reservation.id)">
+              <mat-icon>cancel</mat-icon>
+            </button>
+          </ng-container>
+
+          <ng-container *ngIf="reservation.status === 'CANCELLED' || reservation.status === 'REJECTED'">
+            <button class="btn-outline flex-1" disabled>
+              <mat-icon>archive</mat-icon> Archiver
+            </button>
+          </ng-container>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Etat vide -->
+    <div *ngIf="currentItems.length === 0" class="empty-state">
+      <mat-icon class="empty-icon">calendar_today</mat-icon>
+      <h3>Aucune réservation trouvée</h3>
+      <p>{{ searchQuery || selectedStatus !== 'all' ? 'Aucune réservation ne correspond à vos critères.' : 'Commencez par créer votre première réservation.' }}</p>
+    </div>
+
+    <!-- Pagination -->
+    <div *ngIf="totalPages > 1" class="pagination-full">
+      <button class="page-btn" [class.active]="currentPage === 1" (click)="goToPage(1)" [disabled]="currentPage === 1">1</button>
+      <span *ngIf="currentPage > 3" class="page-dots">...</span>
+      <button *ngFor="let page of pages" class="page-btn" [class.active]="currentPage === page" (click)="goToPage(page)">{{ page }}</button>
+      <span *ngIf="currentPage < totalPages - 2" class="page-dots">...</span>
+      <button *ngIf="totalPages > 1" class="page-btn" [class.active]="currentPage === totalPages" (click)="goToPage(totalPages)" [disabled]="currentPage === totalPages">{{ totalPages }}</button>
+    </div>
+
+  </div>
+</div>

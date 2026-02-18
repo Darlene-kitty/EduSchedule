@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, BehaviorSubject } from 'rxjs';
+import { tap } from 'rxjs/operators';
 import { ApiService } from './api.service';
 export interface User {
   id: number;
@@ -12,6 +13,9 @@ export interface User {
   providedIn: 'root'
 })
 export class UserService {
+  private userSubject = new BehaviorSubject<User | null>(null);
+  user$ = this.userSubject.asObservable();
+
   constructor(private apiService: ApiService) {}
 
   getUsers(): Observable<User[]> {
@@ -19,7 +23,13 @@ export class UserService {
   }
 
   getUser(id: number): Observable<User> {
-    return this.apiService.get<User>(`/users/${id}`);
+    return this.apiService.get<User>(`/users/${id}`).pipe(
+      tap((user: User) => this.userSubject.next(user))
+    );
+  }
+
+  setUser(user: User | null) {
+    this.userSubject.next(user);
   }
 
   createUser(user: Partial<User>): Observable<User> {
@@ -35,6 +45,8 @@ export class UserService {
   }
 
   updateProfile(data: any): Observable<User> {
-    return this.apiService.put<User>('/users/profile', data);
+    return this.apiService.put<User>('/users/profile', data).pipe(
+      tap((user: User) => this.userSubject.next(user))
+    );
   }
 }

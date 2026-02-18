@@ -1,1 +1,197 @@
-<p>conflicts works!</p>
+<div class="conflicts-page">
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon bg-red"><mat-icon>warning</mat-icon></div>
+      <div>
+        <p class="stat-value">{{ conflicts.length }}</p>
+        <p class="stat-label">Total conflits</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon bg-orange"><mat-icon>cancel</mat-icon></div>
+      <div>
+        <p class="stat-value">{{ totalUnresolved }}</p>
+        <p class="stat-label">Non résolus</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon bg-yellow"><mat-icon>error</mat-icon></div>
+      <div>
+        <p class="stat-value">{{ totalInProgress }}</p>
+        <p class="stat-label">En cours</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon bg-green"><mat-icon>check_circle</mat-icon></div>
+      <div>
+        <p class="stat-value">{{ totalResolved }}</p>
+        <p class="stat-label">Résolus</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtres -->
+  <div class="filters-bar">
+    <button
+      *ngFor="let status of statuses"
+      class="filter-btn"
+      [class.active]="selectedStatus === status"
+      (click)="setStatus(status)">
+      {{ getStatusFilterLabel(status) }}
+    </button>
+  </div>
+
+  <!-- Liste conflits -->
+  <div class="conflicts-list">
+
+    <!-- Vide -->
+    <div *ngIf="filteredConflicts.length === 0" class="empty-state">
+      <mat-icon class="empty-icon">check_circle</mat-icon>
+      <h3>Aucun conflit détecté</h3>
+      <p>Tous les conflits ont été résolus ou aucun conflit n'existe.</p>
+    </div>
+
+    <!-- Carte conflit -->
+    <div
+      *ngFor="let conflict of filteredConflicts"
+      class="conflict-card"
+      [ngClass]="getSeverityClass(conflict.severity)">
+
+      <div class="conflict-top">
+
+        <div class="conflict-left">
+          <div class="conflict-icon">
+            <mat-icon>warning</mat-icon>
+          </div>
+
+          <div class="conflict-info">
+            <div class="conflict-title-row">
+              <h3>{{ conflict.description }}</h3>
+              <span class="badge" [ngClass]="getTypeClass(conflict.type)">{{ conflict.type }}</span>
+              <span class="badge" [ngClass]="getSeverityClass(conflict.severity) + '-badge'">
+                {{ conflict.severity }}
+              </span>
+            </div>
+            <p class="conflict-detected">Détecté {{ conflict.detectedAt }}</p>
+
+            <!-- Détails -->
+            <div class="conflict-details">
+              <div class="courses-grid">
+                <div class="course-block">
+                  <p class="course-label">Cours 1</p>
+                  <p class="course-value">{{ conflict.details.course1 }}</p>
+                </div>
+                <div class="course-block">
+                  <p class="course-label">Cours 2</p>
+                  <p class="course-value">{{ conflict.details.course2 }}</p>
+                </div>
+              </div>
+
+              <div class="detail-tags">
+                <div class="detail-tag">
+                  <mat-icon class="tag-icon">calendar_today</mat-icon>
+                  <span>{{ formatDate(conflict.details.date) }}</span>
+                </div>
+                <div class="detail-tag">
+                  <mat-icon class="tag-icon">schedule</mat-icon>
+                  <span>{{ conflict.details.time }}</span>
+                </div>
+                <div *ngIf="conflict.details.location" class="detail-tag">
+                  <mat-icon class="tag-icon">place</mat-icon>
+                  <span>{{ conflict.details.location }}</span>
+                </div>
+                <div *ngIf="conflict.details.professor" class="detail-tag">
+                  <mat-icon class="tag-icon">person</mat-icon>
+                  <span>{{ conflict.details.professor }}</span>
+                </div>
+                <div *ngIf="conflict.details.group" class="detail-tag">
+                  <mat-icon class="tag-icon">group</mat-icon>
+                  <span>{{ conflict.details.group }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <span class="badge status-badge" [ngClass]="getStatusClass(conflict.status)">
+          {{ conflict.status }}
+        </span>
+
+      </div>
+
+      <!-- Actions -->
+      <div class="conflict-actions">
+        <button class="btn-green" (click)="openResolveModal(conflict)">
+          <mat-icon>auto_fix_high</mat-icon> Résoudre automatiquement
+        </button>
+        <button class="btn-outline" (click)="openResolveModal(conflict)">
+          <mat-icon>edit</mat-icon> Modifier manuellement
+        </button>
+        <button class="btn-danger" (click)="ignoreConflict(conflict.id)">
+          <mat-icon>block</mat-icon> Ignorer
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal Résolution -->
+<div *ngIf="isResolveModalOpen && selectedConflict" class="modal-overlay" (click)="closeModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Résoudre le conflit</h2>
+      <button class="modal-close" (click)="closeModal()"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <div class="modal-body">
+      <div class="resolve-info">
+        <div class="resolve-icon">
+          <mat-icon>warning</mat-icon>
+        </div>
+        <div>
+          <h3>{{ selectedConflict.description }}</h3>
+          <p>{{ selectedConflict.details.course1 }} ↔ {{ selectedConflict.details.course2 }}</p>
+          <p class="resolve-time">
+            <mat-icon class="tag-icon">schedule</mat-icon>
+            {{ selectedConflict.details.time }} · {{ formatDate(selectedConflict.details.date) }}
+          </p>
+        </div>
+      </div>
+
+      <div class="resolve-options">
+        <p class="resolve-options-title">Choisir une solution :</p>
+        <div class="resolve-option">
+          <mat-icon class="option-icon">meeting_room</mat-icon>
+          <div>
+            <p class="option-label">Changer de salle</p>
+            <p class="option-desc">Assigner une autre salle disponible à l'un des cours</p>
+          </div>
+        </div>
+        <div class="resolve-option">
+          <mat-icon class="option-icon">schedule</mat-icon>
+          <div>
+            <p class="option-label">Déplacer le créneau</p>
+            <p class="option-desc">Modifier l'horaire de l'un des cours</p>
+          </div>
+        </div>
+        <div class="resolve-option">
+          <mat-icon class="option-icon">person</mat-icon>
+          <div>
+            <p class="option-label">Changer l'intervenant</p>
+            <p class="option-desc">Assigner un autre professeur disponible</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-outline" (click)="closeModal()">Annuler</button>
+      <button class="btn-green" (click)="resolveConflict(selectedConflict)">
+        <mat-icon>check_circle</mat-icon> Marquer comme résolu
+      </button>
+    </div>
+  </div>
+</div>

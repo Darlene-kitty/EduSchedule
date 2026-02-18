@@ -1,1 +1,141 @@
-<p>schedule works!</p>
+<div class="schedules-page">
+
+  <div *ngIf="loading" class="centered">
+    <div class="spinner"></div>
+    <span>Chargement des créneaux...</span>
+  </div>
+
+  <div *ngIf="!loading && error" class="centered">
+    <mat-icon class="error-icon">error</mat-icon>
+    <h3>Erreur de chargement</h3>
+    <p>{{ error }}</p>
+    <button class="btn-green" (click)="loadSchedules()">Réessayer</button>
+  </div>
+
+  <div *ngIf="!loading && !error">
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon bg-blue"><mat-icon>calendar_today</mat-icon></div>
+        <div>
+          <p class="stat-value">{{ schedules.length }}</p>
+          <p class="stat-label">Total créneaux</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon bg-green"><mat-icon>check_circle</mat-icon></div>
+        <div>
+          <p class="stat-value">{{ totalActive }}</p>
+          <p class="stat-label">Actifs</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon bg-purple"><mat-icon>person</mat-icon></div>
+        <div>
+          <p class="stat-value">{{ uniqueTeachers }}</p>
+          <p class="stat-label">Enseignants</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon bg-orange"><mat-icon>meeting_room</mat-icon></div>
+        <div>
+          <p class="stat-value">{{ uniqueRooms }}</p>
+          <p class="stat-label">Salles</p>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="message" class="alert" [class.alert-success]="!isError" [class.alert-error]="isError">
+      {{ message }}
+    </div>
+
+    <!-- Barre d'actions -->
+    <div class="actions-bar">
+      <div class="search-wrapper">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input
+          type="text"
+          placeholder="Rechercher un créneau..."
+          [(ngModel)]="searchQuery"
+          (ngModelChange)="onSearchChange()"
+          class="search-input" />
+      </div>
+      <button class="btn-green">
+        <mat-icon>add</mat-icon> Nouveau créneau
+      </button>
+    </div>
+
+    <!-- Filtres -->
+    <div class="filters-bar">
+      <button
+        *ngFor="let f of filters"
+        class="filter-btn"
+        [class.active]="selectedFilter === f"
+        (click)="onFilterChange(f)">
+        {{ getFilterLabel(f) }}
+      </button>
+    </div>
+
+    <!-- Grille -->
+    <div class="schedules-grid">
+      <div *ngFor="let schedule of filteredSchedules" class="schedule-card">
+
+        <div class="card-top">
+          <div class="card-icon"><mat-icon>schedule</mat-icon></div>
+          <div class="card-title-block">
+            <h3>{{ schedule.title }}</h3>
+            <p class="card-sub">{{ schedule.description }}</p>
+          </div>
+          <span class="badge" [ngClass]="getStatusClass(schedule.status)">
+            {{ getStatusLabel(schedule.status) }}
+          </span>
+        </div>
+
+        <div class="card-details">
+          <div class="detail-row">
+            <mat-icon class="detail-icon">calendar_today</mat-icon>
+            <span>{{ formatDate(schedule.startTime) }}</span>
+          </div>
+          <div class="detail-row">
+            <mat-icon class="detail-icon">schedule</mat-icon>
+            <span>{{ formatTime(schedule.startTime) }} - {{ formatTime(schedule.endTime) }}</span>
+            <span class="duration">({{ getDuration(schedule.startTime, schedule.endTime) }})</span>
+          </div>
+          <div class="detail-row">
+            <mat-icon class="detail-icon">person</mat-icon>
+            <span>{{ schedule.teacher }}</span>
+          </div>
+          <div class="detail-row">
+            <mat-icon class="detail-icon">meeting_room</mat-icon>
+            <span>{{ schedule.room }}</span>
+          </div>
+          <div class="detail-row">
+            <mat-icon class="detail-icon">group</mat-icon>
+            <span>{{ schedule.groupName }}</span>
+          </div>
+        </div>
+
+        <div class="card-actions">
+          <button class="btn-outline flex-1">
+            <mat-icon>edit</mat-icon> Modifier
+          </button>
+          <button class="btn-danger" (click)="deleteSchedule(schedule.id)">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <div *ngIf="filteredSchedules.length === 0" class="empty-state">
+      <mat-icon class="empty-icon">calendar_today</mat-icon>
+      <h3>Aucun créneau trouvé</h3>
+      <p>{{ searchQuery || selectedFilter !== 'all' ? 'Aucun créneau ne correspond.' : 'Créez votre premier créneau.' }}</p>
+      <button class="btn-green">
+        <mat-icon>add</mat-icon> Nouveau créneau
+      </button>
+    </div>
+
+  </div>
+</div>

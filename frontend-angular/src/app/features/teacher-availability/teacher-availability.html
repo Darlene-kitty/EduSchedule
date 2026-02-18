@@ -1,1 +1,267 @@
-<p>teacher-availability works!</p>
+<div class="availability-page">
+
+  <div *ngIf="loading" class="centered">
+    <div class="spinner"></div>
+    <span>Chargement des disponibilités...</span>
+  </div>
+
+  <div *ngIf="!loading && error" class="centered">
+    <mat-icon class="error-icon">error</mat-icon>
+    <h3>Erreur de chargement</h3>
+    <p>{{ error }}</p>
+    <button class="btn-green" (click)="loadAvailabilities()">Réessayer</button>
+  </div>
+
+  <div *ngIf="!loading && !error">
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon bg-blue"><mat-icon>people</mat-icon></div>
+        <div>
+          <p class="stat-value">{{ availabilities.length }}</p>
+          <p class="stat-label">Total enseignants</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon bg-green"><mat-icon>check_circle</mat-icon></div>
+        <div>
+          <p class="stat-value">{{ totalActive }}</p>
+          <p class="stat-label">Actifs</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon bg-purple"><mat-icon>event_available</mat-icon></div>
+        <div>
+          <p class="stat-value">{{ totalSlots }}</p>
+          <p class="stat-label">Total créneaux</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon bg-orange"><mat-icon>schedule</mat-icon></div>
+        <div>
+          <p class="stat-value">40h</p>
+          <p class="stat-label">Max heures/semaine</p>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="message" class="alert" [class.alert-success]="!isError" [class.alert-error]="isError">
+      {{ message }}
+    </div>
+
+    <!-- Barre d'actions -->
+    <div class="actions-bar">
+      <div class="search-wrapper">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input
+          type="text"
+          placeholder="Rechercher un enseignant..."
+          [(ngModel)]="searchQuery"
+          (ngModelChange)="onSearchChange()"
+          class="search-input" />
+      </div>
+      <div class="actions-right">
+        <button class="btn-outline" [class.active]="viewMode === 'calendar'" (click)="viewMode = 'calendar'">
+          <mat-icon>calendar_view_week</mat-icon> Calendrier
+        </button>
+        <button class="btn-outline" [class.active]="viewMode === 'list'" (click)="viewMode = 'list'">
+          <mat-icon>list</mat-icon> Liste
+        </button>
+        <button class="btn-green" (click)="openAddModal()">
+          <mat-icon>add</mat-icon> Ajouter
+        </button>
+      </div>
+    </div>
+
+    <!-- Filtres jours -->
+    <div class="filters-bar">
+      <button class="filter-btn" [class.active]="selectedDay === 'all'" (click)="onDayChange('all')">
+        Tous les jours
+      </button>
+      <button
+        *ngFor="let day of weekDays"
+        class="filter-btn"
+        [class.active]="selectedDay === day.key"
+        (click)="onDayChange(day.key)">
+        {{ day.label }}
+      </button>
+    </div>
+
+    <!-- Vue Calendrier -->
+    <div *ngIf="viewMode === 'calendar'" class="calendar-view">
+      <div class="cal-grid-header">
+        <div class="cal-time-col"></div>
+        <div *ngFor="let day of weekDays" class="cal-day-header">{{ day.label }}</div>
+      </div>
+      <div *ngFor="let availability of filteredAvailabilities" class="cal-teacher-row">
+        <div class="cal-teacher-name">
+          <mat-icon>person</mat-icon>
+          <span>{{ availability.teacherName }}</span>
+        </div>
+        <div class="cal-slots-row">
+          <div *ngFor="let day of weekDays" class="cal-day-col">
+            <div
+              *ngFor="let slot of getSlotsForDay(availability.availableSlots, day.key)"
+              class="cal-slot"
+              [class.cal-slot-active]="availability.status === 'ACTIVE'"
+              (click)="openEditModal(availability)">
+              {{ slot.startTime }} - {{ slot.endTime }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vue Liste -->
+    <div *ngIf="viewMode === 'list'" class="availabilities-grid">
+      <div *ngFor="let availability of filteredAvailabilities" class="availability-card">
+
+        <div class="card-top">
+          <div class="teacher-avatar">{{ availability.teacherName.substring(0, 2).toUpperCase() }}</div>
+          <div class="card-title-block">
+            <h3>{{ availability.teacherName }}</h3>
+            <p class="card-sub">ID: {{ availability.teacherId }}</p>
+          </div>
+          <span class="badge" [ngClass]="getStatusClass(availability.status)">
+            {{ getStatusLabel(availability.status) }}
+          </span>
+        </div>
+
+        <div class="card-details">
+          <div class="detail-row">
+            <mat-icon class="detail-icon">date_range</mat-icon>
+            <span>{{ availability.effectiveDate }} → {{ availability.endDate }}</span>
+          </div>
+          <div class="detail-row">
+            <mat-icon class="detail-icon">schedule</mat-icon>
+            <span>Max {{ availability.maxHoursPerDay }}h/jour · {{ availability.maxHoursPerWeek }}h/semaine</span>
+          </div>
+          <div *ngIf="availability.notes" class="detail-row">
+            <mat-icon class="detail-icon">notes</mat-icon>
+            <span>{{ availability.notes }}</span>
+          </div>
+        </div>
+
+        <!-- Créneaux -->
+        <div class="slots-section">
+          <p class="slots-title">Créneaux disponibles</p>
+          <div class="slots-list">
+            <div *ngFor="let slot of availability.availableSlots.slice(0, 3)" class="slot-badge">
+              <mat-icon class="slot-icon">event</mat-icon>
+              {{ getDayLabel(slot.dayOfWeek) }} · {{ slot.startTime }}-{{ slot.endTime }}
+            </div>
+            <div *ngIf="availability.availableSlots.length > 3" class="slot-more">
+              <mat-icon>more_horiz</mat-icon>
+              +{{ availability.availableSlots.length - 3 }} créneaux
+            </div>
+          </div>
+        </div>
+
+        <div class="card-actions">
+          <button class="btn-outline flex-1" (click)="openEditModal(availability)">
+            <mat-icon>edit</mat-icon> Modifier
+          </button>
+          <button class="btn-danger" (click)="deleteAvailability(availability.id)">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <div *ngIf="filteredAvailabilities.length === 0" class="empty-state">
+      <mat-icon class="empty-icon">event_busy</mat-icon>
+      <h3>Aucune disponibilité trouvée</h3>
+      <p>{{ searchQuery || selectedDay !== 'all' ? 'Aucun résultat.' : 'Ajoutez des disponibilités.' }}</p>
+      <button class="btn-green" (click)="openAddModal()">
+        <mat-icon>add</mat-icon> Ajouter
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal -->
+<div *ngIf="isModalOpen" class="modal-overlay" (click)="closeModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>{{ editingId ? 'Modifier' : 'Ajouter' }} une disponibilité</h2>
+      <button class="modal-close" (click)="closeModal()"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Nom de l'enseignant</label>
+        <input type="text" [(ngModel)]="newAvailability.teacherName" name="teacherName" placeholder="Dr. Nom Prénom" />
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Date de début</label>
+          <input type="date" [(ngModel)]="newAvailability.effectiveDate" name="effectiveDate" />
+        </div>
+        <div class="form-group">
+          <label>Date de fin</label>
+          <input type="date" [(ngModel)]="newAvailability.endDate" name="endDate" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Max heures/jour</label>
+          <input type="number" [(ngModel)]="newAvailability.maxHoursPerDay" name="maxHoursPerDay" min="1" max="12" />
+        </div>
+        <div class="form-group">
+          <label>Max heures/semaine</label>
+          <input type="number" [(ngModel)]="newAvailability.maxHoursPerWeek" name="maxHoursPerWeek" min="1" max="60" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Statut</label>
+        <select [(ngModel)]="newAvailability.status" name="status">
+          <option value="ACTIVE">Actif</option>
+          <option value="INACTIVE">Inactif</option>
+          <option value="PENDING">En attente</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea [(ngModel)]="newAvailability.notes" name="notes" rows="2" placeholder="Notes optionnelles..."></textarea>
+      </div>
+
+      <!-- Créneaux -->
+      <div class="slots-editor">
+        <p class="slots-editor-title">Créneaux</p>
+        <div *ngFor="let slot of newAvailability.availableSlots; let i = index" class="slot-row">
+          <select [(ngModel)]="slot.dayOfWeek" [name]="'day' + i">
+            <option *ngFor="let day of weekDays" [value]="day.key">{{ day.label }}</option>
+          </select>
+          <input type="time" [(ngModel)]="slot.startTime" [name]="'start' + i" />
+          <input type="time" [(ngModel)]="slot.endTime" [name]="'end' + i" />
+          <button class="btn-icon-danger" (click)="removeSlot(i)"><mat-icon>remove_circle</mat-icon></button>
+        </div>
+
+        <div class="add-slot-row">
+          <select [(ngModel)]="newSlot.dayOfWeek" name="newDay">
+            <option *ngFor="let day of weekDays" [value]="day.key">{{ day.label }}</option>
+          </select>
+          <input type="time" [(ngModel)]="newSlot.startTime" name="newStart" />
+          <input type="time" [(ngModel)]="newSlot.endTime" name="newEnd" />
+          <button class="btn-add-slot" (click)="addSlot()">
+            <mat-icon>add_circle</mat-icon> Ajouter
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-outline" (click)="closeModal()">Annuler</button>
+      <button class="btn-green" (click)="saveAvailability()">
+        {{ editingId ? 'Modifier' : 'Ajouter' }}
+      </button>
+    </div>
+  </div>
+</div>
