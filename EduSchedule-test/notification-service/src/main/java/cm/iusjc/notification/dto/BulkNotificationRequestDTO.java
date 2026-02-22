@@ -26,8 +26,10 @@ public class BulkNotificationRequestDTO {
     @NotNull
     private String message;
     
+    @Builder.Default
     private String type = "GENERAL"; // GENERAL, SCHEDULE_CHANGE, MAINTENANCE, ALERT
     
+    @Builder.Default
     private String priority = "NORMAL"; // LOW, NORMAL, HIGH, URGENT
     
     private List<String> channels; // EMAIL, SMS, PUSH
@@ -38,6 +40,7 @@ public class BulkNotificationRequestDTO {
     
     private String templateId;
     
+    @Builder.Default
     private Boolean requiresAcknowledgment = false;
     
     private LocalDateTime expiresAt;

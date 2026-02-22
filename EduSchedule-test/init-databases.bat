@@ -11,7 +11,7 @@ set /p MYSQL_PASSWORD=
 
 echo.
 echo [1/5] Execution de init-db.sql...
-%MYSQL_PATH% -u root -p%MYSQL_PASSWORD% < init-db.sql
+%MYSQL_PATH% -u root -p%MYSQL_PASSWORD% --default-character-set=utf8mb4 < init-db.sql
 if %errorlevel% neq 0 (
     echo ERREUR lors de l'execution de init-db.sql
     pause
@@ -19,7 +19,7 @@ if %errorlevel% neq 0 (
 )
 
 echo [2/5] Execution de school-service-tables.sql...
-%MYSQL_PATH% -u root -p%MYSQL_PASSWORD% eduschedule_school < school-service-tables.sql
+%MYSQL_PATH% -u root -p%MYSQL_PASSWORD% iusjcdb < school-service-tables.sql
 if %errorlevel% neq 0 (
     echo ERREUR lors de l'execution de school-service-tables.sql
     pause
@@ -27,7 +27,7 @@ if %errorlevel% neq 0 (
 )
 
 echo [3/5] Execution de course-service-tables.sql...
-%MYSQL_PATH% -u root -p%MYSQL_PASSWORD% eduschedule_course < course-service-tables.sql
+%MYSQL_PATH% -u root -p%MYSQL_PASSWORD% iusjcdb < course-service-tables.sql
 if %errorlevel% neq 0 (
     echo ERREUR lors de l'execution de course-service-tables.sql
     pause

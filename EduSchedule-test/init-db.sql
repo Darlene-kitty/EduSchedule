@@ -1,6 +1,12 @@
 -- Base de données unique pour tous les services
 -- Créée automatiquement par MYSQL_DATABASE dans docker-compose.yml
 
+-- Créer la base de données si elle n'existe pas
+CREATE DATABASE IF NOT EXISTS iusjcdb;
+
+-- Utiliser la base de données
+USE iusjcdb;
+
 -- Tables pour user-service (authentification)
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,

@@ -57,12 +57,14 @@ public class ScheduleChangeEventDTO {
     
     // Notification preferences
     private List<String> notificationChannels; // EMAIL, SMS, PUSH
+    @Builder.Default
     private Boolean sendImmediately = true;
     private Integer reminderMinutesBefore;
     
     // Additional metadata
     private String createdBy;
     private LocalDateTime eventTimestamp;
+    @Builder.Default
     private String priority = "NORMAL"; // LOW, NORMAL, HIGH, URGENT
     
     // Helper methods
