@@ -1,0 +1,498 @@
+<div class="page-layout">
+  <app-sidebar activePage="courses"></app-sidebar>
+  <div class="main-wrapper">
+
+    <!-- Header -->
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn">
+          <mat-icon>notifications</mat-icon>
+          <span class="notif-dot">2</span>
+        </button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+
+    <div class="toast-success" [class.visible]="showImportToast">
+      <mat-icon>check_circle</mat-icon>
+      <span>{{ importedCount }} cours/groupe(s) importé(s) avec succès !</span>
+    </div>
+
+    <main class="page-content">
+
+      <!-- Titre + bouton -->
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Gestion des cours et groupes</h1>
+          <p class="page-sub">Créez et gérez les cours, assignez des groupes d'étudiants</p>
+        </div>
+        <div class="title-actions">
+          <button class="btn-import" (click)="openImportModal()">
+            <mat-icon>upload_file</mat-icon> Importer
+          </button>
+        <button class="btn-new" (click)="activeTab === 'courses' ? openCourseModal() : openGroupModal()">
+          <mat-icon>add</mat-icon>
+          {{ activeTab === 'courses' ? 'Nouveau cours' : 'Nouveau groupe' }}
+        </button>
+        </div>
+      </div>
+
+      <!-- Tabs toggle -->
+      <div class="tabs-toggle">
+        <button class="tab-pill" [class.active]="activeTab === 'courses'"  (click)="setTab('courses')">Cours</button>
+        <button class="tab-pill" [class.active]="activeTab === 'groups'"   (click)="setTab('groups')">Groupes d'étudiants</button>
+      </div>
+
+      <!-- Recherche -->
+      <div class="search-bar">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input type="text" class="search-input"
+          [placeholder]="activeTab === 'courses' ? 'Rechercher un cours...' : 'Rechercher un groupe...'"
+          [(ngModel)]="searchQuery" />
+      </div>
+
+      <!-- ═══ ONGLET COURS ═══ -->
+      <div *ngIf="activeTab === 'courses'" class="cards-grid">
+        <div *ngFor="let course of filteredCourses" class="course-card">
+
+          <!-- Card header: titre + badge niveau -->
+          <div class="card-top">
+            <div class="card-title-row">
+              <mat-icon class="book-icon">menu_book</mat-icon>
+              <div>
+                <h3 class="card-name">{{ course.name }}</h3>
+                <p class="card-code">{{ course.code }}</p>
+              </div>
+            </div>
+            <span class="level-badge" [style.background]="getLevelBg(course.level)">{{ course.level }}</span>
+          </div>
+
+          <!-- Infos -->
+          <div class="card-info-list">
+            <div class="info-row">
+              <span class="info-label">Type:</span>
+              <span class="type-badge" [style.background]="getTypeBg(course.type)">{{ course.type }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Enseignant:</span>
+              <span class="info-value">{{ course.professor }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Volume horaire:</span>
+              <span class="info-value">{{ course.hours }}h</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Étudiants:</span>
+              <span class="info-value students-val">
+                <mat-icon class="students-icon">group</mat-icon>{{ course.students }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Groupes assignés -->
+          <div class="groups-section">
+            <p class="groups-label">Groupes assignés:</p>
+            <div class="groups-chips">
+              <span *ngFor="let g of course.groups" class="group-chip">{{ g }}</span>
+              <span *ngIf="course.groups.length === 0" class="no-groups">Aucun groupe</span>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="card-footer">
+            <button class="btn-modifier" (click)="openCourseModal(course)">
+              <mat-icon>edit</mat-icon> Modifier
+            </button>
+            <button class="btn-trash" (click)="openDeleteModal(course.id, course.name, 'course')">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Empty -->
+        <div *ngIf="filteredCourses.length === 0" class="empty-state">
+          <mat-icon>menu_book</mat-icon>
+          <h3>Aucun cours trouvé</h3>
+          <p>{{ searchQuery ? 'Essayez un autre terme de recherche.' : 'Commencez par créer votre premier cours.' }}</p>
+          <button class="btn-new" (click)="openCourseModal()"><mat-icon>add</mat-icon> Nouveau cours</button>
+        </div>
+      </div>
+
+      <!-- ═══ ONGLET GROUPES ═══ -->
+      <div *ngIf="activeTab === 'groups'" class="cards-grid">
+        <div *ngFor="let group of filteredGroups" class="course-card">
+
+          <!-- Card header -->
+          <div class="card-top">
+            <div class="card-title-row">
+              <mat-icon class="book-icon">group</mat-icon>
+              <div>
+                <h3 class="card-name">{{ group.name }}</h3>
+                <p class="card-code">{{ group.promotion }}</p>
+              </div>
+            </div>
+            <span class="level-badge" [style.background]="getLevelBg(group.level)">{{ group.level }}</span>
+          </div>
+
+          <!-- Jauge remplissage -->
+          <div class="fill-bar-wrapper">
+            <div class="fill-bar-header">
+              <span class="fill-label">Remplissage</span>
+              <span class="fill-value" [style.color]="getFillColor(getFillRate(group.enrolled, group.capacity))">
+                {{ group.enrolled }}/{{ group.capacity }} ({{ getFillRate(group.enrolled, group.capacity) }}%)
+              </span>
+            </div>
+            <div class="fill-bar-track">
+              <div class="fill-bar-fill"
+                [style.width.%]="getFillRate(group.enrolled, group.capacity)"
+                [style.background]="getFillColor(getFillRate(group.enrolled, group.capacity))">
+              </div>
+            </div>
+          </div>
+
+          <!-- Infos -->
+          <div class="card-info-list">
+            <div class="info-row">
+              <span class="info-label">Responsable:</span>
+              <span class="info-value">{{ group.responsible }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Capacité:</span>
+              <span class="info-value students-val"><mat-icon class="students-icon">group</mat-icon>{{ group.capacity }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Inscrits:</span>
+              <span class="info-value students-val"><mat-icon class="students-icon">person</mat-icon>{{ group.enrolled }}</span>
+            </div>
+          </div>
+
+          <!-- Cours assignés -->
+          <div class="groups-section">
+            <p class="groups-label">Cours assignés:</p>
+            <div class="groups-chips">
+              <span *ngFor="let c of group.courses" class="group-chip group-chip-blue">{{ c }}</span>
+              <span *ngIf="group.courses.length === 0" class="no-groups">Aucun cours</span>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="card-footer">
+            <button class="btn-modifier" (click)="openGroupModal(group)">
+              <mat-icon>edit</mat-icon> Modifier
+            </button>
+            <button class="btn-trash" (click)="openDeleteModal(group.id, group.name, 'group')">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Empty -->
+        <div *ngIf="filteredGroups.length === 0" class="empty-state">
+          <mat-icon>group</mat-icon>
+          <h3>Aucun groupe trouvé</h3>
+          <p>{{ searchQuery ? 'Essayez un autre terme.' : 'Commencez par créer votre premier groupe.' }}</p>
+          <button class="btn-new" (click)="openGroupModal()"><mat-icon>add</mat-icon> Nouveau groupe</button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ═══ MODAL COURS ═══ -->
+<div *ngIf="isCourseModalOpen" class="modal-overlay" (click)="closeCourseModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>{{ editingCourse ? 'Modifier le cours' : 'Nouveau cours' }}</h2>
+      <button class="modal-close" (click)="closeCourseModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nom du cours <span class="req">*</span></label>
+          <input type="text" [(ngModel)]="newCourse.name" placeholder="Ex: Mathématiques Avancées" />
+        </div>
+        <div class="form-group">
+          <label>Code <span class="req">*</span></label>
+          <input type="text" [(ngModel)]="newCourse.code" placeholder="Ex: MATH301" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Niveau</label>
+          <select [(ngModel)]="newCourse.level">
+            <option>L1</option><option>L2</option><option>L3</option><option>M1</option><option>M2</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select [(ngModel)]="newCourse.type">
+            <option value="Cours magistral">Cours magistral</option>
+            <option value="TD">TD</option>
+            <option value="TP">TP</option>
+            <option value="Séminaire">Séminaire</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Enseignant</label>
+        <input type="text" [(ngModel)]="newCourse.professor" placeholder="Ex: Dr. Martin Dupont" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Volume horaire (h)</label>
+          <input type="number" [(ngModel)]="newCourse.hours" min="1" />
+        </div>
+        <div class="form-group">
+          <label>Nombre d'étudiants</label>
+          <input type="number" [(ngModel)]="newCourse.students" min="0" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeCourseModal()">Annuler</button>
+      <button class="btn-save" (click)="saveCourse()">
+        <mat-icon>save</mat-icon> {{ editingCourse ? 'Sauvegarder' : 'Créer le cours' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL GROUPE ═══ -->
+<div *ngIf="isGroupModalOpen" class="modal-overlay" (click)="closeGroupModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>{{ editingGroup ? 'Modifier le groupe' : 'Nouveau groupe' }}</h2>
+      <button class="modal-close" (click)="closeGroupModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nom du groupe <span class="req">*</span></label>
+          <input type="text" [(ngModel)]="newGroup.name" placeholder="Ex: L3-G1" />
+        </div>
+        <div class="form-group">
+          <label>Niveau</label>
+          <select [(ngModel)]="newGroup.level">
+            <option>L1</option><option>L2</option><option>L3</option><option>M1</option><option>M2</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Promotion</label>
+          <select [(ngModel)]="newGroup.promotion">
+            <option value="Licence 1">Licence 1</option>
+            <option value="Licence 2">Licence 2</option>
+            <option value="Licence 3">Licence 3</option>
+            <option value="Master 1">Master 1</option>
+            <option value="Master 2">Master 2</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Capacité max</label>
+          <input type="number" [(ngModel)]="newGroup.capacity" min="1" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Responsable</label>
+        <input type="text" [(ngModel)]="newGroup.responsible" placeholder="Ex: Dr. Martin Dupont" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeGroupModal()">Annuler</button>
+      <button class="btn-save" (click)="saveGroup()">
+        <mat-icon>save</mat-icon> {{ editingGroup ? 'Sauvegarder' : 'Créer le groupe' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL SUPPRESSION ═══ -->
+<div *ngIf="isDeleteModalOpen && itemToDelete" class="modal-overlay" (click)="closeDeleteModal()">
+  <div class="modal modal-delete" (click)="$event.stopPropagation()">
+    <div class="delete-body">
+      <div class="delete-icon-circle"><mat-icon>delete_forever</mat-icon></div>
+      <h2 class="delete-title">Supprimer {{ itemToDelete.type === 'course' ? 'le cours' : 'le groupe' }} ?</h2>
+      <p class="delete-desc">
+        Vous êtes sur le point de supprimer <strong>{{ itemToDelete.name }}</strong>.
+        Cette action est <strong>irréversible</strong>.
+      </p>
+    </div>
+    <div class="modal-footer delete-footer">
+      <button class="btn-cancel" (click)="closeDeleteModal()">Annuler</button>
+      <button class="btn-delete-confirm" (click)="confirmDelete()">
+        <mat-icon>delete</mat-icon> Oui, supprimer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL IMPORT COURS ═══ -->
+<div *ngIf="isImportModalOpen" class="modal-overlay" (click)="closeImportModal()">
+  <div class="modal modal-import" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="import-modal-icon"><mat-icon>upload_file</mat-icon></div>
+        <div><h2>Importer des {{ activeTab === 'courses' ? 'cours' : 'groupes' }}</h2><p class="modal-header-sub">Fichier CSV ou Excel (.xlsx)</p></div>
+      </div>
+      <button class="modal-close" (click)="closeImportModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div *ngIf="importStep === 1" class="modal-body">
+      <div class="template-banner">
+        <mat-icon>download</mat-icon>
+        <div><p class="template-title">Télécharger le modèle</p><p class="template-sub">Utilisez notre modèle pour formater vos données</p></div>
+        <button class="btn-template" (click)="downloadTemplate()"><mat-icon>file_download</mat-icon> Modèle CSV</button>
+      </div>
+      <div class="drop-zone" [class.dragging]="isDragging" [class.has-file]="importFile"
+        (dragover)="onImportDragOver($event)" (dragleave)="onImportDragLeave()" (drop)="onImportDrop($event)" (click)="fileInput.click()">
+        <input #fileInput type="file" accept=".csv,.xlsx,.xls" style="display:none" (change)="onImportFileSelected($event)" />
+        <div *ngIf="!importFile" class="drop-content">
+          <div class="drop-icon-circle"><mat-icon>cloud_upload</mat-icon></div>
+          <p class="drop-title">Glissez votre fichier ici</p>
+          <p class="drop-sub">ou <span class="drop-link">cliquez pour sélectionner</span></p>
+          <p class="drop-formats">CSV, XLS, XLSX • Max 10 Mo</p>
+        </div>
+        <div *ngIf="importFile" class="file-selected">
+          <mat-icon class="file-icon">description</mat-icon>
+          <div class="file-info"><p class="file-name">{{ importFile.name }}</p><p class="file-size">{{ formatSize(importFile.size) }}</p></div>
+          <button class="file-remove" (click)="removeImportFile($event)"><mat-icon>close</mat-icon></button>
+        </div>
+      </div>
+      <div class="format-info">
+        <p class="format-title">Colonnes attendues :</p>
+        <div class="columns-list">
+          <span *ngIf="activeTab === 'courses'"><span class="column-tag">Nom du cours</span><span class="column-tag">Code</span><span class="column-tag">Niveau</span><span class="column-tag">Type</span><span class="column-tag">Enseignant</span><span class="column-tag">Heures</span></span>
+          <span *ngIf="activeTab === 'groups'"><span class="column-tag">Nom groupe</span><span class="column-tag">Niveau</span><span class="column-tag">Promotion</span><span class="column-tag">Capacité</span><span class="column-tag">Responsable</span></span>
+        </div>
+      </div>
+      <div *ngIf="importParseError" class="error-banner"><mat-icon>error</mat-icon><span>{{ importParseError }}</span></div>
+    </div>
+    <div *ngIf="importStep === 2" class="modal-body preview-body">
+      <div class="summary-badges">
+        <div class="summary-badge total"><mat-icon>table_rows</mat-icon><div><p class="badge-num">{{ importPreviewRows.length }}</p><p class="badge-lbl">Total</p></div></div>
+        <div class="summary-badge valid"><mat-icon>check_circle</mat-icon><div><p class="badge-num">{{ validImportCount }}</p><p class="badge-lbl">Valides</p></div></div>
+      </div>
+      <div class="preview-table-wrapper">
+        <table class="preview-table">
+          <thead><tr><th>#</th><th>Nom</th><th>Code/Niveau</th><th>Type/Promotion</th><th>Enseignant/Responsable</th><th>✓</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let row of importPreviewRows; let i = index" [class.row-invalid]="!row.valid">
+              <td class="col-num">{{ i+1 }}</td>
+              <td class="col-bold">{{ row.col0 }}</td>
+              <td>{{ row.col1 }}</td>
+              <td>{{ row.col2 }}</td>
+              <td>{{ row.col3 }}</td>
+              <td><mat-icon *ngIf="row.valid" class="valid-icon">check_circle</mat-icon><mat-icon *ngIf="!row.valid" class="error-icon">warning</mat-icon></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeImportModal()">Annuler</button>
+      <div class="footer-right">
+        <button *ngIf="importStep === 2" class="btn-back" (click)="importStep = 1"><mat-icon>arrow_back</mat-icon> Retour</button>
+        <button *ngIf="importStep === 1" class="btn-next" [disabled]="!importFile || isImportLoading" (click)="parseImportFile()"><mat-icon>visibility</mat-icon> {{ isImportLoading ? 'Analyse...' : 'Aperçu' }}</button>
+        <button *ngIf="importStep === 2 && validImportCount" class="btn-import-confirm" (click)="confirmImport()"><mat-icon>upload</mat-icon> Importer {{ validImportCount }} élément(s)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL IMPORT ═══ -->
+<div *ngIf="isImportModalOpen" class="modal-overlay" (click)="closeImportModal()">
+  <div class="modal modal-import" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="import-modal-icon"><mat-icon>upload_file</mat-icon></div>
+        <div>
+          <h2>Importer des cours</h2>
+          <p class="modal-header-sub">Fichier CSV ou Excel (.xlsx)</p>
+        </div>
+      </div>
+      <button class="modal-close" (click)="closeImportModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div *ngIf="importStep === 1" class="modal-body">
+      <div class="template-banner">
+        <mat-icon>download</mat-icon>
+        <div><p class="template-title">Télécharger le modèle</p><p class="template-sub">Utilisez notre modèle pour formater vos données</p></div>
+        <button class="btn-template" (click)="downloadTemplate()"><mat-icon>file_download</mat-icon> Modèle CSV</button>
+      </div>
+      <div class="drop-zone" [class.dragging]="isDragging" [class.has-file]="importFile"
+        (dragover)="onImportDragOver($event)" (dragleave)="onImportDragLeave()" (drop)="onImportDrop($event)" (click)="fileInput.click()">
+        <input #fileInput type="file" accept=".csv,.xlsx,.xls" style="display:none" (change)="onImportFileSelected($event)" />
+        <div *ngIf="!importFile" class="drop-content">
+          <div class="drop-icon-circle"><mat-icon>cloud_upload</mat-icon></div>
+          <p class="drop-title">Glissez votre fichier ici</p>
+          <p class="drop-sub">ou <span class="drop-link">cliquez pour sélectionner</span></p>
+          <p class="drop-formats">CSV, XLS, XLSX • Max 10 Mo</p>
+        </div>
+        <div *ngIf="importFile" class="file-selected">
+          <mat-icon class="file-icon">description</mat-icon>
+          <div class="file-info"><p class="file-name">{{ importFile.name }}</p><p class="file-size">{{ formatSize(importFile.size) }}</p></div>
+          <button class="file-remove" (click)="removeImportFile($event)"><mat-icon>close</mat-icon></button>
+        </div>
+      </div>
+      <div class="format-info">
+        <p class="format-title">Colonnes attendues :</p>
+        <div class="columns-list">
+          <span *ngFor="let col of importColumns" class="column-tag">{{ col }}</span>
+        </div>
+      </div>
+      <div *ngIf="importParseError" class="error-banner"><mat-icon>error</mat-icon><span>{{ importParseError }}</span></div>
+    </div>
+    <div *ngIf="importStep === 2" class="modal-body preview-body">
+      <div class="summary-badges">
+        <div class="summary-badge total"><mat-icon>table_rows</mat-icon><div><p class="badge-num">{{ importPreviewRows.length }}</p><p class="badge-lbl">Total</p></div></div>
+        <div class="summary-badge valid"><mat-icon>check_circle</mat-icon><div><p class="badge-num">{{ validImportRows.length }}</p><p class="badge-lbl">Valides</p></div></div>
+        <div class="summary-badge invalid" *ngIf="invalidImportRows.length > 0"><mat-icon>error</mat-icon><div><p class="badge-num">{{ invalidImportRows.length }}</p><p class="badge-lbl">Erreurs</p></div></div>
+      </div>
+      <div class="preview-tabs">
+        <button class="ptab" [class.active]="importPreviewFilter === 'all'"     (click)="importPreviewFilter = 'all'">Tous ({{ importPreviewRows.length }})</button>
+        <button class="ptab" [class.active]="importPreviewFilter === 'valid'"   (click)="importPreviewFilter = 'valid'">✓ Valides ({{ validImportRows.length }})</button>
+        <button class="ptab" [class.active]="importPreviewFilter === 'invalid'" (click)="importPreviewFilter = 'invalid'" *ngIf="invalidImportRows.length > 0">⚠ Erreurs ({{ invalidImportRows.length }})</button>
+      </div>
+      <div class="preview-table-wrapper">
+        <table class="preview-table">
+          <thead><tr><th>#</th><th>Nom</th><th>Code</th><th>Niveau</th><th>Type</th><th>Enseignant</th><th>✓</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let row of filteredImportRows; let i = index" [class.row-invalid]="!row.valid">
+              <td class="col-num">{{ i+1 }}</td>
+              <td class="col-bold">{{ row.name }}</td><td>{{ row.code }}</td><td>{{ row.level }}</td><td>{{ row.type }}</td><td>{{ row.professor }}</td>
+              <td>
+                <mat-icon *ngIf="row.valid" class="valid-icon">check_circle</mat-icon>
+                <mat-icon *ngIf="!row.valid" class="error-icon" [title]="row.errors.join(', ')">warning</mat-icon>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="import-note" *ngIf="invalidImportRows.length > 0"><mat-icon>info</mat-icon> Seules les {{ validImportRows.length }} lignes valides seront importées.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeImportModal()">Annuler</button>
+      <div class="footer-right">
+        <button *ngIf="importStep === 2" class="btn-back" (click)="importStep = 1"><mat-icon>arrow_back</mat-icon> Retour</button>
+        <button *ngIf="importStep === 1" class="btn-next" [disabled]="!importFile || isImportLoading" (click)="parseImportFile()">
+          <mat-icon>visibility</mat-icon> {{ isImportLoading ? 'Analyse...' : 'Aperçu' }}
+        </button>
+        <button *ngIf="importStep === 2 && validImportRows.length > 0" class="btn-import-confirm" (click)="confirmImport()">
+          <mat-icon>upload</mat-icon> Importer {{ validImportRows.length }} élément(s)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

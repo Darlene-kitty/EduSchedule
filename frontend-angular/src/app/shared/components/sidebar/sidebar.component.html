@@ -1,0 +1,57 @@
+<aside class="w-64 bg-[#1F2937] text-white flex flex-col h-screen">
+  <!-- Logo -->
+  <div class="p-6 flex items-center gap-3">
+    <div class="w-12 h-12 bg-[#FBBF24] rounded-xl flex items-center justify-center">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#1F2937]">
+        <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
+        <line x1="16" x2="16" y1="2" y2="6"/>
+        <line x1="8" x2="8" y1="2" y2="6"/>
+        <line x1="3" x2="21" y1="10" y2="10"/>
+      </svg>
+    </div>
+    <div>
+      <h1 class="font-bold text-lg">EduSchedule</h1>
+      <p class="text-sm text-gray-400">Gestion intelligente</p>
+    </div>
+  </div>
+
+  <!-- User Info -->
+  <div
+  class="px-4 py-3 bg-[#374151] mx-4 rounded-lg flex items-center gap-3 cursor-pointer"
+  [routerLink]="['/profile']"
+>
+  <img [src]="currentUser.avatar" [alt]="currentUser.name" class="w-10 h-10 rounded-full bg-gray-500" />
+  <div class="flex-1">
+    <p class="font-semibold text-sm">{{ currentUser.name }}</p>
+    <p class="text-xs text-gray-400 capitalize">{{ currentUser.role }}</p>
+  </div>
+</div>
+
+
+  <!-- Navigation -->
+  <nav class="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
+    <a *ngFor="let item of menuItems"
+       [routerLink]="item.href"
+       routerLinkActive="bg-[#15803D] text-white"
+       [routerLinkActiveOptions]="{exact: false}"
+       class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors relative text-gray-300 hover:bg-[#374151]">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+        <!-- Icons will be rendered here -->
+      </svg>
+      <span class="text-sm font-medium">{{ item.label }}</span>
+      <span *ngIf="item.badge" class="ml-auto bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+        {{ item.badge }}
+      </span>
+    </a>
+  </nav>
+
+  <!-- Logout Button -->
+  <button (click)="onLogout()" class="mx-3 mb-6 flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-300 hover:bg-[#374151] transition-colors w-full">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+      <polyline points="16 17 21 12 16 7"/>
+      <line x1="21" x2="9" y1="12" y2="12"/>
+    </svg>
+    <span class="text-sm font-medium">Déconnexion</span>
+  </button>
+</aside>

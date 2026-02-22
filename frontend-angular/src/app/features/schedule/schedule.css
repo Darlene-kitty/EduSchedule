@@ -1,0 +1,106 @@
+.page-layout { display: flex; height: 100vh; background: #F3F4F6; overflow: hidden; }
+.main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.page-header { background: white; border-bottom: 1px solid #E5E7EB; padding: 0 24px; height: 64px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.header-menu-btn { background: transparent; border: none; cursor: pointer; color: #6B7280; display: flex; align-items: center; padding: 6px; border-radius: 6px; }
+.header-right { display: flex; align-items: center; gap: 20px; }
+.header-datetime { text-align: right; }
+.header-date { display: block; font-size: 0.875rem; font-weight: 600; color: #111827; }
+.header-time { display: block; font-size: 0.75rem; color: #6B7280; }
+.header-notif-btn { position: relative; background: transparent; border: none; cursor: pointer; color: #6B7280; display: flex; align-items: center; padding: 6px; border-radius: 6px; }
+.notif-dot { position: absolute; top: 0; right: 0; background: #EF4444; color: white; font-size: 0.6rem; font-weight: 700; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.header-user { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+.header-user:hover { background: #F3F4F6; }
+.header-avatar { width: 34px; height: 34px; background: #15803D; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; }
+.header-username { font-size: 0.875rem; font-weight: 600; color: #111827; }
+.header-chevron { color: #6B7280; font-size: 18px !important; width: 18px !important; height: 18px !important; }
+
+.page-content { flex: 1; overflow-y: auto; padding: 24px 28px; }
+.page-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.page-title { font-size: 1.6rem; font-weight: 700; color: #111827; margin: 0 0 4px; }
+.page-sub { font-size: 0.875rem; color: #6B7280; margin: 0; }
+.btn-add { display: flex; align-items: center; gap: 6px; background: #15803D; color: white; border: none; padding: 11px 20px; border-radius: 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+.btn-add:hover { background: #166534; }
+.btn-add mat-icon { font-size: 18px !important; width: 18px !important; height: 18px !important; }
+
+/* Schedule Card */
+.schedule-card { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.schedule-card-header { margin-bottom: 20px; }
+.schedule-card-header h2 { font-size: 1.1rem; font-weight: 700; color: #111827; margin: 0 0 4px; }
+.schedule-card-header p  { font-size: 0.82rem; color: #9CA3AF; margin: 0; }
+
+/* Days grid */
+.days-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+
+.day-column { display: flex; flex-direction: column; }
+.day-label { text-align: center; font-size: 0.9rem; font-weight: 700; color: #374151; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 2px solid #E5E7EB; }
+
+.courses-column { display: flex; flex-direction: column; gap: 12px; min-height: 100px; }
+
+/* Course card */
+.course-card {
+  border-radius: 12px;
+  padding: 12px;
+  cursor: grab;
+  position: relative;
+  user-select: none;
+  transition: transform 0.15s, box-shadow 0.15s;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.course-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
+.course-card:active { cursor: grabbing; }
+
+.course-top { margin-bottom: 4px; }
+.course-time-row { display: flex; align-items: center; gap: 4px; }
+.course-icon { font-size: 14px !important; width: 14px !important; height: 14px !important; color: rgba(255,255,255,0.7); }
+.course-time { font-size: 0.72rem; color: rgba(255,255,255,0.9); flex: 1; font-weight: 600; }
+.course-del-btn { background: transparent; border: none; cursor: pointer; color: rgba(255,255,255,0.7); display: flex; align-items: center; padding: 2px; }
+.course-del-btn:hover { color: white; }
+.course-del-btn mat-icon { font-size: 14px !important; width: 14px !important; height: 14px !important; }
+
+.course-name { font-size: 1rem; font-weight: 700; color: white; margin: 0; }
+
+.room-badge, .group-badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.2);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-right: 4px;
+}
+
+.course-prof { font-size: 0.78rem; color: rgba(255,255,255,0.85); margin: 0; margin-top: auto; }
+
+/* Empty day */
+.empty-day { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; border: 2px dashed #E5E7EB; border-radius: 12px; color: #9CA3AF; gap: 6px; min-height: 80px; }
+.empty-day mat-icon { font-size: 24px !important; width: 24px !important; height: 24px !important; }
+.empty-day p { font-size: 0.78rem; margin: 0; }
+
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+.modal { background: white; border-radius: 16px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 18px 22px; border-bottom: 1px solid #F3F4F6; }
+.modal-header h2 { font-size: 1rem; font-weight: 600; margin: 0; }
+.modal-close { background: transparent; border: none; cursor: pointer; color: #6B7280; display: flex; padding: 4px; border-radius: 6px; }
+.modal-close:hover { background: #F3F4F6; }
+.modal-body { padding: 18px 22px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-group { margin-bottom: 14px; display: flex; flex-direction: column; gap: 5px; }
+.form-group label { font-size: 0.82rem; font-weight: 500; color: #374151; }
+.form-group input, .form-group select { padding: 8px 10px; border: 1px solid #E5E7EB; border-radius: 7px; font-size: 0.875rem; outline: none; width: 100%; box-sizing: border-box; }
+.form-group input:focus, .form-group select:focus { border-color: #15803D; }
+
+.color-picker { display: flex; gap: 10px; flex-wrap: wrap; }
+.color-dot { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: transform 0.15s; }
+.color-dot:hover { transform: scale(1.15); }
+.color-dot.selected { border-color: #111827; transform: scale(1.15); }
+
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px 18px; border-top: 1px solid #F3F4F6; }
+.btn-cancel { background: transparent; border: 1px solid #E5E7EB; padding: 8px 16px; border-radius: 8px; font-size: 0.875rem; cursor: pointer; }
+.btn-save   { display: flex; align-items: center; gap: 6px; background: #15803D; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+.btn-save mat-icon { font-size: 16px !important; width: 16px !important; height: 16px !important; }

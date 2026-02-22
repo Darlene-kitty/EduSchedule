@@ -1,0 +1,140 @@
+<div class="page-layout">
+  <app-sidebar activePage="schedule"></app-sidebar>
+  <div class="main-wrapper">
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn"><mat-icon>notifications</mat-icon><span class="notif-dot">2</span></button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <main class="page-content">
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Planification des emplois du temps</h1>
+          <p class="page-sub">Glissez-déposez les cours pour les réorganiser</p>
+        </div>
+        <button class="btn-add" (click)="openModal()"><mat-icon>add</mat-icon> Nouveau cours</button>
+      </div>
+
+      <!-- Schedule Card -->
+      <div class="schedule-card">
+        <div class="schedule-card-header">
+          <h2>Emploi du temps hebdomadaire</h2>
+          <p>Glissez et déposez les cours pour les déplacer entre les jours</p>
+        </div>
+
+        <!-- Days grid -->
+        <div class="days-grid">
+          <div
+            *ngFor="let day of days"
+            class="day-column"
+            (dragover)="onDragOver($event)"
+            (drop)="onDrop(day)">
+
+            <h3 class="day-label">{{ day }}</h3>
+
+            <div class="courses-column">
+              <div
+                *ngFor="let course of getCoursesForDay(day)"
+                class="course-card"
+                [style.background]="'linear-gradient(135deg, ' + course.color + ' 0%, ' + course.gradientEnd + ' 100%)'"
+                draggable="true"
+                (dragstart)="onDragStart(course)">
+
+                <!-- Top actions -->
+                <div class="course-top">
+                  <div class="course-time-row">
+                    <mat-icon class="course-icon">drag_indicator</mat-icon>
+                    <mat-icon class="course-icon">schedule</mat-icon>
+                    <span class="course-time">{{ course.startTime }}-{{ course.endTime }}</span>
+                    <mat-icon class="course-icon">open_in_new</mat-icon>
+                    <button class="course-del-btn" (click)="deleteCourse(course.id)">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Course info -->
+                <h4 class="course-name">{{ course.name }}</h4>
+                <span class="room-badge">{{ course.room }}</span>
+                <span class="group-badge">{{ course.group }}</span>
+                <p class="course-prof">{{ course.professor }}</p>
+              </div>
+
+              <div *ngIf="getCoursesForDay(day).length === 0" class="empty-day">
+                <mat-icon>add_circle_outline</mat-icon>
+                <p>Déposer ici</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal -->
+<div *ngIf="isModalOpen" class="modal-overlay" (click)="closeModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Nouveau cours</h2>
+      <button class="modal-close" (click)="closeModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Nom du cours</label><input type="text" [(ngModel)]="newCourse.name" placeholder="Ex: Mathématiques" /></div>
+        <div class="form-group">
+          <label>Type</label>
+          <select [(ngModel)]="newCourse.type">
+            <option value="CM">Cours magistral (CM)</option>
+            <option value="TD">TD</option>
+            <option value="TP">TP</option>
+            <option value="Séminaire">Séminaire</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Salle</label><input type="text" [(ngModel)]="newCourse.room" placeholder="Ex: A101" /></div>
+        <div class="form-group"><label>Groupe</label><input type="text" [(ngModel)]="newCourse.group" placeholder="Ex: L1-G1" /></div>
+      </div>
+      <div class="form-group"><label>Professeur</label><input type="text" [(ngModel)]="newCourse.professor" placeholder="Ex: Dr. Martin" /></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Jour</label>
+          <select [(ngModel)]="newCourse.day">
+            <option *ngFor="let d of days" [value]="d">{{ d }}</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Heure début</label><input type="time" [(ngModel)]="newCourse.startTime" /></div>
+        <div class="form-group"><label>Heure fin</label><input type="time" [(ngModel)]="newCourse.endTime" /></div>
+      </div>
+      <!-- Color picker -->
+      <div class="form-group">
+        <label>Couleur</label>
+        <div class="color-picker">
+          <div
+            *ngFor="let c of colors; let i = index"
+            class="color-dot"
+            [style.background]="'linear-gradient(135deg, ' + c.color + ', ' + c.gradientEnd + ')'"
+            [class.selected]="selectedColorIdx === i"
+            (click)="selectedColorIdx = i">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeModal()">Annuler</button>
+      <button class="btn-save" (click)="handleAdd()"><mat-icon>save</mat-icon> Ajouter</button>
+    </div>
+  </div>
+</div>

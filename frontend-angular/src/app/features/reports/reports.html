@@ -1,0 +1,83 @@
+<div class="page-layout">
+  <app-sidebar activePage="reports"></app-sidebar>
+  <div class="main-wrapper">
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn"><mat-icon>notifications</mat-icon><span class="notif-dot">2</span></button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <main class="page-content">
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Rapports et statistiques</h1>
+          <p class="page-sub">Analysez l'utilisation des salles et la répartition des cours</p>
+        </div>
+        <div class="title-actions">
+          <select class="period-select" [(ngModel)]="selectedPeriod">
+            <option>Cette semaine</option>
+            <option>Ce mois</option>
+            <option>Ce trimestre</option>
+          </select>
+          <button class="btn-export" (click)="exportPdf()">
+            <mat-icon>download</mat-icon> Exporter PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div *ngFor="let stat of stats" class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label">{{ stat.label }}</span>
+            <mat-icon class="stat-icon">{{ stat.icon }}</mat-icon>
+          </div>
+          <p class="stat-value">{{ stat.value }}</p>
+          <p class="stat-change">{{ stat.change }}</p>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="charts-grid">
+        <!-- Bar Chart -->
+        <div class="chart-card">
+          <h3 class="chart-title">Utilisation des salles</h3>
+          <p class="chart-sub">Salles utilisées par jour cette semaine</p>
+          <div class="chart-container">
+            <canvas #barCanvas class="chart-canvas"></canvas>
+          </div>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="legend-dot green"></span>Utilisé</span>
+            <span class="legend-item"><span class="legend-dot gray"></span>Disponible</span>
+          </div>
+        </div>
+
+        <!-- Pie Chart -->
+        <div class="chart-card">
+          <h3 class="chart-title">Taux d'occupation par bâtiment</h3>
+          <p class="chart-sub">Pourcentage moyen d'utilisation</p>
+          <div class="chart-container pie-container">
+            <canvas #pieCanvas class="chart-canvas"></canvas>
+            <div class="pie-legend">
+              <div *ngFor="let d of pieData" class="pie-legend-item">
+                <span class="pie-dot" [style.background]="d.color"></span>
+                <span>{{ d.label }}: {{ d.value }}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>

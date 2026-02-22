@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+### Maven ###
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
@@ -46,6 +46,11 @@ Thumbs.db
 
 ### Docker ###
 docker-compose.override.yml
-=======
-"target/ *.log .idea/ *.iml .env" 
->>>>>>> 05557e28d8cd303119551bee085611f321f0b3c9
+
+### Angular frontend ###
+frontend-angular/node_modules/
+frontend-angular/dist/
+frontend-angular/.angular/cache
+
+node_modules/
+**/node_modules/

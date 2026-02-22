@@ -1,0 +1,145 @@
+<div class="dashboard-layout">
+
+  <!-- Sidebar -->
+  <app-sidebar activePage="dashboard"></app-sidebar>
+
+  <!-- Main -->
+  <div class="main-wrapper">
+
+    <!-- Header -->
+    <header class="dashboard-header">
+      <button class="header-menu-btn">
+        <mat-icon>menu</mat-icon>
+      </button>
+
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+
+        <button class="header-notif-btn">
+          <mat-icon>notifications</mat-icon>
+          <span class="notif-dot">2</span>
+        </button>
+
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <main class="dashboard-content">
+
+      <!-- Stats Grid -->
+      <div class="stats-grid">
+        <div *ngFor="let stat of stats" class="stat-card">
+          <div class="stat-left">
+            <p class="stat-label">{{ stat.label }}</p>
+            <p class="stat-value">{{ stat.value }}</p>
+            <div class="stat-change">
+              <mat-icon class="trend-icon">trending_up</mat-icon>
+              <span class="trend-text">{{ stat.change }} cette semaine</span>
+            </div>
+          </div>
+          <div class="stat-icon-box" [ngClass]="stat.color">
+            <mat-icon>{{ stat.icon }}</mat-icon>
+          </div>
+        </div>
+      </div>
+
+      <!-- Efficiency Score -->
+      <div class="efficiency-card">
+        <div class="efficiency-header">
+          <div>
+            <h3>Score d'Efficacité Global</h3>
+            <p>Optimisation de l'utilisation des ressources</p>
+          </div>
+          <div class="efficiency-value">
+            <span>{{ efficiencyScore }}%</span>
+            <div class="efficiency-trend">
+              <mat-icon>trending_up</mat-icon>
+              <span>+5%</span>
+            </div>
+          </div>
+        </div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" [style.width.%]="efficiencyScore"></div>
+        </div>
+      </div>
+
+      <!-- Upcoming Courses + Occupancy -->
+      <div class="bottom-grid">
+
+        <!-- Prochains cours -->
+        <div class="card">
+          <h3 class="card-title">Prochains cours aujourd'hui</h3>
+          <div class="courses-list">
+            <div *ngFor="let course of upcomingCourses" class="course-item">
+              <div class="course-bar" [style.background]="course.color"></div>
+              <div class="course-info">
+                <div class="course-header">
+                  <p class="course-subject">{{ course.subject }}</p>
+                  <span class="students-badge">{{ course.students }} étudiants</span>
+                </div>
+                <div class="course-meta">
+                  <mat-icon class="meta-icon">schedule</mat-icon>
+                  <span>{{ course.time }}</span>
+                  <span class="meta-sep">•</span>
+                  <span>{{ course.room }}</span>
+                </div>
+                <p class="course-prof">{{ course.professor }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Taux d'occupation -->
+        <div class="card">
+          <div class="occupancy-header">
+            <h3 class="card-title">Taux d'occupation des salles</h3>
+            <p class="occupancy-sub">Vue en temps réel par bâtiment</p>
+          </div>
+          <div class="occupancy-list">
+            <div *ngFor="let building of occupancyBuildings" class="occupancy-item">
+              <div class="occupancy-info">
+                <span class="building-name">{{ building.name }}</span>
+                <span class="building-rooms">{{ building.occupied }}/{{ building.total }} salles occupées</span>
+              </div>
+              <div class="occ-track">
+                <div class="occ-fill"
+                     [style.width.%]="building.percentage"
+                     [style.background]="getOccupancyColor(building.percentage)">
+                </div>
+              </div>
+              <div class="occ-percent" [style.color]="getOccupancyColor(building.percentage)">
+                {{ building.percentage }}%
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Activités récentes -->
+      <div class="card activities-card">
+        <h3 class="card-title">Activités récentes</h3>
+        <div class="activities-list">
+          <div *ngFor="let activity of recentActivities" class="activity-item">
+            <div class="activity-icon-box" [ngClass]="getActivityClass(activity.type)">
+              <mat-icon>{{ activity.icon }}</mat-icon>
+            </div>
+            <div class="activity-content">
+              <p class="activity-message">{{ activity.message }}</p>
+              <p class="activity-time">{{ activity.time }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
