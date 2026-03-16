@@ -1,8 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
+import { CoursesManagementService, Course as ManagedCourse } from '../../core/services/courses-management.service';
 
 export interface Course {
   id: number;
@@ -35,6 +36,8 @@ export interface StudentGroup {
   styleUrl: './courses.css'
 })
 export class CoursesComponent implements OnInit {
+  private coursesManagementService = inject(CoursesManagementService);
+
   activeTab: 'courses' | 'groups' = 'courses';
   searchQuery = '';
   currentDate = '';
@@ -50,14 +53,7 @@ export class CoursesComponent implements OnInit {
   itemToDelete:  { id: number; name: string; type: 'course' | 'group' } | null = null;
   viewingCourse: Course | null = null;
 
-  courses: Course[] = [
-    { id: 1, name: 'Mathématiques Avancées',  code: 'MATH301', level: 'L3', type: 'Cours magistral', professor: 'Dr. Martin Dupont',    hours: 48, students: 85, groups: ['L3-G1', 'L3-G2'] },
-    { id: 2, name: 'Physique Quantique',       code: 'PHYS402', level: 'M1', type: 'Cours magistral', professor: 'Prof. Sophie Bernard',  hours: 36, students: 42, groups: ['M1-G1'] },
-    { id: 3, name: 'TP Chimie Organique',      code: 'CHEM205', level: 'L2', type: 'TP',             professor: 'Dr. Claire Dubois',    hours: 24, students: 30, groups: ['L2-G1', 'L2-G2'] },
-    { id: 4, name: 'Programmation Python',     code: 'INFO101', level: 'L1', type: 'TD',             professor: 'Prof. Jean Moreau',    hours: 32, students: 60, groups: ['L1-G1', 'L1-G2', 'L1-G3'] },
-    { id: 5, name: 'Analyse Numérique',        code: 'MATH402', level: 'M1', type: 'Cours magistral', professor: 'Dr. Martin Dupont',    hours: 40, students: 38, groups: ['M1-G1', 'M1-G2'] },
-    { id: 6, name: 'Statistiques Appliquées',  code: 'STAT301', level: 'L3', type: 'TD',             professor: 'Dr. Marie Blanc',      hours: 28, students: 55, groups: ['L3-G1'] },
-  ];
+  courses: Course[] = [];
 
   groups: StudentGroup[] = [
     { id: 1, name: 'L1-G1', level: 'L1', promotion: 'Licence 1', capacity: 30, enrolled: 28, courses: ['INFO101', 'MATH101', 'PHYS101'], responsible: 'Dr. Martin Dupont' },
@@ -73,7 +69,27 @@ export class CoursesComponent implements OnInit {
   newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral' as Course['type'], professor: '', hours: 30, students: 0 };
   newGroup  = { name: '', level: 'L1', promotion: 'Licence 1', capacity: 30, responsible: '' };
 
-  ngOnInit(): void { this.updateDateTime(); setInterval(() => this.updateDateTime(), 1000); }
+  ngOnInit(): void { 
+    this.updateDateTime(); 
+    setInterval(() => this.updateDateTime(), 1000);
+    this.loadCourses();
+  }
+
+  private loadCourses(): void {
+    this.coursesManagementService.getCourses().subscribe(managedCourses => {
+      this.courses = managedCourses.map(c => ({
+        id: c.id,
+        name: c.name,
+        code: c.code,
+        level: c.level,
+        type: 'Cours magistral' as Course['type'],
+        professor: c.teacher,
+        hours: c.hours,
+        students: 0,
+        groups: [c.group]
+      }));
+    });
+  }
 
   updateDateTime(): void {
     const now = new Date();
@@ -119,11 +135,30 @@ export class CoursesComponent implements OnInit {
 
   saveCourse(): void {
     if (this.editingCourse) {
-      this.courses = this.courses.map(c => c.id === this.editingCourse!.id ? { ...c, ...this.newCourse } : c);
+      this.coursesManagementService.updateCourse(this.editingCourse.id, {
+        name: this.newCourse.name,
+        code: this.newCourse.code,
+        teacher: this.newCourse.professor,
+        level: this.newCourse.level,
+        group: 'G1',
+        hours: this.newCourse.hours,
+        semester: 'S1'
+      }).subscribe(() => {
+        this.closeCourseModal();
+      });
     } else {
-      this.courses = [...this.courses, { id: Date.now(), ...this.newCourse, groups: [] }];
+      this.coursesManagementService.addCourse({
+        name: this.newCourse.name,
+        code: this.newCourse.code,
+        teacher: this.newCourse.professor,
+        level: this.newCourse.level,
+        group: 'G1',
+        hours: this.newCourse.hours,
+        semester: 'S1'
+      }).subscribe(() => {
+        this.closeCourseModal();
+      });
     }
-    this.closeCourseModal();
   }
 
   /* ── Group modal ── */
@@ -156,9 +191,14 @@ export class CoursesComponent implements OnInit {
   closeDeleteModal(): void { this.isDeleteModalOpen = false; this.itemToDelete = null; }
   confirmDelete(): void {
     if (!this.itemToDelete) return;
-    if (this.itemToDelete.type === 'course') this.courses = this.courses.filter(c => c.id !== this.itemToDelete!.id);
-    else this.groups = this.groups.filter(g => g.id !== this.itemToDelete!.id);
-    this.closeDeleteModal();
+    if (this.itemToDelete.type === 'course') {
+      this.coursesManagementService.deleteCourse(this.itemToDelete.id).subscribe(() => {
+        this.closeDeleteModal();
+      });
+    } else {
+      this.groups = this.groups.filter(g => g.id !== this.itemToDelete!.id);
+      this.closeDeleteModal();
+    }
   }
 
   /* ── Helpers ── */

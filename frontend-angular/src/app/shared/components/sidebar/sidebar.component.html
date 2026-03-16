@@ -1,4 +1,4 @@
-<aside class="w-64 bg-[#1F2937] text-white flex flex-col h-screen">
+﻿<aside class="w-64 bg-[#1F2937] text-white flex flex-col h-screen">
   <!-- Logo -->
   <div class="p-6 flex items-center gap-3">
     <div class="w-12 h-12 bg-[#FBBF24] rounded-xl flex items-center justify-center">
@@ -14,44 +14,37 @@
       <p class="text-sm text-gray-400">Gestion intelligente</p>
     </div>
   </div>
-
   <!-- User Info -->
-  <div
-  class="px-4 py-3 bg-[#374151] mx-4 rounded-lg flex items-center gap-3 cursor-pointer"
-  [routerLink]="['/profile']"
->
-  <img [src]="currentUser.avatar" [alt]="currentUser.name" class="w-10 h-10 rounded-full bg-gray-500" />
-  <div class="flex-1">
-    <p class="font-semibold text-sm">{{ currentUser.name }}</p>
-    <p class="text-xs text-gray-400 capitalize">{{ currentUser.role }}</p>
+  <div class="px-4 py-3 bg-[#374151] mx-4 rounded-lg flex items-center gap-3 cursor-pointer" [routerLink]="['/profile']">
+    <div class="w-10 h-10 rounded-full bg-[#FBBF24] flex items-center justify-center text-[#1F2937] font-bold text-sm">
+      {{ currentUser.initials }}
+    </div>
+    <div class="flex-1 min-w-0">
+      <p class="font-semibold text-sm truncate">{{ currentUser.name }}</p>
+      <p class="text-xs text-gray-400 capitalize">{{ currentUser.role }}</p>
+    </div>
   </div>
-</div>
-
-
   <!-- Navigation -->
-  <nav class="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
-    <a *ngFor="let item of menuItems"
-       [routerLink]="item.href"
-       routerLinkActive="bg-[#15803D] text-white"
-       [routerLinkActiveOptions]="{exact: false}"
-       class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors relative text-gray-300 hover:bg-[#374151]">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
-        <!-- Icons will be rendered here -->
-      </svg>
-      <span class="text-sm font-medium">{{ item.label }}</span>
-      <span *ngIf="item.badge" class="ml-auto bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-        {{ item.badge }}
-      </span>
-    </a>
+  <nav class="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+    <ng-container *ngFor="let item of menuItems">
+      <div *ngIf="item.section" class="pt-4 pb-1 px-3">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ item.section }}</p>
+      </div>
+      <a [routerLink]="item.href"
+         routerLinkActive="bg-[#15803D] text-white"
+         [routerLinkActiveOptions]="{exact: false}"
+         class="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-gray-300 hover:bg-[#374151]">
+        <mat-icon style="font-size:20px;width:20px;height:20px;line-height:20px;">{{ item.icon }}</mat-icon>
+        <span class="text-sm font-medium">{{ item.label }}</span>
+        <span *ngIf="item.badge" class="ml-auto bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+          {{ item.badge }}
+        </span>
+      </a>
+    </ng-container>
   </nav>
-
   <!-- Logout Button -->
   <button (click)="onLogout()" class="mx-3 mb-6 flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-300 hover:bg-[#374151] transition-colors w-full">
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-      <polyline points="16 17 21 12 16 7"/>
-      <line x1="21" x2="9" y1="12" y2="12"/>
-    </svg>
-    <span class="text-sm font-medium">Déconnexion</span>
+    <mat-icon style="font-size:20px;width:20px;height:20px;line-height:20px;">logout</mat-icon>
+    <span class="text-sm font-medium">Deconnexion</span>
   </button>
 </aside>

@@ -2,13 +2,13 @@ import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
+import { StorageService } from '../services/storage.service';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const router = inject(Router);
-  let token: string | null = null;
-  if (typeof window !== 'undefined' && window.localStorage) {
-    token = localStorage.getItem('token');
-  }
+  const storageService = inject(StorageService);
+  
+  const token = storageService.getToken();
 
   // Clone the request and add authorization header if token exists
   const authReq = token
@@ -23,10 +23,8 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     catchError((error) => {
       if (error.status === 401) {
         // Unauthorized - redirect to login
-        if (typeof window !== 'undefined' && window.localStorage) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-        }
+        storageService.removeToken();
+        storageService.removeUser();
         router.navigate(['/login']);
       }
       return throwError(() => error);

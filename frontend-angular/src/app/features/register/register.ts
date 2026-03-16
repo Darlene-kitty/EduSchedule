@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-register',
@@ -11,9 +12,13 @@ import { Router, RouterModule } from '@angular/router';
   styleUrl: './register.css',
 })
 export class Register {
+  private router = inject(Router);
+  private authService = inject(AuthService);
+
   showPassword = false;
   showConfirmPassword = false;
   loading = false;
+  errorMessage = '';
   
   formData = {
     name: '',
@@ -24,31 +29,45 @@ export class Register {
     confirmPassword: ''
   };
 
-  constructor(private router: Router) {}
-
   onSubmit() {
     if (!this.formData.name || !this.formData.email || !this.formData.password || !this.formData.role) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      this.errorMessage = 'Veuillez remplir tous les champs obligatoires';
       return;
     }
 
     if (this.formData.password !== this.formData.confirmPassword) {
-      alert('Les mots de passe ne correspondent pas');
+      this.errorMessage = 'Les mots de passe ne correspondent pas';
       return;
     }
 
     if (this.formData.password.length < 8) {
-      alert('Le mot de passe doit contenir au moins 8 caractères');
+      this.errorMessage = 'Le mot de passe doit contenir au moins 8 caractères';
       return;
     }
 
     this.loading = true;
+    this.errorMessage = '';
 
-    // Simuler une inscription
-    setTimeout(() => {
-      localStorage.setItem('isAuthenticated', 'true');
-      this.router.navigate(['/dashboard']);
-    }, 1000);
+    const userData = {
+      name: this.formData.name,
+      email: this.formData.email,
+      phone: this.formData.phone,
+      role: this.formData.role,
+      password: this.formData.password
+    };
+
+    this.authService.register(userData).subscribe({
+      next: (response) => {
+        this.router.navigate(['/dashboard']);
+      },
+      error: (error) => {
+        this.errorMessage = error.error?.message || 'Erreur lors de l\'inscription. Veuillez réessayer.';
+        this.loading = false;
+      },
+      complete: () => {
+        this.loading = false;
+      }
+    });
   }
 
   togglePassword() {
@@ -59,4 +78,3 @@ export class Register {
     this.showConfirmPassword = !this.showConfirmPassword;
   }
 }
-

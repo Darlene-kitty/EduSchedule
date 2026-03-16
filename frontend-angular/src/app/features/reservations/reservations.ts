@@ -1,8 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
+import { RoomsManagementService, Room as ManagedRoom } from '../../core/services/rooms-management.service';
+import { ReservationsManagementService, Reservation } from '../../core/services/reservations-management.service';
 
 export interface Room {
   id: number; name: string; building: string; capacity: number;
@@ -19,6 +21,9 @@ export interface ImportedRoom { name: string; building: string; capacity: number
   styleUrl: './reservations.css'
 })
 export class ReservationsComponent implements OnInit {
+  private roomsService = inject(RoomsManagementService);
+  private reservationsService = inject(ReservationsManagementService);
+
   searchQuery = ''; currentDate = ''; currentTime = '';
   isModalOpen = false;
   isImportModalOpen = false;
@@ -35,20 +40,42 @@ export class ReservationsComponent implements OnInit {
 
   newReservation = { roomId: '', date: '', startTime: '', endTime: '', purpose: '', type: 'Cours magistral' };
 
-  rooms: Room[] = [
-    { id: 1, name: 'Salle A101', building: 'Bâtiment A', capacity: 50, type: 'Cours magistral', equipments: ['Projecteur', 'Wifi', 'Tableau blanc'], available: true, nextReservation: '14:00 - Mathématiques' },
-    { id: 2, name: 'Salle A102', building: 'Bâtiment A', capacity: 45, type: 'Cours magistral', equipments: ['Projecteur', 'Wifi'],                  available: false, currentCourse: 'Physique',      currentTime: '10:00-12:00' },
-    { id: 3, name: 'Salle B203', building: 'Bâtiment B', capacity: 30, type: 'TD',              equipments: ['Tableau blanc', 'Wifi'],               available: true,  nextReservation: '16:00 - Chimie' },
-    { id: 4, name: 'Lab C305',   building: 'Bâtiment C', capacity: 40, type: 'TP',              equipments: ['Projecteur', 'Wifi'],                  available: true },
-    { id: 5, name: 'Lab D104',   building: 'Bâtiment D', capacity: 35, type: 'TP',              equipments: ['Projecteur'],                          available: false, currentCourse: 'Informatique', currentTime: '09:00-11:00' },
-    { id: 6, name: 'Amphithéâtre A', building: 'Bâtiment Principal', capacity: 100, type: 'CM', equipments: ['Projecteur', 'Wifi', 'Microphone'],   available: true,  nextReservation: '10:00 - Conférence' },
-  ];
+  rooms: Room[] = [];
+  reservations: Reservation[] = [];
 
   get validImportCount(): number {
-  return this.validImportRows?.length || 0;
-}
+    return this.validImportRows?.length || 0;
+  }
 
-  ngOnInit(): void { this.updateDateTime(); setInterval(() => this.updateDateTime(), 1000); }
+  ngOnInit(): void { 
+    this.updateDateTime(); 
+    setInterval(() => this.updateDateTime(), 1000);
+    this.loadRooms();
+    this.loadReservations();
+  }
+
+  private loadRooms(): void {
+    this.roomsService.getRooms().subscribe(managedRooms => {
+      this.rooms = managedRooms.map(r => ({
+        id: r.id,
+        name: r.name,
+        building: r.building,
+        capacity: r.capacity,
+        type: r.type,
+        equipments: r.equipment || [],
+        available: r.status === 'available',
+        currentCourse: r.status === 'occupied' ? 'Cours en cours' : undefined,
+        currentTime: r.status === 'occupied' ? '09:00-11:00' : undefined,
+        nextReservation: undefined
+      }));
+    });
+  }
+
+  private loadReservations(): void {
+    this.reservationsService.getReservations().subscribe(reservations => {
+      this.reservations = reservations;
+    });
+  }
   updateDateTime(): void {
     const now = new Date();
     this.currentDate = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -62,8 +89,33 @@ export class ReservationsComponent implements OnInit {
   }
   openModal(): void { this.newReservation = { roomId: '', date: '', startTime: '', endTime: '', purpose: '', type: 'Cours magistral' }; this.isModalOpen = true; }
   closeModal(): void { this.isModalOpen = false; }
-  handleReserve(): void { this.closeModal(); }
-  reserveRoom(room: Room): void { this.newReservation.roomId = room.id.toString(); this.isModalOpen = true; }
+  handleReserve(): void { 
+    if (!this.newReservation.roomId || !this.newReservation.date || !this.newReservation.startTime || !this.newReservation.endTime) {
+      return;
+    }
+
+    const room = this.rooms.find(r => r.id.toString() === this.newReservation.roomId);
+    if (!room) return;
+
+    this.reservationsService.addReservation({
+      roomName: room.name,
+      roomId: room.id,
+      date: this.newReservation.date,
+      startTime: this.newReservation.startTime,
+      endTime: this.newReservation.endTime,
+      purpose: this.newReservation.purpose || this.newReservation.type,
+      requestedBy: 'Utilisateur actuel',
+      status: 'pending'
+    }).subscribe(() => {
+      this.closeModal();
+      this.loadReservations();
+    });
+  }
+
+  reserveRoom(room: Room): void { 
+    this.newReservation.roomId = room.id.toString(); 
+    this.isModalOpen = true; 
+  }
 
   openImportModal(): void {
     this.importStep = 1; this.importFile = null; this.isDragging = false;
@@ -110,9 +162,20 @@ export class ReservationsComponent implements OnInit {
     return this.importPreviewRows;
   }
   confirmImport(): void {
-    this.validImportRows.forEach(r => { this.rooms.push({ id: Date.now() + Math.random(), name: r.name, building: r.building, capacity: r.capacity, type: r.type, equipments: [], available: true }); });
+    this.validImportRows.forEach(r => { 
+      this.roomsService.addRoom({
+        name: r.name,
+        building: r.building,
+        capacity: r.capacity,
+        type: r.type,
+        equipment: [],
+        status: 'available'
+      }).subscribe();
+    });
+    
     this.importedCount = this.validImportRows.length;
-    this.closeImportModal(); this.showImportToast = true;
+    this.closeImportModal(); 
+    this.showImportToast = true;
     setTimeout(() => this.showImportToast = false, 4000);
   }
   downloadTemplate(): void {

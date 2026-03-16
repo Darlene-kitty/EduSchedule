@@ -96,7 +96,52 @@ export const routes: Routes = [
     loadComponent: () => import('./features/events/events').then(m => m.EventsComponent),
     canActivate: [authGuard]
   },
-  
+  {
+    path: 'students',
+    loadComponent: () => import('./features/students/students').then(m => m.StudentsComponent),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'schools',
+    loadComponent: () => import('./features/schools/schools').then(m => m.SchoolsComponent),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'filieres',
+    loadComponent: () => import('./features/filieres/filieres').then(m => m.FilieresComponent),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'niveaux',
+    loadComponent: () => import('./features/niveaux/niveaux').then(m => m.NiveauxComponent),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'classes',
+    loadComponent: () => import('./features/classes/classes').then(m => m.ClassesComponent),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'categories-ue',
+    loadComponent: () => import('./features/categories-ue/categories-ue').then(m => m.CategoriesUeComponent),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'competences',
+    loadComponent: () => import('./features/competences/competences').then(m => m.CompetencesComponent),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'equipment-types',
+    loadComponent: () => import('./features/equipment-types/equipment-types').then(m => m.EquipmentTypesComponent),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'equipment',
+    loadComponent: () => import('./features/equipment/equipment').then(m => m.EquipmentComponent),
+    canActivate: [authGuard]
+  },
+
   // Fallback
   {
     path: '**',

@@ -1,0 +1,321 @@
+<div class="page-layout">
+  <app-sidebar activePage="categories-ue"></app-sidebar>
+  <div class="main-wrapper">
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn"><mat-icon>notifications</mat-icon></button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <div class="toast-success" [class.visible]="showSuccess">
+      <mat-icon>check_circle</mat-icon><span>{{ successMessage }}</span>
+    </div>
+
+    <main class="page-content">
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Catégories UE</h1>
+          <p class="page-sub">{{ categories.length }} catégories d'unités d'enseignement</p>
+        </div>
+        <button class="btn-add" (click)="openAddModal()">
+          <mat-icon>add</mat-icon> Nouvelle catégorie
+        </button>
+      </div>
+
+      <!-- Stats par type -->
+      <div class="stats-row">
+        <div class="stat-card" [class.active]="filterType === ''" (click)="filterType = ''" style="--c:#6B7280">
+          <div class="stat-icon" style="background:#6B7280"><mat-icon>category</mat-icon></div>
+          <div><p class="stat-num">{{ categories.length }}</p><p class="stat-lbl">Toutes</p></div>
+        </div>
+        <div *ngFor="let s of typeStats" class="stat-card" [class.active]="filterType === s.type"
+          [style.--c]="s.color" (click)="filterType = filterType === s.type ? '' : s.type">
+          <div class="stat-icon" [style.background]="s.color"><mat-icon>book</mat-icon></div>
+          <div><p class="stat-num">{{ s.count }}</p><p class="stat-lbl">{{ s.type }}</p></div>
+        </div>
+      </div>
+
+      <!-- Filtres -->
+      <div class="filters-row">
+        <div class="search-wrapper">
+          <mat-icon class="search-icon">search</mat-icon>
+          <input type="text" class="search-input" placeholder="Rechercher par nom ou code..." [(ngModel)]="searchQuery" />
+        </div>
+        <select class="filter-select" [(ngModel)]="filterEcole">
+          <option value="">Toutes les écoles</option>
+          <option *ngFor="let e of ecoles" [value]="e.sigle">{{ e.sigle }}</option>
+        </select>
+      </div>
+
+      <!-- Tableau -->
+      <div class="table-card">
+        <div class="table-card-header">
+          <h2 class="table-title">Liste des catégories UE</h2>
+          <p class="table-sub">{{ filteredCategories.length }} catégorie(s) trouvée(s)</p>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Catégorie</th>
+                <th>Type</th>
+                <th>Crédits</th>
+                <th>Vol. horaire</th>
+                <th>Coeff.</th>
+                <th>Écoles</th>
+                <th>Niveaux</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let c of filteredCategories" class="table-row">
+                <td>
+                  <div class="cat-cell">
+                    <div class="cat-icon" [style.background]="getTypeColor(c.type)">
+                      <mat-icon>book</mat-icon>
+                    </div>
+                    <div>
+                      <div class="cat-nom">{{ c.nom }}</div>
+                      <div class="cat-code">{{ c.code }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="type-badge" [style.background]="getTypeColor(c.type) + '20'" [style.color]="getTypeColor(c.type)" [style.border-color]="getTypeColor(c.type) + '50'">{{ c.type }}</span></td>
+                <td><span class="credits-badge">{{ c.credits }} cr.</span></td>
+                <td><span class="vh-badge">{{ c.volumeHoraire }}h</span></td>
+                <td><span class="coeff-badge">×{{ c.coefficient }}</span></td>
+                <td>
+                  <div class="ecoles-cell">
+                    <span *ngFor="let e of c.ecoles.slice(0,3)" class="ecole-dot-sm" [title]="e">{{ e.substring(0,3) }}</span>
+                    <span *ngIf="c.ecoles.length > 3" class="tag-more">+{{ c.ecoles.length - 3 }}</span>
+                    <span *ngIf="c.ecoles.length === 0" class="text-muted">Tous</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="niveaux-cell">
+                    <span *ngFor="let n of c.niveaux.slice(0,3)" class="tag-niveau-sm">{{ n }}</span>
+                    <span *ngIf="c.niveaux.length > 3" class="tag-more">+{{ c.niveaux.length - 3 }}</span>
+                  </div>
+                </td>
+                <td><span class="status-badge" [class.active]="c.enabled" [class.inactive]="!c.enabled">{{ c.enabled ? 'Active' : 'Inactive' }}</span></td>
+                <td>
+                  <div class="actions-cell">
+                    <button class="action-btn view-btn"   (click)="openViewModal(c)"   title="Voir"><mat-icon>visibility</mat-icon></button>
+                    <button class="action-btn edit-btn"   (click)="openEditModal(c)"   title="Modifier"><mat-icon>edit</mat-icon></button>
+                    <button class="action-btn delete-btn" (click)="openDeleteModal(c)" title="Supprimer"><mat-icon>delete</mat-icon></button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="filteredCategories.length === 0">
+                <td colspan="9" class="empty-row"><mat-icon>category</mat-icon><p>Aucune catégorie trouvée</p></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ═══ MODAL VUE ═══ -->
+<div *ngIf="isViewModalOpen && viewingCat" class="modal-overlay" (click)="closeViewModal()">
+  <div class="modal modal-view" (click)="$event.stopPropagation()">
+    <div class="modal-hero" [style.background]="getTypeColor(viewingCat.type)">
+      <div class="hero-icon"><mat-icon>book</mat-icon></div>
+      <div class="hero-info">
+        <h2>{{ viewingCat.nom }}</h2>
+        <p>{{ viewingCat.code }} · {{ viewingCat.type }}</p>
+      </div>
+      <button class="modal-close-white" (click)="closeViewModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <p class="view-desc">{{ viewingCat.description }}</p>
+      <div class="view-metrics">
+        <div class="metric-card blue"><p class="metric-val">{{ viewingCat.credits }}</p><p class="metric-lbl">Crédits</p></div>
+        <div class="metric-card purple"><p class="metric-val">{{ viewingCat.volumeHoraire }}h</p><p class="metric-lbl">Vol. horaire</p></div>
+        <div class="metric-card orange"><p class="metric-val">×{{ viewingCat.coefficient }}</p><p class="metric-lbl">Coefficient</p></div>
+      </div>
+      <div class="view-section">
+        <p class="view-section-title"><mat-icon>account_balance</mat-icon> Écoles ({{ viewingCat.ecoles.length || 'Toutes' }})</p>
+        <div class="tags-list">
+          <span *ngFor="let e of viewingCat.ecoles" class="tag-ecole">{{ e }}</span>
+          <span *ngIf="viewingCat.ecoles.length === 0" class="tag-all">Toutes les écoles</span>
+        </div>
+      </div>
+      <div class="view-section">
+        <p class="view-section-title"><mat-icon>layers</mat-icon> Niveaux ({{ viewingCat.niveaux.length }})</p>
+        <div class="tags-list">
+          <span *ngFor="let n of viewingCat.niveaux" class="tag-niveau">{{ n }}</span>
+        </div>
+      </div>
+      <div class="view-section" *ngIf="viewingCat.filieres.length > 0">
+        <p class="view-section-title"><mat-icon>fork_right</mat-icon> Filières ({{ viewingCat.filieres.length }})</p>
+        <div class="tags-list">
+          <span *ngFor="let f of viewingCat.filieres" class="tag-filiere">{{ f }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeViewModal()">Fermer</button>
+      <button class="btn-save" (click)="closeViewModal(); openEditModal(viewingCat!)"><mat-icon>edit</mat-icon> Modifier</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL SUPPRESSION ═══ -->
+<div *ngIf="isDeleteModalOpen && catToDelete" class="modal-overlay" (click)="closeDeleteModal()">
+  <div class="modal modal-delete" (click)="$event.stopPropagation()">
+    <div class="delete-modal-body">
+      <div class="delete-icon-circle"><mat-icon>delete_forever</mat-icon></div>
+      <h2 class="delete-title">Supprimer la catégorie ?</h2>
+      <p class="delete-desc">Vous êtes sur le point de supprimer <strong>{{ catToDelete.nom }}</strong>. Cette action est <strong>irréversible</strong>.</p>
+      <div class="delete-preview" [style.border-left-color]="getTypeColor(catToDelete.type)">
+        <div class="delete-icon-sm" [style.background]="getTypeColor(catToDelete.type)"><mat-icon>book</mat-icon></div>
+        <div>
+          <p class="delete-name">{{ catToDelete.nom }}</p>
+          <p class="delete-sub">{{ catToDelete.code }} · {{ catToDelete.credits }} crédits · {{ catToDelete.type }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer delete-footer">
+      <button class="btn-cancel" (click)="closeDeleteModal()">Annuler</button>
+      <button class="btn-delete-confirm" (click)="confirmDelete()"><mat-icon>delete</mat-icon> Oui, supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL AJOUT ═══ -->
+<div *ngIf="isAddModalOpen" class="modal-overlay" (click)="closeAddModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Nouvelle catégorie UE</h2>
+      <button class="modal-close" (click)="closeAddModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Code *</label><input type="text" [(ngModel)]="newCat.code" placeholder="Ex: MATH" /></div>
+        <div class="form-group">
+          <label>Type *</label>
+          <select [(ngModel)]="newCat.type" (ngModelChange)="onTypeChange(newCat)">
+            <option *ngFor="let t of types" [value]="t">{{ t }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label>Nom *</label><input type="text" [(ngModel)]="newCat.nom" placeholder="Ex: Mathématiques" /></div>
+      <div class="form-group"><label>Description</label><textarea [(ngModel)]="newCat.description" rows="2" placeholder="Description..."></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label>Crédits</label><input type="number" [(ngModel)]="newCat.credits" min="0" max="30" /></div>
+        <div class="form-group"><label>Volume horaire (h)</label><input type="number" [(ngModel)]="newCat.volumeHoraire" min="0" /></div>
+        <div class="form-group"><label>Coefficient</label><input type="number" [(ngModel)]="newCat.coefficient" min="1" max="10" /></div>
+      </div>
+      <div class="form-group">
+        <label>Écoles concernées</label>
+        <div class="ecole-checkboxes">
+          <label *ngFor="let e of ecoles" class="ecole-checkbox-item">
+            <input type="checkbox" [checked]="hasEcoleNew(e.sigle)" (change)="toggle(newCat.ecoles, e.sigle)" />
+            <span class="ecole-check-label" [style.border-color]="e.couleur">
+              <span class="ecole-check-dot" [style.background]="e.couleur"></span>{{ e.sigle }}
+            </span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Niveaux</label>
+        <div class="checkbox-grid-sm">
+          <label *ngFor="let n of allNiveaux" class="checkbox-item">
+            <input type="checkbox" [checked]="hasNiveauNew(n)" (change)="toggle(newCat.niveaux, n)" /><span>{{ n }}</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Filières (optionnel)</label>
+        <div class="checkbox-grid">
+          <label *ngFor="let f of allFilieres" class="checkbox-item">
+            <input type="checkbox" [checked]="hasFiliereNew(f)" (change)="toggle(newCat.filieres, f)" /><span>{{ f }}</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAddModal()">Annuler</button>
+      <button class="btn-save" (click)="handleAdd()" [disabled]="!newCat.code || !newCat.nom"><mat-icon>save</mat-icon> Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL ÉDITION ═══ -->
+<div *ngIf="isEditModalOpen" class="modal-overlay" (click)="closeEditModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Modifier la catégorie UE</h2>
+      <button class="modal-close" (click)="closeEditModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Code *</label><input type="text" [(ngModel)]="editCatData.code" /></div>
+        <div class="form-group">
+          <label>Type *</label>
+          <select [(ngModel)]="editCatData.type" (ngModelChange)="onTypeChange(editCatData)">
+            <option *ngFor="let t of types" [value]="t">{{ t }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label>Nom *</label><input type="text" [(ngModel)]="editCatData.nom" /></div>
+      <div class="form-group"><label>Description</label><textarea [(ngModel)]="editCatData.description" rows="2"></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label>Crédits</label><input type="number" [(ngModel)]="editCatData.credits" min="0" /></div>
+        <div class="form-group"><label>Volume horaire (h)</label><input type="number" [(ngModel)]="editCatData.volumeHoraire" min="0" /></div>
+        <div class="form-group"><label>Coefficient</label><input type="number" [(ngModel)]="editCatData.coefficient" min="1" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group toggle-group">
+          <label>Statut</label>
+          <label class="toggle"><input type="checkbox" [(ngModel)]="editCatData.enabled" /><span class="toggle-slider"></span></label>
+          <span class="toggle-label">{{ editCatData.enabled ? 'Active' : 'Inactive' }}</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Écoles concernées</label>
+        <div class="ecole-checkboxes">
+          <label *ngFor="let e of ecoles" class="ecole-checkbox-item">
+            <input type="checkbox" [checked]="hasEcoleEdit(e.sigle)" (change)="toggle(editCatData.ecoles, e.sigle)" />
+            <span class="ecole-check-label" [style.border-color]="e.couleur">
+              <span class="ecole-check-dot" [style.background]="e.couleur"></span>{{ e.sigle }}
+            </span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Niveaux</label>
+        <div class="checkbox-grid-sm">
+          <label *ngFor="let n of allNiveaux" class="checkbox-item">
+            <input type="checkbox" [checked]="hasNiveauEdit(n)" (change)="toggle(editCatData.niveaux, n)" /><span>{{ n }}</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Filières (optionnel)</label>
+        <div class="checkbox-grid">
+          <label *ngFor="let f of allFilieres" class="checkbox-item">
+            <input type="checkbox" [checked]="hasFiliereEdit(f)" (change)="toggle(editCatData.filieres, f)" /><span>{{ f }}</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeEditModal()">Annuler</button>
+      <button class="btn-save" (click)="handleEdit()"><mat-icon>save</mat-icon> Sauvegarder</button>
+    </div>
+  </div>
+</div>

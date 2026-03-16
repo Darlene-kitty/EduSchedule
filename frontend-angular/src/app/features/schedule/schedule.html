@@ -1,6 +1,7 @@
 <div class="page-layout">
   <app-sidebar activePage="schedule"></app-sidebar>
   <div class="main-wrapper">
+
     <header class="page-header">
       <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
       <div class="header-right">
@@ -8,7 +9,10 @@
           <span class="header-date">{{ currentDate }}</span>
           <span class="header-time">{{ currentTime }}</span>
         </div>
-        <button class="header-notif-btn"><mat-icon>notifications</mat-icon><span class="notif-dot">2</span></button>
+        <button class="header-notif-btn" (click)="showConflits = !showConflits">
+          <mat-icon>notifications</mat-icon>
+          <span class="notif-dot" *ngIf="conflits.length > 0">{{ conflits.length }}</span>
+        </button>
         <div class="header-user">
           <div class="header-avatar">AS</div>
           <span class="header-username">Admin</span>
@@ -17,124 +21,368 @@
       </div>
     </header>
 
+    <div class="toast-success" [class.visible]="showSuccess">
+      <mat-icon>check_circle</mat-icon><span>{{ successMessage }}</span>
+    </div>
+
     <main class="page-content">
+
+      <!-- Titre -->
       <div class="page-title-row">
         <div>
-          <h1 class="page-title">Planification des emplois du temps</h1>
-          <p class="page-sub">Glissez-déposez les cours pour les réorganiser</p>
+          <h1 class="page-title">Planification</h1>
+          <p class="page-sub">{{ seances.length }} séances planifiées · Semaine {{ semaineActive }}</p>
         </div>
-        <button class="btn-add" (click)="openModal()"><mat-icon>add</mat-icon> Nouveau cours</button>
+        <div class="title-actions">
+          <button class="btn-conflits" (click)="showConflits = !showConflits" [class.has-conflits]="conflits.length > 0">
+            <mat-icon>warning</mat-icon>
+            {{ conflits.length }} conflit(s)
+          </button>
+          <button class="btn-add" (click)="openAddModal()"><mat-icon>add</mat-icon> Nouvelle séance</button>
+        </div>
       </div>
 
-      <!-- Schedule Card -->
-      <div class="schedule-card">
-        <div class="schedule-card-header">
-          <h2>Emploi du temps hebdomadaire</h2>
-          <p>Glissez et déposez les cours pour les déplacer entre les jours</p>
+      <!-- Panneau conflits -->
+      <div class="conflits-panel" *ngIf="showConflits">
+        <div class="conflits-header">
+          <div class="conflits-title">
+            <mat-icon>warning</mat-icon>
+            <span>Conflits détectés ({{ conflits.length }})</span>
+          </div>
+          <button class="conflits-close" (click)="showConflits = false"><mat-icon>close</mat-icon></button>
         </div>
+        <div *ngIf="conflits.length === 0" class="no-conflits">
+          <mat-icon>check_circle</mat-icon><span>Aucun conflit détecté</span>
+        </div>
+        <div *ngFor="let c of conflits" class="conflit-item" [ngClass]="'conflit-' + c.type">
+          <mat-icon>{{ c.type === 'enseignant' ? 'person_off' : c.type === 'salle' ? 'meeting_room' : 'groups' }}</mat-icon>
+          <span>{{ c.message }}</span>
+        </div>
+      </div>
 
-        <!-- Days grid -->
-        <div class="days-grid">
-          <div
-            *ngFor="let day of days"
-            class="day-column"
-            (dragover)="onDragOver($event)"
-            (drop)="onDrop(day)">
+      <!-- Filtres -->
+      <div class="filters-bar">
+        <div class="semaine-nav">
+          <button (click)="semaineActive = semaineActive > 1 ? semaineActive - 1 : semaineActive"><mat-icon>chevron_left</mat-icon></button>
+          <span>Semaine {{ semaineActive }}</span>
+          <button (click)="semaineActive = semaineActive + 1"><mat-icon>chevron_right</mat-icon></button>
+        </div>
+        <select class="filter-select" [(ngModel)]="filterEcole" (ngModelChange)="filterClasse = ''">
+          <option value="">Toutes les écoles</option>
+          <option *ngFor="let e of ecoles" [value]="e.sigle">{{ e.sigle }}</option>
+        </select>
+        <select class="filter-select" [(ngModel)]="filterClasse">
+          <option value="">Toutes les classes</option>
+          <option *ngFor="let c of classesFiltrees" [value]="c.code">{{ c.nom }}</option>
+        </select>
+        <select class="filter-select" [(ngModel)]="filterEnseignant">
+          <option value="">Tous les enseignants</option>
+          <option *ngFor="let e of enseignants" [value]="e.id">{{ e.nom }}</option>
+        </select>
+        <button class="btn-reset" (click)="filterEcole=''; filterClasse=''; filterEnseignant=''">
+          <mat-icon>refresh</mat-icon>
+        </button>
+      </div>
 
-            <h3 class="day-label">{{ day }}</h3>
+      <!-- Grille emploi du temps -->
+      <div class="schedule-wrapper">
+        <div class="schedule-grid">
 
-            <div class="courses-column">
-              <div
-                *ngFor="let course of getCoursesForDay(day)"
-                class="course-card"
-                [style.background]="'linear-gradient(135deg, ' + course.color + ' 0%, ' + course.gradientEnd + ' 100%)'"
+          <!-- En-tête jours -->
+          <div class="grid-corner"></div>
+          <div *ngFor="let jour of jours" class="grid-day-header">
+            <span>{{ jour }}</span>
+            <span class="day-count">{{ getSeancesJour(jour).length }} séance(s)</span>
+          </div>
+
+          <!-- Lignes créneaux -->
+          <ng-container *ngFor="let heure of creneaux">
+            <div class="grid-time">{{ heure }}</div>
+            <div *ngFor="let jour of jours" class="grid-cell"
+              [class.has-seance]="getSeancesCreneau(jour, heure).length > 0"
+              [class.drag-over]="isDragTarget(jour, heure)"
+              (dragover)="onDragOver($event, jour, heure)"
+              (dragleave)="onDragLeave()"
+              (drop)="onDrop($event, jour, heure)">
+              <div *ngFor="let s of getSeancesCreneau(jour, heure)"
+                class="seance-card"
+                [style.background]="s.couleur"
+                [class.conflict]="isConflict(s.id)"
                 draggable="true"
-                (dragstart)="onDragStart(course)">
-
-                <!-- Top actions -->
-                <div class="course-top">
-                  <div class="course-time-row">
-                    <mat-icon class="course-icon">drag_indicator</mat-icon>
-                    <mat-icon class="course-icon">schedule</mat-icon>
-                    <span class="course-time">{{ course.startTime }}-{{ course.endTime }}</span>
-                    <mat-icon class="course-icon">open_in_new</mat-icon>
-                    <button class="course-del-btn" (click)="deleteCourse(course.id)">
-                      <mat-icon>delete</mat-icon>
-                    </button>
-                  </div>
+                (dragstart)="onDragStart($event, s)"
+                (dragend)="onDragEnd($event)"
+                (click)="openViewModal(s)">
+                <div class="seance-top">
+                  <mat-icon class="drag-handle">drag_indicator</mat-icon>
+                  <span class="seance-type">{{ s.type }}</span>
+                  <span class="seance-ecole" [style.background]="s.couleurEcole + '40'">{{ s.sigleEcole }}</span>
                 </div>
-
-                <!-- Course info -->
-                <h4 class="course-name">{{ course.name }}</h4>
-                <span class="room-badge">{{ course.room }}</span>
-                <span class="group-badge">{{ course.group }}</span>
-                <p class="course-prof">{{ course.professor }}</p>
-              </div>
-
-              <div *ngIf="getCoursesForDay(day).length === 0" class="empty-day">
-                <mat-icon>add_circle_outline</mat-icon>
-                <p>Déposer ici</p>
+                <div class="seance-matiere">{{ s.matiere }}</div>
+                <div class="seance-info">
+                  <mat-icon>person</mat-icon><span>{{ s.enseignant.split(' ').slice(-1)[0] }}</span>
+                </div>
+                <div class="seance-info">
+                  <mat-icon>groups</mat-icon><span>{{ s.classe }}</span>
+                </div>
+                <div class="seance-info">
+                  <mat-icon>meeting_room</mat-icon><span>{{ s.salle }}</span>
+                </div>
+                <div class="seance-time">{{ s.heureDebut }} – {{ s.heureFin }}</div>
+                <div class="conflict-badge" *ngIf="isConflict(s.id)">
+                  <mat-icon>warning</mat-icon> Conflit
+                </div>
               </div>
             </div>
-          </div>
+          </ng-container>
+
         </div>
       </div>
+
     </main>
   </div>
 </div>
 
-<!-- Modal -->
-<div *ngIf="isModalOpen" class="modal-overlay" (click)="closeModal()">
-  <div class="modal" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <h2>Nouveau cours</h2>
-      <button class="modal-close" (click)="closeModal()"><mat-icon>close</mat-icon></button>
+<!-- ═══ MODAL VUE ═══ -->
+<div *ngIf="isViewModalOpen && viewingSeance" class="modal-overlay" (click)="closeViewModal()">
+  <div class="modal modal-view" (click)="$event.stopPropagation()">
+    <div class="modal-hero" [style.background]="viewingSeance.couleur">
+      <div class="hero-type">{{ viewingSeance.type }}</div>
+      <div class="hero-info">
+        <h2>{{ viewingSeance.matiere }}</h2>
+        <p>{{ viewingSeance.jour }} · {{ viewingSeance.heureDebut }} – {{ viewingSeance.heureFin }}</p>
+      </div>
+      <div class="hero-ecole" [style.background]="viewingSeance.couleurEcole">{{ viewingSeance.sigleEcole }}</div>
+      <button class="modal-close-white" (click)="closeViewModal()"><mat-icon>close</mat-icon></button>
     </div>
     <div class="modal-body">
-      <div class="form-row">
-        <div class="form-group"><label>Nom du cours</label><input type="text" [(ngModel)]="newCourse.name" placeholder="Ex: Mathématiques" /></div>
-        <div class="form-group">
-          <label>Type</label>
-          <select [(ngModel)]="newCourse.type">
-            <option value="CM">Cours magistral (CM)</option>
-            <option value="TD">TD</option>
-            <option value="TP">TP</option>
-            <option value="Séminaire">Séminaire</option>
-          </select>
+      <div class="view-info-grid">
+        <div class="view-info-item">
+          <div class="view-info-icon blue"><mat-icon>person</mat-icon></div>
+          <div><p class="view-info-label">Enseignant</p><p class="view-info-value">{{ viewingSeance.enseignant }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon green"><mat-icon>groups</mat-icon></div>
+          <div><p class="view-info-label">Classe</p><p class="view-info-value">{{ viewingSeance.classe }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon purple"><mat-icon>fork_right</mat-icon></div>
+          <div><p class="view-info-label">Filière</p><p class="view-info-value">{{ viewingSeance.filiere }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon teal"><mat-icon>layers</mat-icon></div>
+          <div><p class="view-info-label">Niveau</p><p class="view-info-value">{{ viewingSeance.niveau }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon orange"><mat-icon>meeting_room</mat-icon></div>
+          <div><p class="view-info-label">Salle</p><p class="view-info-value">{{ viewingSeance.salle }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon gray"><mat-icon>schedule</mat-icon></div>
+          <div><p class="view-info-label">Durée</p><p class="view-info-value">{{ dureeMinutes(viewingSeance.heureDebut, viewingSeance.heureFin) }} min</p></div>
         </div>
       </div>
-      <div class="form-row">
-        <div class="form-group"><label>Salle</label><input type="text" [(ngModel)]="newCourse.room" placeholder="Ex: A101" /></div>
-        <div class="form-group"><label>Groupe</label><input type="text" [(ngModel)]="newCourse.group" placeholder="Ex: L1-G1" /></div>
-      </div>
-      <div class="form-group"><label>Professeur</label><input type="text" [(ngModel)]="newCourse.professor" placeholder="Ex: Dr. Martin" /></div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Jour</label>
-          <select [(ngModel)]="newCourse.day">
-            <option *ngFor="let d of days" [value]="d">{{ d }}</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Heure début</label><input type="time" [(ngModel)]="newCourse.startTime" /></div>
-        <div class="form-group"><label>Heure fin</label><input type="time" [(ngModel)]="newCourse.endTime" /></div>
-      </div>
-      <!-- Color picker -->
-      <div class="form-group">
-        <label>Couleur</label>
-        <div class="color-picker">
-          <div
-            *ngFor="let c of colors; let i = index"
-            class="color-dot"
-            [style.background]="'linear-gradient(135deg, ' + c.color + ', ' + c.gradientEnd + ')'"
-            [class.selected]="selectedColorIdx === i"
-            (click)="selectedColorIdx = i">
-          </div>
+      <div class="conflict-alert" *ngIf="isConflict(viewingSeance.id)">
+        <mat-icon>warning</mat-icon>
+        <div>
+          <p class="ca-title">Conflit détecté</p>
+          <p class="ca-desc" *ngFor="let c of conflits">
+            <span *ngIf="c.seances.includes(viewingSeance.id)">{{ c.message }}</span>
+          </p>
         </div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-cancel" (click)="closeModal()">Annuler</button>
-      <button class="btn-save" (click)="handleAdd()"><mat-icon>save</mat-icon> Ajouter</button>
+      <button class="btn-cancel" (click)="closeViewModal()">Fermer</button>
+      <button class="btn-danger" (click)="closeViewModal(); openDeleteModal(viewingSeance!)"><mat-icon>delete</mat-icon></button>
+      <button class="btn-save" (click)="closeViewModal(); openEditModal(viewingSeance!)"><mat-icon>edit</mat-icon> Modifier</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL SUPPRESSION ═══ -->
+<div *ngIf="isDeleteModalOpen && seanceToDelete" class="modal-overlay" (click)="closeDeleteModal()">
+  <div class="modal modal-delete" (click)="$event.stopPropagation()">
+    <div class="delete-modal-body">
+      <div class="delete-icon-circle"><mat-icon>delete_forever</mat-icon></div>
+      <h2 class="delete-title">Supprimer la séance ?</h2>
+      <p class="delete-desc">Vous êtes sur le point de supprimer <strong>{{ seanceToDelete.matiere }}</strong> du <strong>{{ seanceToDelete.jour }}</strong> à <strong>{{ seanceToDelete.heureDebut }}</strong>.</p>
+      <div class="delete-preview" [style.border-left-color]="seanceToDelete.couleur">
+        <div class="delete-type" [style.background]="seanceToDelete.couleur">{{ seanceToDelete.type }}</div>
+        <div>
+          <p class="delete-name">{{ seanceToDelete.matiere }}</p>
+          <p class="delete-sub">{{ seanceToDelete.enseignant }} · {{ seanceToDelete.classe }} · {{ seanceToDelete.salle }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer delete-footer">
+      <button class="btn-cancel" (click)="closeDeleteModal()">Annuler</button>
+      <button class="btn-delete-confirm" (click)="confirmDelete()"><mat-icon>delete</mat-icon> Oui, supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL AJOUT ═══ -->
+<div *ngIf="isAddModalOpen" class="modal-overlay" (click)="closeAddModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Nouvelle séance</h2>
+      <button class="modal-close" (click)="closeAddModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>École *</label>
+          <select [(ngModel)]="newSeance.sigleEcole" (ngModelChange)="onEcoleChange(newSeance)">
+            <option value="">-- Choisir --</option>
+            <option *ngFor="let e of ecoles" [value]="e.sigle">{{ e.sigle }} — {{ e.nom }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Type *</label>
+          <select [(ngModel)]="newSeance.type" (ngModelChange)="onTypeChange(newSeance)">
+            <option *ngFor="let t of types" [value]="t">{{ t }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Matière *</label>
+        <select [(ngModel)]="newSeance.codeMatiere" (ngModelChange)="onMatiereChange(newSeance)">
+          <option value="">-- Choisir --</option>
+          <option *ngFor="let m of matieres" [value]="m.code">{{ m.nom }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Enseignant *</label>
+        <select [(ngModel)]="newSeance.enseignantId" (ngModelChange)="onEnseignantChange(newSeance)">
+          <option value="0">-- Choisir --</option>
+          <option *ngFor="let e of getEnseignantsFiltres(newSeance.sigleEcole)" [value]="e.id">
+            {{ e.nom }} — {{ e.specialite }}
+          </option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Classe *</label>
+        <select [(ngModel)]="newSeance.classe" (ngModelChange)="onClasseChange(newSeance)">
+          <option value="">-- Choisir --</option>
+          <option *ngFor="let c of getClassesFiltrees(newSeance.sigleEcole)" [value]="c.code">{{ c.nom }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Salle *</label>
+        <select [(ngModel)]="newSeance.salle">
+          <option value="">-- Choisir --</option>
+          <option *ngFor="let s of salles" [value]="s">{{ s }}</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Jour *</label>
+          <select [(ngModel)]="newSeance.jour">
+            <option *ngFor="let j of jours" [value]="j">{{ j }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Heure début</label>
+          <select [(ngModel)]="newSeance.heureDebut">
+            <option *ngFor="let h of creneaux" [value]="h">{{ h }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Heure fin</label>
+          <select [(ngModel)]="newSeance.heureFin">
+            <option *ngFor="let h of creneaux" [value]="h">{{ h }}</option>
+          </select>
+        </div>
+      </div>
+      <!-- Alerte conflit en temps réel -->
+      <div class="form-conflict-alert" *ngIf="newSeance.enseignantId && newSeance.jour && newSeance.heureDebut">
+        <ng-container *ngFor="let s of seances">
+          <div *ngIf="s.enseignantId === +newSeance.enseignantId && s.jour === newSeance.jour && chevauchement(newSeance.heureDebut, newSeance.heureFin, s.heureDebut, s.heureFin)" class="conflict-warning">
+            <mat-icon>warning</mat-icon>
+            <span>Conflit : {{ s.enseignant }} a déjà <strong>{{ s.matiere }}</strong> ({{ s.sigleEcole }}) à ce créneau !</span>
+          </div>
+        </ng-container>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAddModal()">Annuler</button>
+      <button class="btn-save" (click)="handleAdd()" [disabled]="!newSeance.codeMatiere || !newSeance.sigleEcole || !newSeance.classe">
+        <mat-icon>save</mat-icon> Planifier
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL ÉDITION ═══ -->
+<div *ngIf="isEditModalOpen" class="modal-overlay" (click)="closeEditModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Modifier la séance</h2>
+      <button class="modal-close" (click)="closeEditModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>École *</label>
+          <select [(ngModel)]="editSeanceData.sigleEcole" (ngModelChange)="onEcoleChange(editSeanceData)">
+            <option *ngFor="let e of ecoles" [value]="e.sigle">{{ e.sigle }} — {{ e.nom }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Type *</label>
+          <select [(ngModel)]="editSeanceData.type" (ngModelChange)="onTypeChange(editSeanceData)">
+            <option *ngFor="let t of types" [value]="t">{{ t }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Matière *</label>
+        <select [(ngModel)]="editSeanceData.codeMatiere" (ngModelChange)="onMatiereChange(editSeanceData)">
+          <option *ngFor="let m of matieres" [value]="m.code">{{ m.nom }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Enseignant *</label>
+        <select [(ngModel)]="editSeanceData.enseignantId" (ngModelChange)="onEnseignantChange(editSeanceData)">
+          <option *ngFor="let e of getEnseignantsFiltres(editSeanceData.sigleEcole)" [value]="e.id">{{ e.nom }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Classe *</label>
+        <select [(ngModel)]="editSeanceData.classe" (ngModelChange)="onClasseChange(editSeanceData)">
+          <option *ngFor="let c of getClassesFiltrees(editSeanceData.sigleEcole)" [value]="c.code">{{ c.nom }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Salle *</label>
+        <select [(ngModel)]="editSeanceData.salle">
+          <option *ngFor="let s of salles" [value]="s">{{ s }}</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Jour *</label>
+          <select [(ngModel)]="editSeanceData.jour">
+            <option *ngFor="let j of jours" [value]="j">{{ j }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Heure début</label>
+          <select [(ngModel)]="editSeanceData.heureDebut">
+            <option *ngFor="let h of creneaux" [value]="h">{{ h }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Heure fin</label>
+          <select [(ngModel)]="editSeanceData.heureFin">
+            <option *ngFor="let h of creneaux" [value]="h">{{ h }}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeEditModal()">Annuler</button>
+      <button class="btn-save" (click)="handleEdit()"><mat-icon>save</mat-icon> Sauvegarder</button>
     </div>
   </div>
 </div>

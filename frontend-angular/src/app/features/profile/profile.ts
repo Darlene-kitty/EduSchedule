@@ -1,9 +1,13 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
+import { AuthService } from '../../core/services/auth.service';
+import { UserService } from '../../core/services/user.service';
+import { PreferencesService } from '../../core/services/preferences.service';
+import { StorageService } from '../../core/services/storage.service';
 
 @Component({
   selector: 'app-profile',
@@ -13,6 +17,12 @@ import { SidebarComponent } from '../../shared/components/sidebar/sidebar.compon
   styleUrl: './profile.css'
 })
 export class ProfileComponent implements OnInit {
+  private router = inject(Router);
+  private authService = inject(AuthService);
+  private userService = inject(UserService);
+  private preferencesService = inject(PreferencesService);
+  private storageService = inject(StorageService);
+
   activeTab = 'personal';
   message = '';
   isError = false;
@@ -53,11 +63,35 @@ export class ProfileComponent implements OnInit {
     { key: 'preferences',  label: 'Préférences',   icon: 'settings' },
   ];
 
-  constructor(private router: Router) {}
-
   ngOnInit(): void {
     this.updateDateTime();
     setInterval(() => this.updateDateTime(), 1000);
+    this.loadUserData();
+    this.loadPreferences();
+  }
+
+  private loadUserData(): void {
+    const user = this.authService.getUser();
+    if (user) {
+      this.profileData = {
+        name: user.name || this.profileData.name,
+        email: user.email || this.profileData.email,
+        phone: user.phone || this.profileData.phone,
+        address: user.address || this.profileData.address,
+        bio: user.bio || this.profileData.bio,
+        department: user.department || this.profileData.department,
+        specialization: user.specialization || this.profileData.specialization
+      };
+    }
+  }
+
+  private loadPreferences(): void {
+    const savedPreferences = this.preferencesService.getPreferences();
+    this.preferences = {
+      emailNotifications: savedPreferences.emailNotifications ?? true,
+      pushNotifications: savedPreferences.notifications ?? false,
+      language: savedPreferences.language || 'fr'
+    };
   }
 
   updateDateTime(): void {
@@ -73,20 +107,57 @@ export class ProfileComponent implements OnInit {
   cancelEdit(): void { this.isEditMode = false; this.message = ''; }
 
   saveProfile(): void {
-    if (!this.profileDataEdit.name?.trim()) { this.isError = true; this.message = 'Le nom est obligatoire'; return; }
+    if (!this.profileDataEdit.name?.trim()) { 
+      this.isError = true; 
+      this.message = 'Le nom est obligatoire'; 
+      return; 
+    }
+    
     this.profileData = { ...this.profileDataEdit };
-    this.isEditMode = false; this.isError = false; this.message = 'Profil mis à jour avec succès';
+    
+    // Sauvegarder dans le localStorage via le service
+    const currentUser = this.authService.getUser();
+    const updatedUser = { ...currentUser, ...this.profileData };
+    this.authService.setUser(updatedUser);
+    
+    this.isEditMode = false; 
+    this.isError = false; 
+    this.message = 'Profil mis à jour avec succès';
   }
 
   changePassword(): void {
-    if (this.passwordData.newPassword !== this.passwordData.confirmPassword) { this.isError = true; this.message = 'Les mots de passe ne correspondent pas'; return; }
-    if (this.passwordData.newPassword.length < 6) { this.isError = true; this.message = 'Le mot de passe doit contenir au moins 6 caractères'; return; }
-    this.isError = false; this.message = 'Mot de passe changé avec succès';
+    if (this.passwordData.newPassword !== this.passwordData.confirmPassword) { 
+      this.isError = true; 
+      this.message = 'Les mots de passe ne correspondent pas'; 
+      return; 
+    }
+    if (this.passwordData.newPassword.length < 6) { 
+      this.isError = true; 
+      this.message = 'Le mot de passe doit contenir au moins 6 caractères'; 
+      return; 
+    }
+    
+    this.isError = false; 
+    this.message = 'Mot de passe changé avec succès';
     this.passwordData = { currentPassword: '', newPassword: '', confirmPassword: '' };
   }
 
-  savePreferences(): void { this.isError = false; this.message = 'Préférences sauvegardées'; }
-  logout(): void { this.router.navigate(['/login']); }
+  savePreferences(): void { 
+    // Sauvegarder les préférences dans le localStorage
+    this.preferencesService.updatePreferences({
+      emailNotifications: this.preferences.emailNotifications,
+      notifications: this.preferences.pushNotifications,
+      language: this.preferences.language
+    });
+    
+    this.isError = false; 
+    this.message = 'Préférences sauvegardées';
+  }
+
+  logout(): void { 
+    this.authService.logout();
+  }
+
   goBack(): void { this.router.navigate(['/dashboard']); }
   getInitials(): string { return this.profileData.name ? this.profileData.name.substring(0, 2).toUpperCase() : 'AD'; }
   

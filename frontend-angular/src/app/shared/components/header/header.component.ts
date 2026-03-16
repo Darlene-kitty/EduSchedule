@@ -1,5 +1,7 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { AuthService } from '../../../core/services/auth.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-header',
@@ -9,8 +11,13 @@ import { CommonModule } from '@angular/common';
   styleUrls: ['./header.component.css']
 })
 export class HeaderComponent {
+  private authService = inject(AuthService);
+  private router = inject(Router);
+
   @Input() title: string = '';
   @Input() subtitle?: string;
+
+  currentUser: any = null;
 
   now = new Date();
   dateStr = this.now.toLocaleDateString('fr-FR', {
@@ -25,6 +32,11 @@ export class HeaderComponent {
   });
 
   ngOnInit() {
+    // Charger l'utilisateur depuis le service
+    this.authService.user$.subscribe(user => {
+      this.currentUser = user;
+    });
+
     // Update time every minute
     setInterval(() => {
       this.now = new Date();
@@ -33,5 +45,18 @@ export class HeaderComponent {
         minute: '2-digit'
       });
     }, 60000);
+  }
+
+  getUserName(): string {
+    return this.currentUser?.name || this.currentUser?.username || 'Utilisateur';
+  }
+
+  getUserInitials(): string {
+    const name = this.getUserName();
+    return name.substring(0, 2).toUpperCase();
+  }
+
+  logout(): void {
+    this.authService.logout();
   }
 }

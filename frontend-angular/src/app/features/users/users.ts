@@ -1,8 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
+import { UsersManagementService, UserManagement } from '../../core/services/users-management.service';
 
 export interface User {
   id: number;
@@ -32,6 +33,8 @@ export interface ImportResult {
   styleUrl: './users.css'
 })
 export class UsersComponent implements OnInit {
+  private usersManagementService = inject(UsersManagementService);
+
   searchQuery = '';
   isAddModalOpen    = false;
   isEditModalOpen   = false;
@@ -57,19 +60,42 @@ export class UsersComponent implements OnInit {
 
   expectedColumns = ['Nom complet', 'Email', 'Rôle', 'Département', 'Téléphone', 'Actif (oui/non)'];
 
-  users: User[] = [
-    { id: 1, name: 'Dr. Martin Dupont',    email: 'martin.dupont@univ.fr',  role: 'Enseignant',     department: 'Mathématiques', phone: '01 23 45 67 89', enabled: true  },
-    { id: 2, name: 'Prof. Sophie Bernard', email: 'sophie.bernard@univ.fr', role: 'Enseignant',     department: 'Physique',      phone: '01 23 45 67 90', enabled: true  },
-    { id: 3, name: 'Admin Jean Moreau',    email: 'jean.moreau@univ.fr',    role: 'Administrateur', department: 'Administration',phone: '01 23 45 67 91', enabled: true  },
-    { id: 4, name: 'Dr. Claire Dubois',    email: 'claire.dubois@univ.fr',  role: 'Enseignant',     department: 'Chimie',        phone: '01 23 45 67 92', enabled: true  },
-    { id: 5, name: 'Prof. Pierre Laurent', email: 'pierre.laurent@univ.fr', role: 'Enseignant',     department: 'Informatique',  phone: '01 23 45 67 93', enabled: false },
-    { id: 6, name: 'Dr. Marie Blanc',      email: 'marie.blanc@univ.fr',    role: 'Enseignant',     department: 'Biologie',      phone: '01 23 45 67 94', enabled: true  },
-  ];
+  users: User[] = [];
 
   newUser      = { name: '', email: '', role: 'Enseignant' as User['role'], department: '', phone: '', enabled: true };
   editUserData = { name: '', email: '', role: 'Enseignant' as User['role'], department: '', phone: '', enabled: true };
 
-  ngOnInit(): void { this.updateDateTime(); setInterval(() => this.updateDateTime(), 1000); }
+  ngOnInit(): void { 
+    this.updateDateTime(); 
+    setInterval(() => this.updateDateTime(), 1000);
+    this.loadUsers();
+  }
+
+  private loadUsers(): void {
+    this.usersManagementService.getUsers().subscribe(users => {
+      this.users = users.map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: this.mapRole(u.role),
+        department: u.department || '',
+        phone: u.phone || '',
+        enabled: u.status === 'active'
+      }));
+    });
+  }
+
+  private mapRole(role: string): 'Enseignant' | 'Administrateur' | 'Étudiant' {
+    if (role === 'admin') return 'Administrateur';
+    if (role === 'student') return 'Étudiant';
+    return 'Enseignant';
+  }
+
+  private reverseMapRole(role: 'Enseignant' | 'Administrateur' | 'Étudiant'): string {
+    if (role === 'Administrateur') return 'admin';
+    if (role === 'Étudiant') return 'student';
+    return 'teacher';
+  }
 
   updateDateTime(): void {
     const now = new Date();
@@ -95,15 +121,34 @@ export class UsersComponent implements OnInit {
   /* ── Ajout ── */
   openAddModal(): void  { this.newUser = { name: '', email: '', role: 'Enseignant', department: '', phone: '', enabled: true }; this.isAddModalOpen = true; }
   closeAddModal(): void { this.isAddModalOpen = false; }
-  handleAddUser(): void { this.users = [...this.users, { ...this.newUser, id: Date.now() }]; this.closeAddModal(); }
+  handleAddUser(): void { 
+    this.usersManagementService.addUser({
+      name: this.newUser.name,
+      email: this.newUser.email,
+      role: this.reverseMapRole(this.newUser.role),
+      department: this.newUser.department,
+      phone: this.newUser.phone,
+      status: this.newUser.enabled ? 'active' : 'inactive'
+    }).subscribe(() => {
+      this.closeAddModal();
+    });
+  }
 
   /* ── Édition ── */
   openEditModal(user: User): void { this.editingUser = user; this.editUserData = { ...user }; this.isEditModalOpen = true; }
   closeEditModal(): void          { this.isEditModalOpen = false; this.editingUser = null; }
   handleEditUser(): void {
     if (!this.editingUser) return;
-    this.users = this.users.map(u => u.id === this.editingUser!.id ? { ...u, ...this.editUserData } : u);
-    this.closeEditModal();
+    this.usersManagementService.updateUser(this.editingUser.id, {
+      name: this.editUserData.name,
+      email: this.editUserData.email,
+      role: this.reverseMapRole(this.editUserData.role),
+      department: this.editUserData.department,
+      phone: this.editUserData.phone,
+      status: this.editUserData.enabled ? 'active' : 'inactive'
+    }).subscribe(() => {
+      this.closeEditModal();
+    });
   }
 
   /* ── Suppression ── */
@@ -111,8 +156,9 @@ export class UsersComponent implements OnInit {
   closeDeleteModal(): void          { this.isDeleteModalOpen = false; this.userToDelete = null; }
   confirmDelete(): void {
     if (!this.userToDelete) return;
-    this.users = this.users.filter(u => u.id !== this.userToDelete!.id);
-    this.closeDeleteModal();
+    this.usersManagementService.deleteUser(this.userToDelete.id).subscribe(() => {
+      this.closeDeleteModal();
+    });
   }
 
   /* ── Import Excel ── */
@@ -183,12 +229,20 @@ export class UsersComponent implements OnInit {
   confirmImport(): void {
     if (!this.importResult) return;
     const validRows = this.importResult.rows.filter(r => r.valid);
-    const newUsers: User[] = validRows.map(u => ({
-      id: Date.now() + Math.random(), name: u.username, email: u.email,
-      role: (u.role as User['role']) || 'Enseignant', department: u.department, phone: u.phone, enabled: u.enabled,
-    }));
-    this.users = [...this.users, ...newUsers];
-    this.importSuccessCount = newUsers.length;
+    
+    // Ajouter chaque utilisateur via le service
+    validRows.forEach(u => {
+      this.usersManagementService.addUser({
+        name: u.username,
+        email: u.email,
+        role: this.reverseMapRole((u.role as User['role']) || 'Enseignant'),
+        department: u.department,
+        phone: u.phone,
+        status: u.enabled ? 'active' : 'inactive'
+      }).subscribe();
+    });
+    
+    this.importSuccessCount = validRows.length;
     this.showImportSuccess = true;
     setTimeout(() => this.showImportSuccess = false, 4000);
     this.closeImportModal();

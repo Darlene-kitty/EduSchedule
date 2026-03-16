@@ -1,1 +1,355 @@
-<p>rooms works!</p>
+<div class="page-layout">
+  <app-sidebar activePage="rooms"></app-sidebar>
+  <div class="main-wrapper">
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn"><mat-icon>notifications</mat-icon></button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <div class="toast-success" [class.visible]="showSuccess">
+      <mat-icon>check_circle</mat-icon><span>{{ successMessage }}</span>
+    </div>
+
+    <main class="page-content">
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Salles</h1>
+          <p class="page-sub">{{ salles.length }} salles · {{ totalCapacite }} places au total</p>
+        </div>
+        <div class="title-actions">
+          <div class="view-toggle">
+            <button [class.active]="viewMode === 'table'" (click)="viewMode = 'table'"><mat-icon>table_rows</mat-icon></button>
+            <button [class.active]="viewMode === 'grid'"  (click)="viewMode = 'grid'"><mat-icon>grid_view</mat-icon></button>
+          </div>
+          <button class="btn-add" (click)="openAddModal()"><mat-icon>add</mat-icon> Nouvelle salle</button>
+        </div>
+      </div>
+
+      <!-- Résumé dispo -->
+      <div class="dispo-summary">
+        <div class="dispo-card green">
+          <mat-icon>check_circle</mat-icon>
+          <div><p class="dispo-num">{{ disponiblesCount }}</p><p class="dispo-lbl">Disponibles</p></div>
+        </div>
+        <div class="dispo-card red">
+          <mat-icon>cancel</mat-icon>
+          <div><p class="dispo-num">{{ occupeesCount }}</p><p class="dispo-lbl">Occupées</p></div>
+        </div>
+        <div class="dispo-card blue">
+          <mat-icon>people</mat-icon>
+          <div><p class="dispo-num">{{ totalCapacite }}</p><p class="dispo-lbl">Places totales</p></div>
+        </div>
+      </div>
+
+      <!-- Filtres -->
+      <div class="filters-row">
+        <div class="search-wrapper">
+          <mat-icon class="search-icon">search</mat-icon>
+          <input type="text" class="search-input" placeholder="Rechercher par nom, code, bâtiment..." [(ngModel)]="searchQuery" />
+        </div>
+        <select class="filter-select" [(ngModel)]="filterType">
+          <option value="">Tous les types</option>
+          <option *ngFor="let t of types" [value]="t">{{ t }}</option>
+        </select>
+        <select class="filter-select" [(ngModel)]="filterEcole">
+          <option value="">Toutes les écoles</option>
+          <option *ngFor="let e of ecoles" [value]="e">{{ e }}</option>
+        </select>
+      </div>
+
+      <!-- VUE TABLEAU -->
+      <div class="table-card" *ngIf="viewMode === 'table'">
+        <div class="table-card-header">
+          <h2 class="table-title">Liste des salles</h2>
+          <p class="table-sub">{{ filteredSalles.length }} salle(s) trouvée(s)</p>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr><th>Salle</th><th>Type</th><th>École</th><th>Localisation</th><th>Capacité</th><th>Équipements</th><th>Dispo</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let s of filteredSalles" class="table-row">
+                <td>
+                  <div class="salle-cell">
+                    <div class="salle-icon" [style.background]="getTypeColor(s.type)">
+                      <mat-icon>{{ getTypeIcon(s.type) }}</mat-icon>
+                    </div>
+                    <div>
+                      <div class="salle-nom">{{ s.nom }}</div>
+                      <div class="salle-code">{{ s.code }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="type-badge" [style.background]="getTypeColor(s.type) + '18'" [style.color]="getTypeColor(s.type)" [style.border-color]="getTypeColor(s.type) + '40'">{{ s.type }}</span></td>
+                <td><span class="ecole-tag">{{ s.ecole }}</span></td>
+                <td>
+                  <div class="loc-cell">
+                    <mat-icon>location_on</mat-icon>
+                    <span>{{ s.batiment }}, {{ s.etage }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="capacite-cell">
+                    <mat-icon>people</mat-icon>
+                    <span class="capacite-num">{{ s.capacite }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="equip-cell">
+                    <span *ngFor="let e of s.equipements.slice(0,2)" class="equip-tag">{{ e }}</span>
+                    <span *ngIf="s.equipements.length > 2" class="tag-more">+{{ s.equipements.length - 2 }}</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="dispo-badge" [class.dispo]="s.disponible" [class.occupe]="!s.disponible">
+                    <span class="dispo-dot"></span>
+                    {{ s.disponible ? 'Disponible' : 'Occupée' }}
+                  </span>
+                </td>
+                <td>
+                  <div class="actions-cell">
+                    <button class="action-btn view-btn"   (click)="openViewModal(s)"   title="Voir"><mat-icon>visibility</mat-icon></button>
+                    <button class="action-btn edit-btn"   (click)="openEditModal(s)"   title="Modifier"><mat-icon>edit</mat-icon></button>
+                    <button class="action-btn delete-btn" (click)="openDeleteModal(s)" title="Supprimer"><mat-icon>delete</mat-icon></button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="filteredSalles.length === 0">
+                <td colspan="8" class="empty-row"><mat-icon>meeting_room</mat-icon><p>Aucune salle trouvée</p></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- VUE GRILLE -->
+      <div class="salles-grid" *ngIf="viewMode === 'grid'">
+        <div *ngFor="let s of filteredSalles" class="salle-card" [class.occupe]="!s.disponible">
+          <div class="salle-card-header" [style.background]="getTypeColor(s.type)">
+            <mat-icon class="salle-card-icon">{{ getTypeIcon(s.type) }}</mat-icon>
+            <div class="salle-card-dispo" [class.dispo]="s.disponible" [class.occupe]="!s.disponible">
+              {{ s.disponible ? 'Libre' : 'Occupée' }}
+            </div>
+          </div>
+          <div class="salle-card-body">
+            <div class="salle-card-title-row">
+              <h3>{{ s.nom }}</h3>
+              <span class="salle-card-code">{{ s.code }}</span>
+            </div>
+            <div class="salle-card-meta">
+              <span><mat-icon>people</mat-icon>{{ s.capacite }} places</span>
+              <span><mat-icon>location_on</mat-icon>{{ s.batiment }}</span>
+            </div>
+            <div class="salle-card-equip">
+              <span *ngFor="let e of s.equipements.slice(0,3)" class="equip-tag-sm">{{ e }}</span>
+              <span *ngIf="s.equipements.length > 3" class="tag-more">+{{ s.equipements.length - 3 }}</span>
+            </div>
+            <div class="salle-card-actions">
+              <button class="action-btn view-btn"   (click)="openViewModal(s)"><mat-icon>visibility</mat-icon></button>
+              <button class="action-btn edit-btn"   (click)="openEditModal(s)"><mat-icon>edit</mat-icon></button>
+              <button class="action-btn delete-btn" (click)="openDeleteModal(s)"><mat-icon>delete</mat-icon></button>
+            </div>
+          </div>
+        </div>
+        <div *ngIf="filteredSalles.length === 0" class="empty-state">
+          <mat-icon>meeting_room</mat-icon><p>Aucune salle trouvée</p>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ═══ MODAL VUE ═══ -->
+<div *ngIf="isViewModalOpen && viewingSalle" class="modal-overlay" (click)="closeViewModal()">
+  <div class="modal modal-view" (click)="$event.stopPropagation()">
+    <div class="modal-hero" [style.background]="getTypeColor(viewingSalle.type)">
+      <div class="hero-icon"><mat-icon>{{ getTypeIcon(viewingSalle.type) }}</mat-icon></div>
+      <div class="hero-info">
+        <h2>{{ viewingSalle.nom }}</h2>
+        <p>{{ viewingSalle.code }} · {{ viewingSalle.type }}</p>
+      </div>
+      <div class="hero-dispo" [class.dispo]="viewingSalle.disponible" [class.occupe]="!viewingSalle.disponible">
+        {{ viewingSalle.disponible ? 'Disponible' : 'Occupée' }}
+      </div>
+      <button class="modal-close-white" (click)="closeViewModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="view-info-grid">
+        <div class="view-info-item">
+          <div class="view-info-icon blue"><mat-icon>people</mat-icon></div>
+          <div><p class="view-info-label">Capacité</p><p class="view-info-value">{{ viewingSalle.capacite }} places</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon orange"><mat-icon>account_balance</mat-icon></div>
+          <div><p class="view-info-label">École</p><p class="view-info-value">{{ viewingSalle.ecole }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon purple"><mat-icon>apartment</mat-icon></div>
+          <div><p class="view-info-label">Bâtiment</p><p class="view-info-value">{{ viewingSalle.batiment }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon teal"><mat-icon>stairs</mat-icon></div>
+          <div><p class="view-info-label">Étage</p><p class="view-info-value">{{ viewingSalle.etage }}</p></div>
+        </div>
+      </div>
+      <div class="view-section">
+        <p class="view-section-title"><mat-icon>devices</mat-icon> Équipements ({{ viewingSalle.equipements.length }})</p>
+        <div class="tags-list">
+          <span *ngFor="let e of viewingSalle.equipements" class="equip-tag-lg">{{ e }}</span>
+          <span *ngIf="viewingSalle.equipements.length === 0" class="text-muted">Aucun équipement renseigné</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeViewModal()">Fermer</button>
+      <button class="btn-save" (click)="closeViewModal(); openEditModal(viewingSalle!)"><mat-icon>edit</mat-icon> Modifier</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL SUPPRESSION ═══ -->
+<div *ngIf="isDeleteModalOpen && salleToDelete" class="modal-overlay" (click)="closeDeleteModal()">
+  <div class="modal modal-delete" (click)="$event.stopPropagation()">
+    <div class="delete-modal-body">
+      <div class="delete-icon-circle"><mat-icon>delete_forever</mat-icon></div>
+      <h2 class="delete-title">Supprimer la salle ?</h2>
+      <p class="delete-desc">Vous êtes sur le point de supprimer <strong>{{ salleToDelete.nom }}</strong>. Cette action est <strong>irréversible</strong>.</p>
+      <div class="delete-preview" [style.border-left-color]="getTypeColor(salleToDelete.type)">
+        <div class="delete-icon-sm" [style.background]="getTypeColor(salleToDelete.type)"><mat-icon>{{ getTypeIcon(salleToDelete.type) }}</mat-icon></div>
+        <div>
+          <p class="delete-name">{{ salleToDelete.nom }}</p>
+          <p class="delete-sub">{{ salleToDelete.code }} · {{ salleToDelete.capacite }} places · {{ salleToDelete.batiment }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer delete-footer">
+      <button class="btn-cancel" (click)="closeDeleteModal()">Annuler</button>
+      <button class="btn-delete-confirm" (click)="confirmDelete()"><mat-icon>delete</mat-icon> Oui, supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL AJOUT ═══ -->
+<div *ngIf="isAddModalOpen" class="modal-overlay" (click)="closeAddModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Nouvelle salle</h2>
+      <button class="modal-close" (click)="closeAddModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Code *</label><input type="text" [(ngModel)]="newSalle.code" placeholder="Ex: S-101" /></div>
+        <div class="form-group"><label>Nom *</label><input type="text" [(ngModel)]="newSalle.nom" placeholder="Ex: Salle 101" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Type *</label>
+          <select [(ngModel)]="newSalle.type">
+            <option *ngFor="let t of types" [value]="t">{{ t }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>École</label>
+          <select [(ngModel)]="newSalle.ecole">
+            <option value="">-- Choisir --</option>
+            <option *ngFor="let e of ecoles" [value]="e">{{ e }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Bâtiment</label><input type="text" [(ngModel)]="newSalle.batiment" placeholder="Ex: Bât. A" /></div>
+        <div class="form-group"><label>Étage</label><input type="text" [(ngModel)]="newSalle.etage" placeholder="Ex: 1er" /></div>
+      </div>
+      <div class="form-group"><label>Capacité</label><input type="number" [(ngModel)]="newSalle.capacite" min="1" /></div>
+      <div class="form-group">
+        <label>Équipements</label>
+        <div class="checkbox-grid">
+          <label *ngFor="let e of allEquipements" class="checkbox-item">
+            <input type="checkbox" [checked]="hasEquipNew(e)" (change)="toggleEquip(newSalle, e)" /><span>{{ e }}</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group toggle-group">
+        <label>Disponibilité</label>
+        <label class="toggle"><input type="checkbox" [(ngModel)]="newSalle.disponible" /><span class="toggle-slider"></span></label>
+        <span class="toggle-label">{{ newSalle.disponible ? 'Disponible' : 'Occupée' }}</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAddModal()">Annuler</button>
+      <button class="btn-save" (click)="handleAdd()" [disabled]="!newSalle.code || !newSalle.nom"><mat-icon>save</mat-icon> Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL ÉDITION ═══ -->
+<div *ngIf="isEditModalOpen" class="modal-overlay" (click)="closeEditModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Modifier la salle</h2>
+      <button class="modal-close" (click)="closeEditModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Code *</label><input type="text" [(ngModel)]="editSalleData.code" /></div>
+        <div class="form-group"><label>Nom *</label><input type="text" [(ngModel)]="editSalleData.nom" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Type *</label>
+          <select [(ngModel)]="editSalleData.type">
+            <option *ngFor="let t of types" [value]="t">{{ t }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>École</label>
+          <select [(ngModel)]="editSalleData.ecole">
+            <option *ngFor="let e of ecoles" [value]="e">{{ e }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Bâtiment</label><input type="text" [(ngModel)]="editSalleData.batiment" /></div>
+        <div class="form-group"><label>Étage</label><input type="text" [(ngModel)]="editSalleData.etage" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Capacité</label><input type="number" [(ngModel)]="editSalleData.capacite" min="1" /></div>
+        <div class="form-group toggle-group">
+          <label>Statut</label>
+          <label class="toggle"><input type="checkbox" [(ngModel)]="editSalleData.enabled" /><span class="toggle-slider"></span></label>
+          <span class="toggle-label">{{ editSalleData.enabled ? 'Active' : 'Inactive' }}</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Équipements</label>
+        <div class="checkbox-grid">
+          <label *ngFor="let e of allEquipements" class="checkbox-item">
+            <input type="checkbox" [checked]="hasEquipEdit(e)" (change)="toggleEquip(editSalleData, e)" /><span>{{ e }}</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group toggle-group">
+        <label>Disponibilité</label>
+        <label class="toggle"><input type="checkbox" [(ngModel)]="editSalleData.disponible" /><span class="toggle-slider"></span></label>
+        <span class="toggle-label">{{ editSalleData.disponible ? 'Disponible' : 'Occupée' }}</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeEditModal()">Annuler</button>
+      <button class="btn-save" (click)="handleEdit()"><mat-icon>save</mat-icon> Sauvegarder</button>
+    </div>
+  </div>
+</div>

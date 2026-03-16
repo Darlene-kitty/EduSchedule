@@ -1,0 +1,211 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { MatIconModule } from '@angular/material/icon';
+import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
+
+export interface School {
+  id: number;
+  sigle: string;
+  nom: string;
+  directeur: string;
+  email: string;
+  telephone: string;
+  description: string;
+  filieres: string[];
+  niveaux: string[];
+  couleur: string;
+  enabled: boolean;
+}
+
+@Component({
+  selector: 'app-schools',
+  standalone: true,
+  imports: [CommonModule, FormsModule, MatIconModule, SidebarComponent],
+  templateUrl: './schools.html',
+  styleUrl: './schools.css'
+})
+export class SchoolsComponent implements OnInit {
+
+  searchQuery = '';
+  isAddModalOpen    = false;
+  isEditModalOpen   = false;
+  isViewModalOpen   = false;
+  isDeleteModalOpen = false;
+
+  editingSchool:  School | null = null;
+  viewingSchool:  School | null = null;
+  schoolToDelete: School | null = null;
+
+  currentDate = ''; currentTime = '';
+  showSuccess = false; successMessage = '';
+
+  // Toutes les filières disponibles dans l'institution
+  allFilieres = [
+    'Génie Informatique', 'Génie Civil', 'Génie Électrique', 'Génie Mécanique',
+    'Génie Télécom', 'Génie Biomédical',
+    'Management des Entreprises', 'Finance & Comptabilité', 'Marketing',
+    'Commerce International', 'Ressources Humaines', 'Logistique',
+    'Mathématiques', 'Physique', 'Chimie', 'Sciences de la Vie',
+    'Lettres & Sciences Humaines', 'Droit des Affaires'
+  ];
+
+  allNiveaux = ['L1', 'L2', 'L3', 'M1', 'M2', 'Prépa 1', 'Prépa 2', 'CPGE 1', 'CPGE 2'];
+
+  couleurs = [
+    { label: 'Bleu',   value: '#1D4ED8' },
+    { label: 'Vert',   value: '#15803D' },
+    { label: 'Rouge',  value: '#DC2626' },
+    { label: 'Violet', value: '#7C3AED' },
+    { label: 'Orange', value: '#EA580C' },
+    { label: 'Cyan',   value: '#0891B2' },
+  ];
+
+  schools: School[] = [
+    {
+      id: 1,
+      sigle: 'SJI',
+      nom: 'Saint Jean Ingénieur',
+      directeur: 'Prof. Jean-Baptiste Nguema',
+      email: 'sji@iusj.cm',
+      telephone: '+237 6XX XX XX XX',
+      description: 'École d\'ingénierie formant des ingénieurs dans les domaines du génie informatique, civil, électrique et mécanique.',
+      filieres: ['Génie Informatique', 'Génie Civil', 'Génie Électrique', 'Génie Mécanique', 'Génie Télécom', 'Génie Biomédical'],
+      niveaux: ['L1', 'L2', 'L3', 'M1', 'M2'],
+      couleur: '#1D4ED8',
+      enabled: true
+    },
+    {
+      id: 2,
+      sigle: 'SJM',
+      nom: 'Saint Jean Management',
+      directeur: 'Prof. Marie-Claire Ateba',
+      email: 'sjm@iusj.cm',
+      telephone: '+237 6XX XX XX XX',
+      description: 'École de management formant des cadres en gestion, finance, marketing et commerce international.',
+      filieres: ['Management des Entreprises', 'Finance & Comptabilité', 'Marketing', 'Commerce International', 'Ressources Humaines', 'Logistique'],
+      niveaux: ['L1', 'L2', 'L3', 'M1', 'M2'],
+      couleur: '#15803D',
+      enabled: true
+    },
+    {
+      id: 3,
+      sigle: 'PRÉPAVOGT',
+      nom: 'Prépavogt',
+      directeur: 'Dr. Paul Vogt Essomba',
+      email: 'prepavogt@iusj.cm',
+      telephone: '+237 6XX XX XX XX',
+      description: 'Classes préparatoires aux grandes écoles d\'ingénieurs et de commerce, filières scientifiques et économiques.',
+      filieres: ['Mathématiques', 'Physique', 'Chimie', 'Sciences de la Vie'],
+      niveaux: ['Prépa 1', 'Prépa 2'],
+      couleur: '#DC2626',
+      enabled: true
+    },
+    {
+      id: 4,
+      sigle: 'CPGE',
+      nom: 'Classes Préparatoires aux Grandes Écoles',
+      directeur: 'Dr. Hélène Mbarga',
+      email: 'cpge@iusj.cm',
+      telephone: '+237 6XX XX XX XX',
+      description: 'Formation d\'excellence préparant aux concours des grandes écoles nationales et internationales.',
+      filieres: ['Mathématiques', 'Physique', 'Chimie', 'Lettres & Sciences Humaines', 'Droit des Affaires'],
+      niveaux: ['CPGE 1', 'CPGE 2'],
+      couleur: '#7C3AED',
+      enabled: true
+    }
+  ];
+
+  emptySchool = (): Omit<School, 'id'> => ({
+    sigle: '', nom: '', directeur: '', email: '', telephone: '',
+    description: '', filieres: [], niveaux: [], couleur: '#1D4ED8', enabled: true
+  });
+
+  newSchool: Omit<School, 'id'> = this.emptySchool();
+  editSchoolData: Omit<School, 'id'> = this.emptySchool();
+
+  ngOnInit(): void {
+    this.updateDateTime();
+    setInterval(() => this.updateDateTime(), 1000);
+  }
+
+  updateDateTime(): void {
+    const now = new Date();
+    this.currentDate = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    this.currentDate = this.currentDate.charAt(0).toUpperCase() + this.currentDate.slice(1);
+    this.currentTime = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  get filteredSchools(): School[] {
+    if (!this.searchQuery) return this.schools;
+    const q = this.searchQuery.toLowerCase();
+    return this.schools.filter(s =>
+      s.nom.toLowerCase().includes(q) ||
+      s.sigle.toLowerCase().includes(q) ||
+      s.directeur.toLowerCase().includes(q)
+    );
+  }
+
+  getInitials(sigle: string): string { return sigle.substring(0, 3).toUpperCase(); }
+
+  toast(msg: string): void {
+    this.successMessage = msg;
+    this.showSuccess = true;
+    setTimeout(() => this.showSuccess = false, 3500);
+  }
+
+  /* ── Filières checkboxes ── */
+  toggleFiliere(data: Omit<School, 'id'>, f: string): void {
+    const idx = data.filieres.indexOf(f);
+    if (idx >= 0) data.filieres.splice(idx, 1);
+    else data.filieres.push(f);
+  }
+  hasFiliereNew(f: string): boolean  { return this.newSchool.filieres.includes(f); }
+  hasFiliereEdit(f: string): boolean { return this.editSchoolData.filieres.includes(f); }
+
+  toggleNiveau(data: Omit<School, 'id'>, n: string): void {
+    const idx = data.niveaux.indexOf(n);
+    if (idx >= 0) data.niveaux.splice(idx, 1);
+    else data.niveaux.push(n);
+  }
+  hasNiveauNew(n: string): boolean  { return this.newSchool.niveaux.includes(n); }
+  hasNiveauEdit(n: string): boolean { return this.editSchoolData.niveaux.includes(n); }
+
+  /* ── Voir ── */
+  openViewModal(s: School): void { this.viewingSchool = s; this.isViewModalOpen = true; }
+  closeViewModal(): void         { this.isViewModalOpen = false; this.viewingSchool = null; }
+
+  /* ── Ajout ── */
+  openAddModal(): void  { this.newSchool = this.emptySchool(); this.isAddModalOpen = true; }
+  closeAddModal(): void { this.isAddModalOpen = false; }
+  handleAddSchool(): void {
+    const id = this.schools.length ? Math.max(...this.schools.map(s => s.id)) + 1 : 1;
+    this.schools = [...this.schools, { id, ...this.newSchool }];
+    this.closeAddModal();
+    this.toast('École ajoutée avec succès !');
+  }
+
+  /* ── Édition ── */
+  openEditModal(s: School): void {
+    this.editingSchool = s;
+    this.editSchoolData = { ...s, filieres: [...s.filieres], niveaux: [...s.niveaux] };
+    this.isEditModalOpen = true;
+  }
+  closeEditModal(): void { this.isEditModalOpen = false; this.editingSchool = null; }
+  handleEditSchool(): void {
+    if (!this.editingSchool) return;
+    this.schools = this.schools.map(s => s.id === this.editingSchool!.id ? { id: s.id, ...this.editSchoolData } : s);
+    this.closeEditModal();
+    this.toast('École modifiée avec succès !');
+  }
+
+  /* ── Suppression ── */
+  openDeleteModal(s: School): void { this.schoolToDelete = s; this.isDeleteModalOpen = true; }
+  closeDeleteModal(): void         { this.isDeleteModalOpen = false; this.schoolToDelete = null; }
+  confirmDelete(): void {
+    if (!this.schoolToDelete) return;
+    this.schools = this.schools.filter(s => s.id !== this.schoolToDelete!.id);
+    this.closeDeleteModal();
+    this.toast('École supprimée.');
+  }
+}
