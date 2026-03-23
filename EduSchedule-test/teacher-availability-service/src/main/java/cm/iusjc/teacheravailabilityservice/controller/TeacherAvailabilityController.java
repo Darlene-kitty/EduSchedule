@@ -26,7 +26,6 @@ import java.util.HashMap;
 @RestController
 @RequestMapping("/api/teacher-availability")
 @Validated
-@CrossOrigin(origins = "*")
 public class TeacherAvailabilityController {
     
     @Autowired
@@ -36,7 +35,12 @@ public class TeacherAvailabilityController {
     private ConflictDetectionService conflictDetectionService;
     
     // CRUD Operations
-    
+
+    @GetMapping
+    public ResponseEntity<List<TeacherAvailabilityDTO>> getAllAvailabilities() {
+        return ResponseEntity.ok(availabilityService.getAllAvailabilities());
+    }
+
     @PostMapping
     public ResponseEntity<TeacherAvailabilityDTO> createAvailability(@Valid @RequestBody TeacherAvailabilityDTO availabilityDTO) {
         try {

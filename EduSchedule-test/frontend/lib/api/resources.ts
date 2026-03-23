@@ -48,7 +48,7 @@ const getAuthHeaders = () => {
 export const resourcesApi = {
   // Vérifier la santé du service
   async healthCheck(): Promise<string> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/salles/health`, {
+    const response = await fetch(`${API_BASE_URL}/api/resources/health`, {
       method: 'GET',
       headers: getAuthHeaders(),
     })
@@ -62,7 +62,7 @@ export const resourcesApi = {
 
   // Récupérer toutes les ressources (salles)
   async getAllResources(): Promise<Resource[]> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/salles`, {
+    const response = await fetch(`${API_BASE_URL}/api/resources`, {
       method: 'GET',
       headers: getAuthHeaders(),
     })
@@ -76,7 +76,7 @@ export const resourcesApi = {
 
   // Récupérer les ressources disponibles
   async getAvailableResources(): Promise<Resource[]> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/salles/disponibles`, {
+    const response = await fetch(`${API_BASE_URL}/api/resources/disponibles`, {
       method: 'GET',
       headers: getAuthHeaders(),
     })
@@ -90,7 +90,7 @@ export const resourcesApi = {
 
   // Récupérer une ressource par ID
   async getResourceById(id: number): Promise<Resource> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/salles/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/api/resources/${id}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     })
@@ -104,7 +104,7 @@ export const resourcesApi = {
 
   // Créer une nouvelle ressource
   async createResource(resourceData: CreateResourceRequest): Promise<Resource> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/salles`, {
+    const response = await fetch(`${API_BASE_URL}/api/resources`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(resourceData),
@@ -120,7 +120,7 @@ export const resourcesApi = {
 
   // Mettre à jour une ressource
   async updateResource(id: number, resourceData: UpdateResourceRequest): Promise<Resource> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/salles/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/api/resources/${id}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(resourceData),
@@ -136,7 +136,7 @@ export const resourcesApi = {
 
   // Supprimer une ressource
   async deleteResource(id: number): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/salles/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/api/resources/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     })

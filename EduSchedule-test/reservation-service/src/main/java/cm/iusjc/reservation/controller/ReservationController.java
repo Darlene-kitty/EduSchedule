@@ -11,7 +11,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -23,7 +22,6 @@ import java.util.Map;
 @RequestMapping("/api/v1/reservations")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class ReservationController {
     
     private final ReservationService reservationService;
@@ -32,7 +30,6 @@ public class ReservationController {
      * Crée une nouvelle réservation
      */
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER') or hasRole('STUDENT')")
     public ResponseEntity<Map<String, Object>> createReservation(@Valid @RequestBody ReservationDTO reservationDTO) {
         try {
             log.info("Creating reservation: {}", reservationDTO.getTitle());
@@ -56,7 +53,6 @@ public class ReservationController {
      * Récupère toutes les réservations
      */
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getAllReservations() {
         try {
             List<ReservationDTO> reservations = reservationService.getAllReservations();
@@ -79,7 +75,6 @@ public class ReservationController {
      * Récupère les réservations avec pagination
      */
     @GetMapping("/paginated")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getAllReservationsPaginated(Pageable pageable) {
         try {
             Page<ReservationDTO> reservationsPage = reservationService.getAllReservations(pageable);
@@ -170,7 +165,6 @@ public class ReservationController {
      * Récupère les réservations par statut
      */
     @GetMapping("/status/{status}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<Map<String, Object>> getReservationsByStatus(@PathVariable ReservationStatus status) {
         try {
             List<ReservationDTO> reservations = reservationService.getReservationsByStatus(status);
@@ -193,7 +187,6 @@ public class ReservationController {
      * Récupère les réservations en attente
      */
     @GetMapping("/pending")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<Map<String, Object>> getPendingReservations() {
         try {
             List<ReservationDTO> reservations = reservationService.getPendingReservations();
@@ -284,7 +277,6 @@ public class ReservationController {
      * Met à jour une réservation
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER') or @reservationService.getReservationById(#id).map(r -> r.userId).orElse(-1L) == authentication.principal.id")
     public ResponseEntity<Map<String, Object>> updateReservation(
             @PathVariable Long id, 
             @Valid @RequestBody ReservationDTO reservationDTO) {
@@ -309,7 +301,6 @@ public class ReservationController {
      * Approuve une réservation
      */
     @PatchMapping("/{id}/approve")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<Map<String, Object>> approveReservation(
             @PathVariable Long id,
             @RequestParam Long approvedBy) {
@@ -334,7 +325,6 @@ public class ReservationController {
      * Rejette une réservation
      */
     @PatchMapping("/{id}/reject")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<Map<String, Object>> rejectReservation(
             @PathVariable Long id,
             @RequestParam Long rejectedBy,
@@ -360,7 +350,6 @@ public class ReservationController {
      * Annule une réservation
      */
     @PatchMapping("/{id}/cancel")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER') or @reservationService.getReservationById(#id).map(r -> r.userId).orElse(-1L) == authentication.principal.id")
     public ResponseEntity<Map<String, Object>> cancelReservation(
             @PathVariable Long id,
             @RequestParam Long cancelledBy,
@@ -386,7 +375,6 @@ public class ReservationController {
      * Supprime une réservation
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> deleteReservation(@PathVariable Long id) {
         try {
             reservationService.deleteReservation(id);
@@ -497,7 +485,6 @@ public class ReservationController {
      * Obtient les statistiques des réservations
      */
     @GetMapping("/statistics")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getReservationStatistics() {
         try {
             ReservationService.ReservationStatistics stats = reservationService.getReservationStatistics();

@@ -15,7 +15,6 @@ import java.util.Map;
 @RequestMapping("/api/predictive-analytics")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class PredictiveAnalyticsController {
     
     private final PredictiveAnalyticsService predictiveAnalyticsService;

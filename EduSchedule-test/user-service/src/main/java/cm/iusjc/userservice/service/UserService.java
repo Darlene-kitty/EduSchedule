@@ -4,6 +4,7 @@ import cm.iusjc.userservice.dto.RegisterRequest;
 import cm.iusjc.userservice.dto.UserDTO;
 import cm.iusjc.userservice.dto.ProfileUpdateRequest;
 import cm.iusjc.userservice.dto.PasswordChangeRequest;
+import cm.iusjc.userservice.dto.UserUpdateRequest;
 import cm.iusjc.userservice.entity.User;
 import cm.iusjc.userservice.entity.Role;
 import cm.iusjc.userservice.repository.RoleRepository;
@@ -95,6 +96,7 @@ public class UserService {
     
     public List<UserDTO> getAllUsers() {
         return userRepository.findAll().stream()
+                .filter(u -> u.getRole() != null)
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
@@ -120,14 +122,20 @@ public class UserService {
     }
     
     @Transactional
-    public UserDTO updateUser(Long id, RegisterRequest request) {
+    public UserDTO updateUser(Long id, UserUpdateRequest request) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        
-        user.setEmail(request.getEmail());
-        user.setRole(roleRepository.findByName(request.getRole().toUpperCase())
-                .orElseThrow(() -> new RuntimeException("Role '" + request.getRole().toUpperCase() + "' not found")));
-        
+
+        if (request.getEmail() != null) user.setEmail(request.getEmail());
+        if (request.getFirstName() != null) user.setFirstName(request.getFirstName());
+        if (request.getLastName() != null) user.setLastName(request.getLastName());
+        if (request.getUsername() != null) user.setUsername(request.getUsername());
+        if (request.getEnabled() != null) user.setEnabled(request.getEnabled());
+        if (request.getRole() != null) {
+            user.setRole(roleRepository.findByName(request.getRole().toUpperCase())
+                    .orElseThrow(() -> new RuntimeException("Role '" + request.getRole().toUpperCase() + "' not found")));
+        }
+
         User updatedUser = userRepository.save(user);
         return convertToDTO(updatedUser);
     }
@@ -150,7 +158,7 @@ public class UserService {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getEmail(),
-                user.getRole().getName(),
+                user.getRole() != null ? user.getRole().getName() : null,
                 user.getEnabled(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()

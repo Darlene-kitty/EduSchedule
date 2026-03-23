@@ -148,18 +148,21 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
     /**
      * Recherche avancée avec filtres multiples
      */
-    @Query("SELECT r FROM Room r WHERE " +
+    /**
+     * Recherche avancée avec filtres multiples
+     */
+    @Query(value = "SELECT * FROM rooms r WHERE " +
            "(:type IS NULL OR r.type = :type) AND " +
            "(:minCapacity IS NULL OR r.capacity >= :minCapacity) AND " +
            "(:building IS NULL OR r.building = :building) AND " +
            "(:floor IS NULL OR r.floor = :floor) AND " +
-           "(:accessible IS NULL OR r.accessible = :accessible) AND " +
-           "r.available = true")
-    List<Room> findRoomsWithFilters(@Param("type") String type, 
+           "(:accessible IS NULL OR r.is_accessible = :accessible) AND " +
+           "r.available = true",
+           nativeQuery = true)
+    List<Room> findRoomsWithFilters(@Param("type") String type,
                                    @Param("minCapacity") Integer minCapacity,
-                                   @Param("building") String building, 
+                                   @Param("building") String building,
                                    @Param("floor") Integer floor,
-                                   @Param("equipments") List<String> equipments,
                                    @Param("accessible") Boolean accessible);
     
     /**
@@ -187,32 +190,27 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
     List<Room> findRoomsOrderByCapacity();
     
     /**
-     * Trouve les salles les plus utilisées
+     * Trouve les salles les plus utilisées (ordre par capacité décroissante, fallback sans cross-service join)
      */
-    @Query("SELECT r FROM Room r WHERE r.available = true ORDER BY " +
-           "(SELECT COUNT(res) FROM Reservation res WHERE res.resourceId = r.id) DESC")
+    @Query("SELECT r FROM Room r WHERE r.available = true ORDER BY r.capacity DESC")
     List<Room> findMostUsedRooms();
     
     /**
-     * Trouve les salles les moins utilisées
+     * Trouve les salles les moins utilisées (ordre par capacité croissante, fallback sans cross-service join)
      */
-    @Query("SELECT r FROM Room r WHERE r.available = true ORDER BY " +
-           "(SELECT COUNT(res) FROM Reservation res WHERE res.resourceId = r.id) ASC")
+    @Query("SELECT r FROM Room r WHERE r.available = true ORDER BY r.capacity ASC")
     List<Room> findLeastUsedRooms();
     
     /**
-     * Calcule l'utilisation moyenne des salles
+     * Calcule la capacité moyenne des salles
      */
     @Query("SELECT AVG(r.capacity) FROM Room r WHERE r.available = true")
     Double getAverageRoomCapacity();
     
     /**
-     * Calcule le taux d'utilisation moyen
+     * Taux d'utilisation moyen non disponible localement (retourne 0.0)
      */
-    @Query("SELECT AVG(" +
-           "(SELECT COUNT(res) FROM Reservation res WHERE res.resourceId = r.id AND res.status = 'CONFIRMED') * 1.0 / " +
-           "(SELECT COUNT(ts) FROM TimeSlot ts) * 100" +
-           ") FROM Room r WHERE r.available = true")
+    @Query("SELECT 0.0 FROM Room r WHERE r.available = true")
     Double getAverageRoomUtilization();
     
     /**

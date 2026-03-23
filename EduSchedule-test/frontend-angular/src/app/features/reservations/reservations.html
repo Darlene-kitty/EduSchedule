@@ -1,0 +1,355 @@
+<div class="page-layout">
+
+  <!-- Sidebar -->
+  <app-sidebar activePage="reservations"></app-sidebar>
+
+  <!-- Main -->
+  <div class="main-wrapper">
+
+    <!-- Header -->
+    <header class="page-header">
+      <button class="header-menu-btn">
+        <mat-icon>menu</mat-icon>
+      </button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn">
+          <mat-icon>notifications</mat-icon>
+          <span class="notif-dot">2</span>
+        </button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <!-- Content -->
+
+    <div class="toast-success" [class.visible]="showImportToast">
+      <mat-icon>check_circle</mat-icon>
+      <span>{{ importedCount }} salle(s) importée(s) avec succès !</span>
+    </div>
+
+    <main class="page-content">
+
+      <!-- Page Title -->
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Réservation des salles</h1>
+          <p class="page-sub">Gérez la disponibilité et réservez les salles en temps réel</p>
+        </div>
+        <div class="title-actions">
+          <button class="btn-import" (click)="openImportModal()">
+            <mat-icon>upload_file</mat-icon> Importer
+          </button>
+          <button class="btn-add" (click)="openModal()">
+            <mat-icon>add</mat-icon>
+            Réserver une salle
+          </button>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div class="search-wrapper">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input
+          type="text"
+          class="search-input"
+          placeholder="Rechercher une salle..."
+          [(ngModel)]="searchQuery" />
+      </div>
+
+      <!-- Rooms Grid -->
+      <div class="rooms-grid">
+        <div *ngFor="let room of filteredRooms" class="room-card">
+
+          <!-- Card Header -->
+          <div class="room-header">
+            <div class="room-icon-name">
+              <div class="room-icon">
+                <mat-icon>bar_chart</mat-icon>
+              </div>
+              <div>
+                <h3 class="room-name">{{ room.name }}</h3>
+                <p class="room-building">{{ room.building }}</p>
+              </div>
+            </div>
+            <mat-icon class="status-icon" [class.available]="room.available" [class.occupied]="!room.available">
+              {{ room.available ? 'check_circle' : 'cancel' }}
+            </mat-icon>
+          </div>
+
+          <!-- Capacity + Type -->
+          <div class="room-meta">
+            <div class="capacity">
+              <mat-icon class="capacity-icon">group</mat-icon>
+              <span>{{ room.capacity }} places</span>
+            </div>
+            <span *ngIf="room.type" class="type-badge" [ngClass]="getTypeClass(room.type)">
+              {{ room.type }}
+            </span>
+          </div>
+
+          <!-- Equipments -->
+          <div *ngIf="room.equipments.length > 0" class="equipments">
+            <p class="equip-label">Équipements:</p>
+            <div class="equip-list">
+              <span *ngFor="let eq of room.equipments" class="equip-badge">
+                <mat-icon class="equip-icon">{{ getEquipmentIcon(eq) }}</mat-icon>
+                {{ eq }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Separator -->
+          <div class="card-separator"></div>
+
+          <!-- Next reservation -->
+          <p *ngIf="room.available && room.nextReservation" class="next-reservation">
+            Prochaine réservation: {{ room.nextReservation }}
+          </p>
+          <div *ngIf="!room.available" class="empty-next"></div>
+
+          <!-- Action Button -->
+          <button
+            *ngIf="room.available"
+            class="btn-reserve"
+            (click)="reserveRoom(room)">
+            Réserver maintenant
+          </button>
+
+          <div *ngIf="!room.available" class="occupied-label">
+            Occupée: {{ room.currentCourse }} ({{ room.currentTime }})
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal Réservation -->
+<div *ngIf="isModalOpen" class="modal-overlay" (click)="closeModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Réserver une salle</h2>
+      <button class="modal-close" (click)="closeModal()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Salle</label>
+        <select [(ngModel)]="newReservation.roomId" name="roomId">
+          <option value="">Sélectionner une salle</option>
+          <option *ngFor="let room of rooms" [value]="room.id" [disabled]="!room.available">
+            {{ room.name }} - {{ room.building }} {{ !room.available ? '(Occupée)' : '' }}
+          </option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <select [(ngModel)]="newReservation.type" name="type">
+          <option value="Cours magistral">Cours magistral</option>
+          <option value="TD">TD</option>
+          <option value="TP">TP</option>
+          <option value="Réunion">Réunion</option>
+          <option value="Événement">Événement</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Objet</label>
+        <input type="text" [(ngModel)]="newReservation.purpose" name="purpose" placeholder="Ex: Cours de Mathématiques" />
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" [(ngModel)]="newReservation.date" name="date" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Heure de début</label>
+          <input type="time" [(ngModel)]="newReservation.startTime" name="startTime" />
+        </div>
+        <div class="form-group">
+          <label>Heure de fin</label>
+          <input type="time" [(ngModel)]="newReservation.endTime" name="endTime" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeModal()">Annuler</button>
+      <button class="btn-save" (click)="handleReserve()">
+        <mat-icon>event_available</mat-icon>
+        Confirmer la réservation
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL IMPORT RÉSERVATIONS ═══ -->
+<div *ngIf="isImportModalOpen" class="modal-overlay" (click)="closeImportModal()">
+  <div class="modal modal-import" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="import-modal-icon"><mat-icon>upload_file</mat-icon></div>
+        <div><h2>Importer des réservations</h2><p class="modal-header-sub">Fichier CSV ou Excel (.xlsx)</p></div>
+      </div>
+      <button class="modal-close" (click)="closeImportModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div *ngIf="importStep === 1" class="modal-body">
+      <div class="template-banner">
+        <mat-icon>download</mat-icon>
+        <div><p class="template-title">Télécharger le modèle</p><p class="template-sub">Utilisez notre modèle pour formater vos données</p></div>
+        <button class="btn-template" (click)="downloadTemplate()"><mat-icon>file_download</mat-icon> Modèle CSV</button>
+      </div>
+      <div class="drop-zone" [class.dragging]="isDragging" [class.has-file]="importFile"
+        (dragover)="onImportDragOver($event)" (dragleave)="onImportDragLeave()" (drop)="onImportDrop($event)" (click)="fileInput.click()">
+        <input #fileInput type="file" accept=".csv,.xlsx,.xls" style="display:none" (change)="onImportFileSelected($event)" />
+        <div *ngIf="!importFile" class="drop-content">
+          <div class="drop-icon-circle"><mat-icon>cloud_upload</mat-icon></div>
+          <p class="drop-title">Glissez votre fichier ici</p>
+          <p class="drop-sub">ou <span class="drop-link">cliquez pour sélectionner</span></p>
+          <p class="drop-formats">CSV, XLS, XLSX • Max 10 Mo</p>
+        </div>
+        <div *ngIf="importFile" class="file-selected">
+          <mat-icon class="file-icon">description</mat-icon>
+          <div class="file-info"><p class="file-name">{{ importFile.name }}</p><p class="file-size">{{ formatSize(importFile.size) }}</p></div>
+          <button class="file-remove" (click)="removeImportFile($event)"><mat-icon>close</mat-icon></button>
+        </div>
+      </div>
+      <div class="format-info">
+        <p class="format-title">Colonnes attendues :</p>
+        <div class="columns-list">
+          <span class="column-tag">Salle</span><span class="column-tag">Date</span>
+          <span class="column-tag">Heure début</span><span class="column-tag">Heure fin</span>
+          <span class="column-tag">Objet</span><span class="column-tag">Type</span>
+        </div>
+      </div>
+      <div *ngIf="importParseError" class="error-banner"><mat-icon>error</mat-icon><span>{{ importParseError }}</span></div>
+    </div>
+    <div *ngIf="importStep === 2" class="modal-body preview-body">
+      <div class="summary-badges">
+        <div class="summary-badge total"><mat-icon>table_rows</mat-icon><div><p class="badge-num">{{ importPreviewRows.length }}</p><p class="badge-lbl">Total</p></div></div>
+        <div class="summary-badge valid"><mat-icon>check_circle</mat-icon><div><p class="badge-num">{{ validImportCount }}</p><p class="badge-lbl">Valides</p></div></div>
+      </div>
+      <div class="preview-table-wrapper">
+        <table class="preview-table">
+          <thead><tr><th>#</th><th>Salle</th><th>Date</th><th>Horaire</th><th>Objet</th><th>✓</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let row of importPreviewRows; let i = index" [class.row-invalid]="!row.valid">
+              <td class="col-num">{{ i+1 }}</td>
+              <td class="col-bold">{{ row.name }}</td>
+              <td>{{ row.building }}</td>
+              <td>{{ row.capacity }}</td>
+              <td>{{ row.type }}</td>
+                <td>
+                  <span *ngIf="row.valid; else invalide">Valide</span>
+                  <ng-template #invalide>Invalide</ng-template>
+              </td>
+              <td><mat-icon *ngIf="row.valid" class="valid-icon">check_circle</mat-icon><mat-icon *ngIf="!row.valid" class="error-icon">warning</mat-icon></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeImportModal()">Annuler</button>
+      <div class="footer-right">
+        <button *ngIf="importStep === 2" class="btn-back" (click)="importStep = 1"><mat-icon>arrow_back</mat-icon> Retour</button>
+        <button *ngIf="importStep === 1" class="btn-next" [disabled]="!importFile || isImportLoading" (click)="parseImportFile()"><mat-icon>visibility</mat-icon> {{ isImportLoading ? 'Analyse...' : 'Aperçu' }}</button>
+        <button *ngIf="importStep === 2 && validImportCount" class="btn-import-confirm" (click)="confirmImport()"><mat-icon>upload</mat-icon> Importer {{ validImportCount }} réservation(s)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL IMPORT ═══ -->
+<div *ngIf="isImportModalOpen" class="modal-overlay" (click)="closeImportModal()">
+  <div class="modal modal-import" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="import-modal-icon"><mat-icon>upload_file</mat-icon></div>
+        <div>
+          <h2>Importer des salles</h2>
+          <p class="modal-header-sub">Fichier CSV ou Excel (.xlsx)</p>
+        </div>
+      </div>
+      <button class="modal-close" (click)="closeImportModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div *ngIf="importStep === 1" class="modal-body">
+      <div class="template-banner">
+        <mat-icon>download</mat-icon>
+        <div><p class="template-title">Télécharger le modèle</p><p class="template-sub">Utilisez notre modèle pour formater vos données</p></div>
+        <button class="btn-template" (click)="downloadTemplate()"><mat-icon>file_download</mat-icon> Modèle CSV</button>
+      </div>
+      <div class="drop-zone" [class.dragging]="isDragging" [class.has-file]="importFile"
+        (dragover)="onImportDragOver($event)" (dragleave)="onImportDragLeave()" (drop)="onImportDrop($event)" (click)="fileInput.click()">
+        <input #fileInput type="file" accept=".csv,.xlsx,.xls" style="display:none" (change)="onImportFileSelected($event)" />
+        <div *ngIf="!importFile" class="drop-content">
+          <div class="drop-icon-circle"><mat-icon>cloud_upload</mat-icon></div>
+          <p class="drop-title">Glissez votre fichier ici</p>
+          <p class="drop-sub">ou <span class="drop-link">cliquez pour sélectionner</span></p>
+          <p class="drop-formats">CSV, XLS, XLSX • Max 10 Mo</p>
+        </div>
+        <div *ngIf="importFile" class="file-selected">
+          <mat-icon class="file-icon">description</mat-icon>
+          <div class="file-info"><p class="file-name">{{ importFile.name }}</p><p class="file-size">{{ formatSize(importFile.size) }}</p></div>
+          <button class="file-remove" (click)="removeImportFile($event)"><mat-icon>close</mat-icon></button>
+        </div>
+      </div>
+      <div class="format-info">
+        <p class="format-title">Colonnes attendues :</p>
+        <div class="columns-list">
+          <span *ngFor="let col of importColumns" class="column-tag">{{ col }}</span>
+        </div>
+      </div>
+      <div *ngIf="importParseError" class="error-banner"><mat-icon>error</mat-icon><span>{{ importParseError }}</span></div>
+    </div>
+    <div *ngIf="importStep === 2" class="modal-body preview-body">
+      <div class="summary-badges">
+        <div class="summary-badge total"><mat-icon>table_rows</mat-icon><div><p class="badge-num">{{ importPreviewRows.length }}</p><p class="badge-lbl">Total</p></div></div>
+        <div class="summary-badge valid"><mat-icon>check_circle</mat-icon><div><p class="badge-num">{{ validImportRows.length }}</p><p class="badge-lbl">Valides</p></div></div>
+        <div class="summary-badge invalid" *ngIf="invalidImportRows.length > 0"><mat-icon>error</mat-icon><div><p class="badge-num">{{ invalidImportRows.length }}</p><p class="badge-lbl">Erreurs</p></div></div>
+      </div>
+      <div class="preview-tabs">
+        <button class="ptab" [class.active]="importPreviewFilter === 'all'"     (click)="importPreviewFilter = 'all'">Tous ({{ importPreviewRows.length }})</button>
+        <button class="ptab" [class.active]="importPreviewFilter === 'valid'"   (click)="importPreviewFilter = 'valid'">✓ Valides ({{ validImportRows.length }})</button>
+        <button class="ptab" [class.active]="importPreviewFilter === 'invalid'" (click)="importPreviewFilter = 'invalid'" *ngIf="invalidImportRows.length > 0">⚠ Erreurs ({{ invalidImportRows.length }})</button>
+      </div>
+      <div class="preview-table-wrapper">
+        <table class="preview-table">
+          <thead><tr><th>#</th><th>Salle</th><th>Bâtiment</th><th>Capacité</th><th>Type</th><th>✓</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let row of filteredImportRows; let i = index" [class.row-invalid]="!row.valid">
+              <td class="col-num">{{ i+1 }}</td>
+              <td class="col-bold">{{ row.name }}</td><td>{{ row.building }}</td><td>{{ row.capacity }}</td><td>{{ row.type }}</td>
+              <td>
+                <mat-icon *ngIf="row.valid" class="valid-icon">check_circle</mat-icon>
+                <mat-icon *ngIf="!row.valid" class="error-icon" [title]="row.errors.join(', ')">warning</mat-icon>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="import-note" *ngIf="invalidImportRows.length > 0"><mat-icon>info</mat-icon> Seules les {{ validImportRows.length }} lignes valides seront importées.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeImportModal()">Annuler</button>
+      <div class="footer-right">
+        <button *ngIf="importStep === 2" class="btn-back" (click)="importStep = 1"><mat-icon>arrow_back</mat-icon> Retour</button>
+        <button *ngIf="importStep === 1" class="btn-next" [disabled]="!importFile || isImportLoading" (click)="parseImportFile()">
+          <mat-icon>visibility</mat-icon> {{ isImportLoading ? 'Analyse...' : 'Aperçu' }}
+        </button>
+        <button *ngIf="importStep === 2 && validImportRows.length > 0" class="btn-import-confirm" (click)="confirmImport()">
+          <mat-icon>upload</mat-icon> Importer {{ validImportRows.length }} élément(s)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

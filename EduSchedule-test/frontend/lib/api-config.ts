@@ -1,30 +1,44 @@
 /**
  * Configuration centralisée pour les appels API
- * 
- * Pour changer l'URL de l'API:
- * 1. Modifier API_BASE_URL ci-dessous
- * 2. Ou créer un fichier .env.local avec NEXT_PUBLIC_API_BASE_URL
- * 
- * Note: Les variables NEXT_PUBLIC_* sont accessibles côté client dans Next.js
+ * Les chemins correspondent aux routes définies dans l'API Gateway (port 8080)
+ *
+ * Routes Gateway:
+ *  /api/auth/**              → user-service
+ *  /api/users/**             → user-service
+ *  /api/resources/**         → resource-service
+ *  /api/rooms/**             → room-service
+ *  /api/v1/courses/**        → course-service
+ *  /api/reservations/**      → reservation-service
+ *  /api/schedules/**         → scheduling-service
+ *  /api/notifications/**     → notification-service
+ *  /api/reports/**           → reporting-service
+ *  /api/predictive-analytics/** / /api/ai/** → ai-service
+ *  /api/calendar/**          → calendar-service
+ *  /api/events/**            → event-service
+ *  /api/teacher-availability/** → teacher-availability-service
+ *  /api/schools/**           → school-service
+ *  /api/maintenance/**       → maintenance-service
+ *  /api/ent/**               → ent-integration-service
  */
 
-// Configuration par défaut (peut être surchargée via .env.local)
-// Pour GitHub Codespaces, utilisez l'URL du port forwarding
-const API_BASE_URL = typeof window !== 'undefined' && window.location.hostname.includes('github.dev')
-  ? window.location.origin.replace(/300[01]/, '8080')
-  : (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080')
+const API_BASE_URL =
+  typeof window !== 'undefined' && window.location.hostname.includes('github.dev')
+    ? window.location.origin.replace(/300[01]/, '8080')
+    : process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'
+
 const API_TIMEOUT = parseInt(process.env.NEXT_PUBLIC_API_TIMEOUT || '30000', 10)
 
 export const API_CONFIG = {
   baseURL: API_BASE_URL,
   timeout: API_TIMEOUT,
   endpoints: {
-    // User Service (via API Gateway)
+    // ── User Service ──────────────────────────────────────────────────────────
     auth: {
       login: '/api/auth/login',
       register: '/api/auth/register',
       logout: '/api/auth/logout',
       refresh: '/api/auth/refresh',
+      me: '/api/auth/me',
       forgotPassword: '/api/auth/forgot-password',
       resetPassword: '/api/auth/reset-password',
       verifyEmail: '/api/auth/verify-email',
@@ -32,57 +46,109 @@ export const API_CONFIG = {
     users: {
       base: '/api/users',
       byId: (id: string) => `/api/users/${id}`,
-      me: '/api/auth/me',
     },
     profile: {
-      base: '/api/profile',
-      changePassword: '/api/profile/change-password',
-      users: '/api/profile/users',
-      userById: (id: string) => `/api/profile/users/${id}`,
+      base: '/api/users/me',
+      changePassword: '/api/users/me/change-password',
     },
-    // Resource Service
+
+    // ── Resource Service ──────────────────────────────────────────────────────
     resources: {
-      base: '/api/v1/resources',
-      byId: (id: string) => `/api/v1/resources/${id}`,
-      salles: '/api/v1/salles',
-      salleById: (id: string) => `/api/v1/salles/${id}`,
+      base: '/api/resources',
+      byId: (id: string) => `/api/resources/${id}`,
     },
-    // Course Service
+
+    // ── Room Service ──────────────────────────────────────────────────────────
+    rooms: {
+      base: '/api/rooms',
+      byId: (id: string) => `/api/rooms/${id}`,
+      optimization: '/api/room-optimization',
+    },
+
+    // ── Course Service ────────────────────────────────────────────────────────
     courses: {
-      base: '/api/v1/cours',
-      byId: (id: string) => `/api/v1/cours/${id}`,
+      base: '/api/v1/courses',
+      byId: (id: string) => `/api/v1/courses/${id}`,
     },
-    // Reservation Service
+
+    // ── Reservation Service ───────────────────────────────────────────────────
     reservations: {
-      base: '/api/v1/reservations',
-      byId: (id: string) => `/api/v1/reservations/${id}`,
+      base: '/api/reservations',
+      byId: (id: string) => `/api/reservations/${id}`,
     },
-    // Scheduling Service
+
+    // ── Scheduling Service ────────────────────────────────────────────────────
     schedules: {
-      base: '/api/v1/emplois',
-      byId: (id: string) => `/api/v1/emplois/${id}`,
-      conflicts: '/api/v1/emplois/conflicts',
+      base: '/api/schedules',
+      byId: (id: string) => `/api/schedules/${id}`,
+      conflicts: '/api/schedules/conflicts',
     },
-    // Notification Service
+
+    // ── Notification Service ──────────────────────────────────────────────────
     notifications: {
-      base: '/api/v1/notifications',
-      byId: (id: string) => `/api/v1/notifications/${id}`,
-      markAsRead: (id: string) => `/api/v1/notifications/${id}/read`,
+      base: '/api/notifications',
+      byId: (id: string) => `/api/notifications/${id}`,
+      markAsRead: (id: string) => `/api/notifications/${id}/read`,
     },
-    // Reporting Service
+
+    // ── Reporting Service ─────────────────────────────────────────────────────
     reports: {
-      base: '/api/v1/reports',
-      generate: '/api/v1/reports/generate',
+      base: '/api/reports',
+      generate: '/api/reports/generate',
     },
-    // Analytics Service
+
+    // ── AI / Analytics Service ────────────────────────────────────────────────
     analytics: {
-      base: '/api/v1/analytics',
-      dashboardStats: '/api/v1/analytics/dashboard-stats',
-      roomOccupancy: '/api/v1/analytics/room-occupancy',
-      hourlyOccupancy: '/api/v1/analytics/hourly-occupancy',
-      weeklyData: '/api/v1/analytics/weekly-data',
-      roomTypeDistribution: '/api/v1/analytics/room-type-distribution',
-      export: '/api/v1/analytics/export',
+      base: '/api/predictive-analytics',
+      dashboardStats: '/api/predictive-analytics/dashboard-stats',
+      roomOccupancy: '/api/predictive-analytics/room-occupancy',
+      hourlyOccupancy: '/api/predictive-analytics/hourly-occupancy',
+      weeklyData: '/api/predictive-analytics/weekly-data',
+      roomTypeDistribution: '/api/predictive-analytics/room-type-distribution',
+      export: '/api/predictive-analytics/export',
+    },
+    ai: {
+      base: '/api/ai',
+      suggest: '/api/ai/suggest',
+      optimize: '/api/ai/optimize',
+    },
+
+    // ── Calendar Service ──────────────────────────────────────────────────────
+    calendar: {
+      base: '/api/calendar',
+      byId: (id: string) => `/api/calendar/${id}`,
+      sync: '/api/calendar/sync',
+    },
+
+    // ── Event Service ─────────────────────────────────────────────────────────
+    events: {
+      base: '/api/events',
+      byId: (id: string) => `/api/events/${id}`,
+    },
+
+    // ── Teacher Availability Service ──────────────────────────────────────────
+    teacherAvailability: {
+      base: '/api/teacher-availability',
+      byId: (id: string) => `/api/teacher-availability/${id}`,
+    },
+
+    // ── School Service ────────────────────────────────────────────────────────
+    schools: {
+      base: '/api/schools',
+      byId: (id: string) => `/api/schools/${id}`,
+    },
+
+    // ── Maintenance Service ───────────────────────────────────────────────────
+    maintenance: {
+      base: '/api/maintenance',
+      byId: (id: string) => `/api/maintenance/${id}`,
+    },
+
+    // ── ENT Integration Service ───────────────────────────────────────────────
+    ent: {
+      base: '/api/ent',
+      sync: '/api/ent/sync',
+      status: '/api/ent/status',
     },
   },
 } as const

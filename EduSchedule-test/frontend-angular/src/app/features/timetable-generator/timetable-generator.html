@@ -1,0 +1,113 @@
+<div class="timetable-generator">
+
+  <!-- Formulaire de paramétrage -->
+  <div class="card">
+    <h2>Génération automatique — Ford-Fulkerson</h2>
+
+    <div class="form-row">
+      <label>ID École
+        <input type="number" [(ngModel)]="request.schoolId" placeholder="ex: 1" />
+      </label>
+      <label>Niveau
+        <select [(ngModel)]="request.level">
+          <option *ngFor="let l of levels" [value]="l">{{ l }}</option>
+        </select>
+      </label>
+      <label>Semestre
+        <select [(ngModel)]="request.semester">
+          <option *ngFor="let s of semesters" [value]="s">{{ s }}</option>
+        </select>
+      </label>
+      <label>Max h/jour
+        <input type="number" [(ngModel)]="request.maxHoursPerDay" min="2" max="10" />
+      </label>
+    </div>
+
+    <!-- Sélection des salles -->
+    <div class="rooms-section">
+      <p class="section-label">Salles disponibles
+        <span class="badge">{{ selectedRooms().length }} / {{ rooms().length }} sélectionnées</span>
+      </p>
+      <div class="rooms-grid" *ngIf="rooms().length > 0; else noRooms">
+        <label class="room-chip" *ngFor="let room of rooms()"
+               [class.selected]="isRoomSelected(room.id)">
+          <input type="checkbox"
+                 [checked]="isRoomSelected(room.id)"
+                 (change)="toggleRoom(room.id)" />
+          <span>{{ room.name }}</span>
+          <small>cap. {{ room.capacity }}</small>
+        </label>
+      </div>
+      <ng-template #noRooms>
+        <p class="hint">Chargement des salles… (toutes les salles actives seront utilisées)</p>
+      </ng-template>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" (click)="generate()" [disabled]="isGenerating()">
+        {{ isGenerating() ? 'Génération en cours…' : 'Générer l\'emploi du temps' }}
+      </button>
+      <button class="btn-secondary" (click)="reset()" [disabled]="isGenerating()">
+        Réinitialiser
+      </button>
+    </div>
+
+    <p class="error" *ngIf="errorMsg()">{{ errorMsg() }}</p>
+  </div>
+
+  <!-- Barre de progression -->
+  <div class="card" *ngIf="job()">
+    <div class="progress-header">
+      <span class="status-badge" [attr.data-status]="job()!.status">{{ job()!.status }}</span>
+      <span>{{ job()!.progress }}%</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill"
+           [style.width.%]="job()!.progress"
+           [style.background]="progressColor">
+      </div>
+    </div>
+    <p class="hint" *ngIf="job()!.message">{{ job()!.message }}</p>
+
+    <div class="stats" *ngIf="job()!.status === 'COMPLETED' || job()!.status === 'PARTIAL'">
+      <span>Flot max : <strong>{{ job()!.maxFlowValue }}</strong></span>
+      <span>Demande totale : <strong>{{ job()!.totalDemand }}</strong></span>
+      <span>Créneaux placés : <strong>{{ job()!.slots?.length ?? 0 }}</strong></span>
+      <span>Durée : <strong>{{ job()!.generationTimeMs }}ms</strong></span>
+    </div>
+
+    <!-- Confirmation -->
+    <div class="confirm-row" *ngIf="job()!.status === 'COMPLETED' || job()!.status === 'PARTIAL'">
+      <button class="btn-confirm" (click)="confirm()" [disabled]="isConfirming()">
+        {{ isConfirming() ? 'Sauvegarde en cours…' : '✓ Valider & Synchroniser le calendrier' }}
+      </button>
+      <p class="confirm-msg" *ngIf="confirmMsg()">{{ confirmMsg() }}</p>
+    </div>
+  </div>
+
+  <!-- Cours non placés -->
+  <div class="card warn-card"
+       *ngIf="job()?.unassignedCourses && job()!.unassignedCourses!.length > 0">
+    <h3>⚠ Cours non entièrement placés</h3>
+    <ul>
+      <li *ngFor="let c of job()!.unassignedCourses">{{ c }}</li>
+    </ul>
+  </div>
+
+  <!-- Grille emploi du temps -->
+  <div class="card" *ngIf="job()?.slots && job()!.slots!.length > 0">
+    <h3>Emploi du temps généré</h3>
+    <div class="timetable-grid">
+      <div class="day-col" *ngFor="let day of days">
+        <div class="day-header">{{ day }}</div>
+        <div class="slot-item" *ngFor="let slot of slotsByDay(day)">
+          <span class="slot-time">{{ slot.startTime }} – {{ slot.endTime }}</span>
+          <span class="slot-course">{{ slot.courseCode }}</span>
+          <span class="slot-room">{{ slot.roomName }}</span>
+        </div>
+        <div class="empty-day" *ngIf="slotsByDay(day).length === 0">—</div>
+      </div>
+    </div>
+  </div>
+
+</div>

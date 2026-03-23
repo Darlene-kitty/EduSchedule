@@ -323,7 +323,7 @@ public class RoomService {
     public List<RoomDTO> searchRoomsWithFilters(String type, Integer minCapacity, 
             String building, Integer floor, List<String> equipments, Boolean accessible) {
         log.debug("Searching rooms with advanced filters");
-        return roomRepository.findRoomsWithFilters(type, minCapacity, building, floor, equipments, accessible).stream()
+        return roomRepository.findRoomsWithFilters(type, minCapacity, building, floor, accessible).stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }

@@ -21,7 +21,6 @@ import java.util.Map;
 @RequestMapping("/api/v1/schedules")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class ScheduleController {
     
     private final ScheduleService scheduleService;

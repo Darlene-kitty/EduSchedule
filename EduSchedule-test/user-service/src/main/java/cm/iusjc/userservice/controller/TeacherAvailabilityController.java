@@ -23,6 +23,17 @@ public class TeacherAvailabilityController {
     
     private final TeacherAvailabilityService availabilityService;
     
+    @GetMapping
+    public ResponseEntity<List<TeacherAvailabilityDTO>> getAllAvailabilities() {
+        try {
+            List<TeacherAvailabilityDTO> availabilities = availabilityService.getAllAvailabilities();
+            return ResponseEntity.ok(availabilities);
+        } catch (Exception e) {
+            log.error("Error getting all availabilities: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     @PostMapping
     public ResponseEntity<TeacherAvailabilityDTO> createAvailability(@Valid @RequestBody TeacherAvailabilityRequest request) {
         try {

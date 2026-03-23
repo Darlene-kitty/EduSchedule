@@ -12,7 +12,6 @@ import java.util.Map;
 @RequestMapping("/api/reservations")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class ReservationSyncController {
 
     private final ReservationScheduleSyncService syncService;

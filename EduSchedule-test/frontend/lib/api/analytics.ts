@@ -86,8 +86,7 @@ class AnalyticsService {
    */
   async getDashboardStats(period: string = 'week'): Promise<DashboardStats> {
     try {
-      // Utiliser l'API Gateway au lieu d'appeler directement le service
-      const response = await apiClient.get<DashboardStats>(`/api/v1/analytics/dashboard-stats?period=${period}`)
+      const response = await apiClient.get<DashboardStats>(`/api/predictive-analytics/dashboard-stats?period=${period}`)
       return response
     } catch (error) {
       console.error('Erreur récupération stats dashboard:', error)
@@ -107,7 +106,7 @@ class AnalyticsService {
    */
   async getRoomOccupancy(period: string = 'week'): Promise<RoomOccupancy[]> {
     try {
-      const response = await apiClient.get<RoomOccupancy[]>(`/api/v1/analytics/room-occupancy?period=${period}`)
+      const response = await apiClient.get<RoomOccupancy[]>(`/api/predictive-analytics/room-occupancy?period=${period}`)
       return response
     } catch (error) {
       console.error('Erreur récupération occupation salles:', error)
@@ -247,7 +246,7 @@ class AnalyticsService {
    */
   async getHourlyOccupancy(date: string): Promise<OccupancyData[]> {
     try {
-      const response = await apiClient.get<OccupancyData[]>(`/api/v1/analytics/hourly-occupancy?date=${date}`)
+      const response = await apiClient.get<OccupancyData[]>(`/api/predictive-analytics/hourly-occupancy?date=${date}`)
       return response
     } catch (error) {
       console.error('Erreur récupération occupation horaire:', error)
@@ -272,7 +271,7 @@ class AnalyticsService {
    */
   async getWeeklyData(startDate: string): Promise<WeeklyData[]> {
     try {
-      const response = await apiClient.get<WeeklyData[]>(`/api/v1/analytics/weekly-data?startDate=${startDate}`)
+      const response = await apiClient.get<WeeklyData[]>(`/api/predictive-analytics/weekly-data?startDate=${startDate}`)
       return response
     } catch (error) {
       console.error('Erreur récupération données hebdomadaires:', error)
@@ -294,7 +293,7 @@ class AnalyticsService {
    */
   async getRoomTypeDistribution(): Promise<RoomTypeData[]> {
     try {
-      const response = await apiClient.get<RoomTypeData[]>('/api/v1/analytics/room-type-distribution')
+      const response = await apiClient.get<RoomTypeData[]>('/api/predictive-analytics/room-type-distribution')
       return response
     } catch (error) {
       console.error('Erreur récupération répartition types:', error)
@@ -333,7 +332,7 @@ class AnalyticsService {
         headers['Authorization'] = `Bearer ${token}`
       }
 
-      const response = await fetch(`${API_CONFIG.baseURL}/api/v1/analytics/export?format=${format}&period=${period}`, {
+      const response = await fetch(`${API_CONFIG.baseURL}/api/predictive-analytics/export?format=${format}&period=${period}`, {
         method: 'GET',
         headers
       })

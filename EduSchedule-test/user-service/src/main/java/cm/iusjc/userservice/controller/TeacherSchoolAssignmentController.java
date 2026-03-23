@@ -17,7 +17,6 @@ import java.util.Optional;
 @RequestMapping("/api/v1/teacher-school-assignments")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class TeacherSchoolAssignmentController {
     
     private final TeacherSchoolAssignmentService assignmentService;

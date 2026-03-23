@@ -1,0 +1,304 @@
+<div class="page-layout">
+  <app-sidebar activePage="equipment"></app-sidebar>
+  <div class="main-wrapper">
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn"><mat-icon>notifications</mat-icon></button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <div class="toast-success" [class.visible]="showSuccess">
+      <mat-icon>check_circle</mat-icon><span>{{ successMessage }}</span>
+    </div>
+
+    <main class="page-content">
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Matériel</h1>
+          <p class="page-sub">{{ materiels.length }} équipements · Valeur totale : {{ formatValeur(valeurTotale) }}</p>
+        </div>
+        <button class="btn-add" (click)="openAddModal()"><mat-icon>add</mat-icon> Nouveau matériel</button>
+      </div>
+
+      <!-- Stats état -->
+      <div class="etat-stats">
+        <div class="etat-card" [class.active]="filterEtat === ''" (click)="filterEtat = ''" style="--c:#6B7280">
+          <div class="etat-icon" style="background:#6B7280"><mat-icon>inventory_2</mat-icon></div>
+          <div><p class="etat-num">{{ materiels.length }}</p><p class="etat-lbl">Tous</p></div>
+        </div>
+        <div *ngFor="let s of etatStats" class="etat-card" [class.active]="filterEtat === s.etat"
+          [style.--c]="s.color" (click)="filterEtat = filterEtat === s.etat ? '' : s.etat">
+          <div class="etat-icon" [style.background]="s.color"><mat-icon>circle</mat-icon></div>
+          <div><p class="etat-num">{{ s.count }}</p><p class="etat-lbl">{{ s.etat }}</p></div>
+        </div>
+      </div>
+
+      <!-- Filtres -->
+      <div class="filters-row">
+        <div class="search-wrapper">
+          <mat-icon class="search-icon">search</mat-icon>
+          <input type="text" class="search-input" placeholder="Rechercher par nom, code, marque..." [(ngModel)]="searchQuery" />
+        </div>
+        <select class="filter-select" [(ngModel)]="filterType">
+          <option value="">Tous les types</option>
+          <option *ngFor="let t of typesMateriel" [value]="t.code">{{ t.nom }}</option>
+        </select>
+        <select class="filter-select" [(ngModel)]="filterEcole">
+          <option value="">Toutes les écoles</option>
+          <option *ngFor="let e of ecoles" [value]="e">{{ e }}</option>
+        </select>
+      </div>
+
+      <!-- Tableau -->
+      <div class="table-card">
+        <div class="table-card-header">
+          <h2 class="table-title">Inventaire du matériel</h2>
+          <p class="table-sub">{{ filteredMateriels.length }} équipement(s) trouvé(s)</p>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr><th>Matériel</th><th>Type</th><th>Marque / Modèle</th><th>École</th><th>Salle</th><th>État</th><th>Valeur</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let m of filteredMateriels" class="table-row">
+                <td>
+                  <div class="mat-cell">
+                    <div class="mat-icon" [style.background]="m.typeCouleur"><mat-icon>{{ m.typeIcone }}</mat-icon></div>
+                    <div>
+                      <div class="mat-nom">{{ m.nom }}</div>
+                      <div class="mat-code">{{ m.code }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="type-badge" [style.background]="m.typeCouleur + '18'" [style.color]="m.typeCouleur" [style.border-color]="m.typeCouleur + '40'">{{ m.typeMateriel }}</span></td>
+                <td>
+                  <div class="marque-cell">
+                    <span class="marque">{{ m.marque }}</span>
+                    <span class="modele">{{ m.modele }}</span>
+                  </div>
+                </td>
+                <td><span class="ecole-tag">{{ m.ecole }}</span></td>
+                <td>
+                  <div class="salle-cell"><mat-icon>meeting_room</mat-icon><span>{{ m.salle || '—' }}</span></div>
+                </td>
+                <td>
+                  <span class="etat-badge" [style.background]="getEtatColor(m.etat) + '18'" [style.color]="getEtatColor(m.etat)" [style.border-color]="getEtatColor(m.etat) + '40'">
+                    <span class="etat-dot" [style.background]="getEtatColor(m.etat)"></span>
+                    {{ m.etat }}
+                  </span>
+                </td>
+                <td><span class="valeur-cell">{{ formatValeur(m.valeur) }}</span></td>
+                <td>
+                  <div class="actions-cell">
+                    <button class="action-btn view-btn"   (click)="openViewModal(m)"   title="Voir"><mat-icon>visibility</mat-icon></button>
+                    <button class="action-btn edit-btn"   (click)="openEditModal(m)"   title="Modifier"><mat-icon>edit</mat-icon></button>
+                    <button class="action-btn delete-btn" (click)="openDeleteModal(m)" title="Supprimer"><mat-icon>delete</mat-icon></button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="filteredMateriels.length === 0">
+                <td colspan="8" class="empty-row"><mat-icon>inventory_2</mat-icon><p>Aucun matériel trouvé</p></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ═══ MODAL VUE ═══ -->
+<div *ngIf="isViewModalOpen && viewingMat" class="modal-overlay" (click)="closeViewModal()">
+  <div class="modal modal-view" (click)="$event.stopPropagation()">
+    <div class="modal-hero" [style.background]="viewingMat.typeCouleur">
+      <div class="hero-icon"><mat-icon>{{ viewingMat.typeIcone }}</mat-icon></div>
+      <div class="hero-info">
+        <h2>{{ viewingMat.nom }}</h2>
+        <p>{{ viewingMat.code }} · {{ viewingMat.typeMateriel }}</p>
+      </div>
+      <span class="hero-etat" [style.background]="getEtatColor(viewingMat.etat) + '30'" [style.color]="'white'">{{ viewingMat.etat }}</span>
+      <button class="modal-close-white" (click)="closeViewModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <p class="view-desc" *ngIf="viewingMat.description">{{ viewingMat.description }}</p>
+      <div class="view-info-grid">
+        <div class="view-info-item">
+          <div class="view-info-icon blue"><mat-icon>business</mat-icon></div>
+          <div><p class="view-info-label">Marque</p><p class="view-info-value">{{ viewingMat.marque || '—' }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon purple"><mat-icon>devices</mat-icon></div>
+          <div><p class="view-info-label">Modèle</p><p class="view-info-value">{{ viewingMat.modele || '—' }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon teal"><mat-icon>qr_code</mat-icon></div>
+          <div><p class="view-info-label">N° de série</p><p class="view-info-value">{{ viewingMat.numeroSerie || '—' }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon orange"><mat-icon>account_balance</mat-icon></div>
+          <div><p class="view-info-label">École</p><p class="view-info-value">{{ viewingMat.ecole || '—' }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon green"><mat-icon>meeting_room</mat-icon></div>
+          <div><p class="view-info-label">Salle</p><p class="view-info-value">{{ viewingMat.salle || '—' }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon gray"><mat-icon>calendar_today</mat-icon></div>
+          <div><p class="view-info-label">Date d'acquisition</p><p class="view-info-value">{{ viewingMat.dateAcquisition || '—' }}</p></div>
+        </div>
+      </div>
+      <div class="valeur-highlight">
+        <mat-icon>payments</mat-icon>
+        <div><p class="vh-lbl">Valeur d'acquisition</p><p class="vh-val">{{ formatValeur(viewingMat.valeur) }}</p></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeViewModal()">Fermer</button>
+      <button class="btn-save" (click)="closeViewModal(); openEditModal(viewingMat!)"><mat-icon>edit</mat-icon> Modifier</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL SUPPRESSION ═══ -->
+<div *ngIf="isDeleteModalOpen && matToDelete" class="modal-overlay" (click)="closeDeleteModal()">
+  <div class="modal modal-delete" (click)="$event.stopPropagation()">
+    <div class="delete-modal-body">
+      <div class="delete-icon-circle"><mat-icon>delete_forever</mat-icon></div>
+      <h2 class="delete-title">Supprimer le matériel ?</h2>
+      <p class="delete-desc">Vous êtes sur le point de supprimer <strong>{{ matToDelete.nom }}</strong>. Cette action est <strong>irréversible</strong>.</p>
+      <div class="delete-preview" [style.border-left-color]="matToDelete.typeCouleur">
+        <div class="delete-icon-sm" [style.background]="matToDelete.typeCouleur"><mat-icon>{{ matToDelete.typeIcone }}</mat-icon></div>
+        <div>
+          <p class="delete-name">{{ matToDelete.nom }}</p>
+          <p class="delete-sub">{{ matToDelete.code }} · {{ matToDelete.marque }} {{ matToDelete.modele }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer delete-footer">
+      <button class="btn-cancel" (click)="closeDeleteModal()">Annuler</button>
+      <button class="btn-delete-confirm" (click)="confirmDelete()"><mat-icon>delete</mat-icon> Oui, supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL AJOUT ═══ -->
+<div *ngIf="isAddModalOpen" class="modal-overlay" (click)="closeAddModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Nouveau matériel</h2>
+      <button class="modal-close" (click)="closeAddModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Code *</label><input type="text" [(ngModel)]="newMat.code" placeholder="Ex: MAT-013" /></div>
+        <div class="form-group"><label>Nom *</label><input type="text" [(ngModel)]="newMat.nom" placeholder="Ex: Ordinateur Dell" /></div>
+      </div>
+      <div class="form-group">
+        <label>Type de matériel *</label>
+        <select [(ngModel)]="newMat.typeCode" (ngModelChange)="onTypeChange(newMat)">
+          <option value="">-- Choisir --</option>
+          <option *ngFor="let t of typesMateriel" [value]="t.code">{{ t.nom }}</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Marque</label><input type="text" [(ngModel)]="newMat.marque" placeholder="Ex: Dell" /></div>
+        <div class="form-group"><label>Modèle</label><input type="text" [(ngModel)]="newMat.modele" placeholder="Ex: OptiPlex 7090" /></div>
+      </div>
+      <div class="form-group"><label>Numéro de série</label><input type="text" [(ngModel)]="newMat.numeroSerie" placeholder="Ex: DL-7090-XXX" /></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>École</label>
+          <select [(ngModel)]="newMat.ecole">
+            <option value="">-- Choisir --</option>
+            <option *ngFor="let e of ecoles" [value]="e">{{ e }}</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Salle</label><input type="text" [(ngModel)]="newMat.salle" placeholder="Ex: Salle Info 1" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>État</label>
+          <select [(ngModel)]="newMat.etat">
+            <option *ngFor="let e of etats" [value]="e">{{ e }}</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Date d'acquisition</label><input type="date" [(ngModel)]="newMat.dateAcquisition" /></div>
+      </div>
+      <div class="form-group"><label>Valeur (FCFA)</label><input type="number" [(ngModel)]="newMat.valeur" min="0" /></div>
+      <div class="form-group"><label>Description</label><textarea [(ngModel)]="newMat.description" rows="2" placeholder="Description..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAddModal()">Annuler</button>
+      <button class="btn-save" (click)="handleAdd()" [disabled]="!newMat.code || !newMat.nom"><mat-icon>save</mat-icon> Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL ÉDITION ═══ -->
+<div *ngIf="isEditModalOpen" class="modal-overlay" (click)="closeEditModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Modifier le matériel</h2>
+      <button class="modal-close" (click)="closeEditModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Code *</label><input type="text" [(ngModel)]="editMatData.code" /></div>
+        <div class="form-group"><label>Nom *</label><input type="text" [(ngModel)]="editMatData.nom" /></div>
+      </div>
+      <div class="form-group">
+        <label>Type de matériel *</label>
+        <select [(ngModel)]="editMatData.typeCode" (ngModelChange)="onTypeChange(editMatData)">
+          <option *ngFor="let t of typesMateriel" [value]="t.code">{{ t.nom }}</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Marque</label><input type="text" [(ngModel)]="editMatData.marque" /></div>
+        <div class="form-group"><label>Modèle</label><input type="text" [(ngModel)]="editMatData.modele" /></div>
+      </div>
+      <div class="form-group"><label>Numéro de série</label><input type="text" [(ngModel)]="editMatData.numeroSerie" /></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>École</label>
+          <select [(ngModel)]="editMatData.ecole">
+            <option *ngFor="let e of ecoles" [value]="e">{{ e }}</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Salle</label><input type="text" [(ngModel)]="editMatData.salle" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>État</label>
+          <select [(ngModel)]="editMatData.etat">
+            <option *ngFor="let e of etats" [value]="e">{{ e }}</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Date d'acquisition</label><input type="date" [(ngModel)]="editMatData.dateAcquisition" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Valeur (FCFA)</label><input type="number" [(ngModel)]="editMatData.valeur" min="0" /></div>
+        <div class="form-group toggle-group">
+          <label>Statut</label>
+          <label class="toggle"><input type="checkbox" [(ngModel)]="editMatData.enabled" /><span class="toggle-slider"></span></label>
+          <span class="toggle-label">{{ editMatData.enabled ? 'Actif' : 'Inactif' }}</span>
+        </div>
+      </div>
+      <div class="form-group"><label>Description</label><textarea [(ngModel)]="editMatData.description" rows="2"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeEditModal()">Annuler</button>
+      <button class="btn-save" (click)="handleEdit()"><mat-icon>save</mat-icon> Sauvegarder</button>
+    </div>
+  </div>
+</div>

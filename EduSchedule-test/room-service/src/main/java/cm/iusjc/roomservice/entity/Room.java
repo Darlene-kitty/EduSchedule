@@ -44,10 +44,10 @@ public class Room {
     @Column(name = "equipment")
     private List<String> equipments;
     
-    @Column(nullable = false)
-    private boolean accessible = false; // Accessible aux personnes à mobilité réduite
+    @Column(name = "is_accessible", nullable = false, columnDefinition = "tinyint(1) default 0")
+    private boolean accessible = false;
     
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "tinyint(1) default 1")
     private boolean available = true; // Disponible pour réservation
     
     @Column(name = "school_id", nullable = false)

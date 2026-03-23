@@ -21,7 +21,6 @@ import java.util.Map;
 @RequestMapping("/api/v1/timeslots")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class TimeSlotController {
     
     private final TimeSlotService timeSlotService;

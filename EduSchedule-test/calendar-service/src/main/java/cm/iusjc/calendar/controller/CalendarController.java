@@ -17,7 +17,6 @@ import java.util.List;
 @RequestMapping("/api/calendar")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class CalendarController {
     
     private final CalendarIntegrationService calendarIntegrationService;

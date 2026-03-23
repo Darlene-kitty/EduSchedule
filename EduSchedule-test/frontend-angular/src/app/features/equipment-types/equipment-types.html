@@ -1,0 +1,225 @@
+<div class="page-layout">
+  <app-sidebar activePage="equipment-types"></app-sidebar>
+  <div class="main-wrapper">
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn"><mat-icon>notifications</mat-icon></button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <div class="toast-success" [class.visible]="showSuccess">
+      <mat-icon>check_circle</mat-icon><span>{{ successMessage }}</span>
+    </div>
+
+    <main class="page-content">
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Types de matériel</h1>
+          <p class="page-sub">{{ types.length }} types · {{ totalMateriel }} équipements au total</p>
+        </div>
+        <button class="btn-add" (click)="openAddModal()">
+          <mat-icon>add</mat-icon> Nouveau type
+        </button>
+      </div>
+
+      <!-- Recherche -->
+      <div class="search-wrapper" style="margin-bottom:20px">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input type="text" class="search-input" placeholder="Rechercher un type..." [(ngModel)]="searchQuery" />
+      </div>
+
+      <!-- Grille de cartes -->
+      <div class="types-grid">
+        <div *ngFor="let t of filteredTypes" class="type-card" [class.inactive]="!t.enabled">
+          <div class="type-card-header" [style.background]="t.couleur">
+            <div class="type-card-icon"><mat-icon>{{ t.icone }}</mat-icon></div>
+            <div class="type-card-actions">
+              <button class="card-btn" (click)="openViewModal(t)" title="Voir"><mat-icon>visibility</mat-icon></button>
+              <button class="card-btn" (click)="openEditModal(t)" title="Modifier"><mat-icon>edit</mat-icon></button>
+              <button class="card-btn danger" (click)="openDeleteModal(t)" title="Supprimer"><mat-icon>delete</mat-icon></button>
+            </div>
+          </div>
+          <div class="type-card-body">
+            <div class="type-card-title-row">
+              <div>
+                <h3 class="type-nom">{{ t.nom }}</h3>
+                <span class="type-code">{{ t.code }}</span>
+              </div>
+              <span class="status-dot" [class.active]="t.enabled" [class.inactive]="!t.enabled"></span>
+            </div>
+            <p class="type-desc">{{ t.description }}</p>
+            <div class="type-card-footer">
+              <div class="type-count">
+                <mat-icon>inventory_2</mat-icon>
+                <span>{{ t.nombreMateriel }} équipement(s)</span>
+              </div>
+              <span class="status-badge" [class.active]="t.enabled" [class.inactive]="!t.enabled">
+                {{ t.enabled ? 'Actif' : 'Inactif' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="filteredTypes.length === 0" class="empty-state">
+          <mat-icon>devices</mat-icon><p>Aucun type trouvé</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ═══ MODAL VUE ═══ -->
+<div *ngIf="isViewModalOpen && viewingType" class="modal-overlay" (click)="closeViewModal()">
+  <div class="modal modal-view" (click)="$event.stopPropagation()">
+    <div class="modal-hero" [style.background]="viewingType.couleur">
+      <div class="hero-icon"><mat-icon>{{ viewingType.icone }}</mat-icon></div>
+      <div class="hero-info">
+        <h2>{{ viewingType.nom }}</h2>
+        <p>Code : {{ viewingType.code }}</p>
+      </div>
+      <button class="modal-close-white" (click)="closeViewModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <p class="view-desc">{{ viewingType.description }}</p>
+      <div class="view-metric-row">
+        <div class="view-metric">
+          <mat-icon [style.color]="viewingType.couleur">inventory_2</mat-icon>
+          <div><p class="vm-num">{{ viewingType.nombreMateriel }}</p><p class="vm-lbl">Équipements</p></div>
+        </div>
+        <div class="view-metric">
+          <mat-icon [class.green]="viewingType.enabled" [class.gray]="!viewingType.enabled">
+            {{ viewingType.enabled ? 'check_circle' : 'cancel' }}
+          </mat-icon>
+          <div>
+            <span class="status-badge" [class.active]="viewingType.enabled" [class.inactive]="!viewingType.enabled">
+              {{ viewingType.enabled ? 'Actif' : 'Inactif' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeViewModal()">Fermer</button>
+      <button class="btn-save" (click)="closeViewModal(); openEditModal(viewingType!)"><mat-icon>edit</mat-icon> Modifier</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL SUPPRESSION ═══ -->
+<div *ngIf="isDeleteModalOpen && typeToDelete" class="modal-overlay" (click)="closeDeleteModal()">
+  <div class="modal modal-delete" (click)="$event.stopPropagation()">
+    <div class="delete-modal-body">
+      <div class="delete-icon-circle"><mat-icon>delete_forever</mat-icon></div>
+      <h2 class="delete-title">Supprimer le type ?</h2>
+      <p class="delete-desc">Vous êtes sur le point de supprimer <strong>{{ typeToDelete.nom }}</strong>. Les <strong>{{ typeToDelete.nombreMateriel }} équipements</strong> associés seront également affectés.</p>
+      <div class="delete-preview" [style.border-left-color]="typeToDelete.couleur">
+        <div class="delete-icon-sm" [style.background]="typeToDelete.couleur"><mat-icon>{{ typeToDelete.icone }}</mat-icon></div>
+        <div>
+          <p class="delete-name">{{ typeToDelete.nom }}</p>
+          <p class="delete-sub">{{ typeToDelete.code }} · {{ typeToDelete.nombreMateriel }} équipement(s)</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer delete-footer">
+      <button class="btn-cancel" (click)="closeDeleteModal()">Annuler</button>
+      <button class="btn-delete-confirm" (click)="confirmDelete()"><mat-icon>delete</mat-icon> Oui, supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL AJOUT ═══ -->
+<div *ngIf="isAddModalOpen" class="modal-overlay" (click)="closeAddModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Nouveau type de matériel</h2>
+      <button class="modal-close" (click)="closeAddModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Code *</label><input type="text" [(ngModel)]="newType.code" placeholder="Ex: INFO" /></div>
+        <div class="form-group"><label>Nom *</label><input type="text" [(ngModel)]="newType.nom" placeholder="Ex: Informatique" /></div>
+      </div>
+      <div class="form-group"><label>Description</label><textarea [(ngModel)]="newType.description" rows="2" placeholder="Description..."></textarea></div>
+      <div class="form-group">
+        <label>Couleur</label>
+        <div class="color-picker">
+          <div *ngFor="let c of couleurs" class="color-dot" [style.background]="c.value"
+            [class.selected]="newType.couleur === c.value" (click)="newType.couleur = c.value" [title]="c.label"></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Icône</label>
+        <div class="icone-picker">
+          <div *ngFor="let i of icones" class="icone-dot" [class.selected]="newType.icone === i"
+            [style.background]="newType.icone === i ? newType.couleur : ''" (click)="newType.icone = i">
+            <mat-icon>{{ i }}</mat-icon>
+          </div>
+        </div>
+      </div>
+      <!-- Aperçu -->
+      <div class="preview-card" [style.background]="newType.couleur + '15'" [style.border-color]="newType.couleur + '40'">
+        <div class="preview-icon" [style.background]="newType.couleur"><mat-icon>{{ newType.icone }}</mat-icon></div>
+        <div>
+          <p class="preview-nom">{{ newType.nom || 'Nom du type' }}</p>
+          <p class="preview-code">{{ newType.code || 'CODE' }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAddModal()">Annuler</button>
+      <button class="btn-save" (click)="handleAdd()" [disabled]="!newType.code || !newType.nom"><mat-icon>save</mat-icon> Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL ÉDITION ═══ -->
+<div *ngIf="isEditModalOpen" class="modal-overlay" (click)="closeEditModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Modifier le type</h2>
+      <button class="modal-close" (click)="closeEditModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Code *</label><input type="text" [(ngModel)]="editTypeData.code" /></div>
+        <div class="form-group"><label>Nom *</label><input type="text" [(ngModel)]="editTypeData.nom" /></div>
+      </div>
+      <div class="form-group"><label>Description</label><textarea [(ngModel)]="editTypeData.description" rows="2"></textarea></div>
+      <div class="form-group">
+        <label>Couleur</label>
+        <div class="color-picker">
+          <div *ngFor="let c of couleurs" class="color-dot" [style.background]="c.value"
+            [class.selected]="editTypeData.couleur === c.value" (click)="editTypeData.couleur = c.value" [title]="c.label"></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Icône</label>
+        <div class="icone-picker">
+          <div *ngFor="let i of icones" class="icone-dot" [class.selected]="editTypeData.icone === i"
+            [style.background]="editTypeData.icone === i ? editTypeData.couleur : ''" (click)="editTypeData.icone = i">
+            <mat-icon>{{ i }}</mat-icon>
+          </div>
+        </div>
+      </div>
+      <div class="form-group toggle-group">
+        <label>Statut</label>
+        <label class="toggle"><input type="checkbox" [(ngModel)]="editTypeData.enabled" /><span class="toggle-slider"></span></label>
+        <span class="toggle-label">{{ editTypeData.enabled ? 'Actif' : 'Inactif' }}</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeEditModal()">Annuler</button>
+      <button class="btn-save" (click)="handleEdit()"><mat-icon>save</mat-icon> Sauvegarder</button>
+    </div>
+  </div>
+</div>

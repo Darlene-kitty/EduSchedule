@@ -15,7 +15,6 @@ import java.util.Map;
 @RequestMapping("/api/analytics")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class AnalyticsController {
 
     private final AnalyticsService analyticsService;

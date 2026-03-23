@@ -18,7 +18,6 @@ import java.util.Map;
 @RequestMapping("/api/v1/rooms")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class RoomController {
     
     private final RoomService roomService;

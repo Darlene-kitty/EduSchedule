@@ -17,7 +17,6 @@ import java.util.Map;
 @RequestMapping("/api/notifications/advanced")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class AdvancedNotificationController {
     
     private final ScheduleNotificationService scheduleNotificationService;

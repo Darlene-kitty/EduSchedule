@@ -20,7 +20,6 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/teacher-availability")
-@CrossOrigin(origins = "*")
 public class TeacherAvailabilityController {
     
     private static final Logger logger = LoggerFactory.getLogger(TeacherAvailabilityController.class);

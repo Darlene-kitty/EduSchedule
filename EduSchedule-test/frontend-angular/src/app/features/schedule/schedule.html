@@ -1,0 +1,494 @@
+<div class="page-layout">
+  <app-sidebar activePage="schedule"></app-sidebar>
+  <div class="main-wrapper">
+
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn" (click)="showConflits = !showConflits">
+          <mat-icon>notifications</mat-icon>
+          <span class="notif-dot" *ngIf="conflits.length > 0">{{ conflits.length }}</span>
+        </button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <div class="toast-success" [class.visible]="showSuccess">
+      <mat-icon>check_circle</mat-icon><span>{{ successMessage }}</span>
+    </div>
+
+    <main class="page-content">
+
+      <!-- Titre -->
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Planification</h1>
+          <p class="page-sub">{{ seances.length }} séances planifiées · Semaine {{ semaineActive }}</p>
+        </div>
+        <div class="title-actions">
+          <button class="btn-conflits" (click)="showConflits = !showConflits" [class.has-conflits]="conflits.length > 0">
+            <mat-icon>warning</mat-icon>
+            {{ conflits.length }} conflit(s)
+          </button>
+          <button class="btn-generate" (click)="showGenPanel = !showGenPanel" [class.active]="showGenPanel">
+            <mat-icon>auto_awesome</mat-icon> Générer
+          </button>
+          <button class="btn-add" (click)="openAddModal()"><mat-icon>add</mat-icon> Nouvelle séance</button>
+        </div>
+      </div>
+
+      <!-- Panneau conflits -->
+      <div class="conflits-panel" *ngIf="showConflits">
+        <div class="conflits-header">
+          <div class="conflits-title">
+            <mat-icon>warning</mat-icon>
+            <span>Conflits détectés ({{ conflits.length }})</span>
+          </div>
+          <button class="conflits-close" (click)="showConflits = false"><mat-icon>close</mat-icon></button>
+        </div>
+        <div *ngIf="conflits.length === 0" class="no-conflits">
+          <mat-icon>check_circle</mat-icon><span>Aucun conflit détecté</span>
+        </div>
+        <div *ngFor="let c of conflits" class="conflit-item" [ngClass]="'conflit-' + c.type">
+          <mat-icon>{{ c.type === 'enseignant' ? 'person_off' : c.type === 'salle' ? 'meeting_room' : 'groups' }}</mat-icon>
+          <span>{{ c.message }}</span>
+        </div>
+      </div>
+
+      <!-- Panneau génération automatique -->
+      <div class="gen-panel" *ngIf="showGenPanel">
+        <div class="gen-panel-header">
+          <div class="gen-panel-title">
+            <mat-icon>auto_awesome</mat-icon>
+            <span>Génération automatique — Ford-Fulkerson</span>
+          </div>
+          <button class="conflits-close" (click)="showGenPanel = false; resetGeneration()"><mat-icon>close</mat-icon></button>
+        </div>
+
+        <!-- Paramètres -->
+        <div class="gen-params" *ngIf="!genJob()">
+          <div class="gen-params-row">
+            <div class="gen-field">
+              <label>ID École</label>
+              <input type="number" [(ngModel)]="genRequest.schoolId" placeholder="ex: 1" />
+            </div>
+            <div class="gen-field">
+              <label>Niveau</label>
+              <select [(ngModel)]="genRequest.level">
+                <option *ngFor="let l of genLevels" [value]="l">{{ l }}</option>
+              </select>
+            </div>
+            <div class="gen-field">
+              <label>Semestre</label>
+              <select [(ngModel)]="genRequest.semester">
+                <option *ngFor="let s of genSemesters" [value]="s">{{ s }}</option>
+              </select>
+            </div>
+            <div class="gen-field">
+              <label>Max h/jour</label>
+              <input type="number" [(ngModel)]="genRequest.maxHoursPerDay" min="2" max="10" />
+            </div>
+          </div>
+
+          <div class="gen-rooms" *ngIf="genRooms().length > 0">
+            <span class="gen-rooms-label">Salles <span class="badge">{{ genSelectedRooms().length }}/{{ genRooms().length }}</span></span>
+            <div class="gen-rooms-chips">
+              <label class="room-chip" *ngFor="let r of genRooms()" [class.selected]="isGenRoomSelected(r.id)">
+                <input type="checkbox" [checked]="isGenRoomSelected(r.id)" (change)="toggleGenRoom(r.id)" />
+                {{ r.name }}
+              </label>
+            </div>
+          </div>
+
+          <p class="gen-error" *ngIf="genErrorMsg()">{{ genErrorMsg() }}</p>
+
+          <div class="gen-actions">
+            <button class="btn-generate-launch" (click)="launchGeneration()" [disabled]="isGenerating()">
+              <mat-icon>play_arrow</mat-icon>
+              Lancer la génération
+            </button>
+          </div>
+        </div>
+
+        <!-- Progression -->
+        <div class="gen-progress" *ngIf="genJob()">
+          <div class="gen-progress-header">
+            <span class="status-badge" [attr.data-status]="genJob()!.status">{{ genJob()!.status }}</span>
+            <span class="gen-pct">{{ genJob()!.progress }}%</span>
+            <button class="btn-reset-gen" (click)="resetGeneration()" [disabled]="isGenerating()">
+              <mat-icon>refresh</mat-icon>
+            </button>
+          </div>
+          <div class="gen-progress-bar">
+            <div class="gen-progress-fill" [style.width.%]="genJob()!.progress" [style.background]="progressColor"></div>
+          </div>
+          <p class="gen-hint" *ngIf="genJob()!.message">{{ genJob()!.message }}</p>
+
+          <div class="gen-stats" *ngIf="genJob()!.status === 'COMPLETED' || genJob()!.status === 'PARTIAL'">
+            <span>Flot max : <strong>{{ genJob()!.maxFlowValue }}</strong></span>
+            <span>Créneaux placés : <strong>{{ genJob()!.slots?.length ?? 0 }}</strong></span>
+            <span>Durée : <strong>{{ genJob()!.generationTimeMs }}ms</strong></span>
+          </div>
+
+          <div class="gen-unassigned" *ngIf="genJob()?.unassignedCourses?.length">
+            <mat-icon>warning</mat-icon>
+            <span>{{ genJob()!.unassignedCourses!.length }} cours non placés</span>
+          </div>
+
+          <div class="gen-confirm-row" *ngIf="genJob()!.status === 'COMPLETED' || genJob()!.status === 'PARTIAL'">
+            <p class="gen-preview-hint"><mat-icon>visibility</mat-icon> Aperçu visible dans la grille ci-dessous (créneaux en pointillés)</p>
+            <button class="btn-confirm-gen" (click)="confirmGeneration()" [disabled]="isConfirming()">
+              <mat-icon>check_circle</mat-icon>
+              {{ isConfirming() ? 'Sauvegarde…' : 'Valider & Importer dans la planification' }}
+            </button>
+            <p class="gen-confirm-msg" *ngIf="confirmMsg()">{{ confirmMsg() }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtres -->
+      <div class="filters-bar">
+        <div class="semaine-nav">
+          <button (click)="semaineActive = semaineActive > 1 ? semaineActive - 1 : semaineActive"><mat-icon>chevron_left</mat-icon></button>
+          <span>Semaine {{ semaineActive }}</span>
+          <button (click)="semaineActive = semaineActive + 1"><mat-icon>chevron_right</mat-icon></button>
+        </div>
+        <select class="filter-select" [(ngModel)]="filterEcole" (ngModelChange)="filterClasse = ''">
+          <option value="">Toutes les écoles</option>
+          <option *ngFor="let e of ecoles" [value]="e.sigle">{{ e.sigle }}</option>
+        </select>
+        <select class="filter-select" [(ngModel)]="filterClasse">
+          <option value="">Toutes les classes</option>
+          <option *ngFor="let c of classesFiltrees" [value]="c.code">{{ c.nom }}</option>
+        </select>
+        <select class="filter-select" [(ngModel)]="filterEnseignant">
+          <option value="">Tous les enseignants</option>
+          <option *ngFor="let e of enseignants" [value]="e.id">{{ e.nom }}</option>
+        </select>
+        <button class="btn-reset" (click)="filterEcole=''; filterClasse=''; filterEnseignant=''">
+          <mat-icon>refresh</mat-icon>
+        </button>
+      </div>
+
+      <!-- Grille emploi du temps -->
+      <div class="schedule-wrapper">
+        <div class="schedule-grid">
+
+          <!-- En-tête jours -->
+          <div class="grid-corner"></div>
+          <div *ngFor="let jour of jours" class="grid-day-header">
+            <span>{{ jour }}</span>
+            <span class="day-count">{{ getSeancesJour(jour).length }} séance(s)</span>
+          </div>
+
+          <!-- Lignes créneaux -->
+          <ng-container *ngFor="let heure of creneaux">
+            <div class="grid-time">{{ heure }}</div>
+            <div *ngFor="let jour of jours" class="grid-cell"
+              [class.has-seance]="getSeancesCreneau(jour, heure).length > 0"
+              [class.drag-over]="isDragTarget(jour, heure)"
+              (dragover)="onDragOver($event, jour, heure)"
+              (dragleave)="onDragLeave()"
+              (drop)="onDrop($event, jour, heure)">
+              <div *ngFor="let s of getSeancesCreneau(jour, heure)"
+                class="seance-card"
+                [style.background]="s.couleur"
+                [class.conflict]="isConflict(s.id)"
+                draggable="true"
+                (dragstart)="onDragStart($event, s)"
+                (dragend)="onDragEnd($event)"
+                (click)="openViewModal(s)">
+                <div class="seance-top">
+                  <mat-icon class="drag-handle">drag_indicator</mat-icon>
+                  <span class="seance-type">{{ s.type }}</span>
+                  <span class="seance-ecole" [style.background]="s.couleurEcole + '40'">{{ s.sigleEcole }}</span>
+                </div>
+                <div class="seance-matiere">{{ s.matiere }}</div>
+                <div class="seance-info">
+                  <mat-icon>person</mat-icon><span>{{ s.enseignant.split(' ').slice(-1)[0] }}</span>
+                </div>
+                <div class="seance-info">
+                  <mat-icon>groups</mat-icon><span>{{ s.classe }}</span>
+                </div>
+                <div class="seance-info">
+                  <mat-icon>meeting_room</mat-icon><span>{{ s.salle }}</span>
+                </div>
+                <div class="seance-time">{{ s.heureDebut }} – {{ s.heureFin }}</div>
+                <div class="conflict-badge" *ngIf="isConflict(s.id)">
+                  <mat-icon>warning</mat-icon> Conflit
+                </div>
+              </div>
+              <!-- Aperçu créneaux générés (avant validation) -->
+              <div *ngFor="let gs of getGeneratedSlotsCreneau(jour, heure)"
+                class="seance-card seance-card--preview">
+                <div class="seance-top">
+                  <mat-icon class="drag-handle">auto_awesome</mat-icon>
+                  <span class="seance-type">IA</span>
+                </div>
+                <div class="seance-matiere">{{ gs.courseName }}</div>
+                <div class="seance-info"><mat-icon>meeting_room</mat-icon><span>{{ gs.roomName }}</span></div>
+                <div class="seance-info"><mat-icon>layers</mat-icon><span>{{ gs.level }}</span></div>
+                <div class="seance-time">{{ gs.startTime }} – {{ gs.endTime }}</div>
+              </div>
+            </div>
+          </ng-container>
+
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ═══ MODAL VUE ═══ -->
+<div *ngIf="isViewModalOpen && viewingSeance" class="modal-overlay" (click)="closeViewModal()">
+  <div class="modal modal-view" (click)="$event.stopPropagation()">
+    <div class="modal-hero" [style.background]="viewingSeance.couleur">
+      <div class="hero-type">{{ viewingSeance.type }}</div>
+      <div class="hero-info">
+        <h2>{{ viewingSeance.matiere }}</h2>
+        <p>{{ viewingSeance.jour }} · {{ viewingSeance.heureDebut }} – {{ viewingSeance.heureFin }}</p>
+      </div>
+      <div class="hero-ecole" [style.background]="viewingSeance.couleurEcole">{{ viewingSeance.sigleEcole }}</div>
+      <button class="modal-close-white" (click)="closeViewModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="view-info-grid">
+        <div class="view-info-item">
+          <div class="view-info-icon blue"><mat-icon>person</mat-icon></div>
+          <div><p class="view-info-label">Enseignant</p><p class="view-info-value">{{ viewingSeance.enseignant }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon green"><mat-icon>groups</mat-icon></div>
+          <div><p class="view-info-label">Classe</p><p class="view-info-value">{{ viewingSeance.classe }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon purple"><mat-icon>fork_right</mat-icon></div>
+          <div><p class="view-info-label">Filière</p><p class="view-info-value">{{ viewingSeance.filiere }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon teal"><mat-icon>layers</mat-icon></div>
+          <div><p class="view-info-label">Niveau</p><p class="view-info-value">{{ viewingSeance.niveau }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon orange"><mat-icon>meeting_room</mat-icon></div>
+          <div><p class="view-info-label">Salle</p><p class="view-info-value">{{ viewingSeance.salle }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon gray"><mat-icon>schedule</mat-icon></div>
+          <div><p class="view-info-label">Durée</p><p class="view-info-value">{{ dureeMinutes(viewingSeance.heureDebut, viewingSeance.heureFin) }} min</p></div>
+        </div>
+      </div>
+      <div class="conflict-alert" *ngIf="isConflict(viewingSeance.id)">
+        <mat-icon>warning</mat-icon>
+        <div>
+          <p class="ca-title">Conflit détecté</p>
+          <p class="ca-desc" *ngFor="let c of conflits">
+            <span *ngIf="c.seances.includes(viewingSeance.id)">{{ c.message }}</span>
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeViewModal()">Fermer</button>
+      <button class="btn-danger" (click)="closeViewModal(); openDeleteModal(viewingSeance!)"><mat-icon>delete</mat-icon></button>
+      <button class="btn-save" (click)="closeViewModal(); openEditModal(viewingSeance!)"><mat-icon>edit</mat-icon> Modifier</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL SUPPRESSION ═══ -->
+<div *ngIf="isDeleteModalOpen && seanceToDelete" class="modal-overlay" (click)="closeDeleteModal()">
+  <div class="modal modal-delete" (click)="$event.stopPropagation()">
+    <div class="delete-modal-body">
+      <div class="delete-icon-circle"><mat-icon>delete_forever</mat-icon></div>
+      <h2 class="delete-title">Supprimer la séance ?</h2>
+      <p class="delete-desc">Vous êtes sur le point de supprimer <strong>{{ seanceToDelete.matiere }}</strong> du <strong>{{ seanceToDelete.jour }}</strong> à <strong>{{ seanceToDelete.heureDebut }}</strong>.</p>
+      <div class="delete-preview" [style.border-left-color]="seanceToDelete.couleur">
+        <div class="delete-type" [style.background]="seanceToDelete.couleur">{{ seanceToDelete.type }}</div>
+        <div>
+          <p class="delete-name">{{ seanceToDelete.matiere }}</p>
+          <p class="delete-sub">{{ seanceToDelete.enseignant }} · {{ seanceToDelete.classe }} · {{ seanceToDelete.salle }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer delete-footer">
+      <button class="btn-cancel" (click)="closeDeleteModal()">Annuler</button>
+      <button class="btn-delete-confirm" (click)="confirmDelete()"><mat-icon>delete</mat-icon> Oui, supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL AJOUT ═══ -->
+<div *ngIf="isAddModalOpen" class="modal-overlay" (click)="closeAddModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Nouvelle séance</h2>
+      <button class="modal-close" (click)="closeAddModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>École *</label>
+          <select [(ngModel)]="newSeance.sigleEcole" (ngModelChange)="onEcoleChange(newSeance)">
+            <option value="">-- Choisir --</option>
+            <option *ngFor="let e of ecoles" [value]="e.sigle">{{ e.sigle }} — {{ e.nom }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Type *</label>
+          <select [(ngModel)]="newSeance.type" (ngModelChange)="onTypeChange(newSeance)">
+            <option *ngFor="let t of types" [value]="t">{{ t }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Matière *</label>
+        <select [(ngModel)]="newSeance.codeMatiere" (ngModelChange)="onMatiereChange(newSeance)">
+          <option value="">-- Choisir --</option>
+          <option *ngFor="let m of matieres" [value]="m.code">{{ m.nom }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Enseignant *</label>
+        <select [(ngModel)]="newSeance.enseignantId" (ngModelChange)="onEnseignantChange(newSeance)">
+          <option value="0">-- Choisir --</option>
+          <option *ngFor="let e of getEnseignantsFiltres(newSeance.sigleEcole)" [value]="e.id">
+            {{ e.nom }} — {{ e.specialite }}
+          </option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Classe *</label>
+        <select [(ngModel)]="newSeance.classe" (ngModelChange)="onClasseChange(newSeance)">
+          <option value="">-- Choisir --</option>
+          <option *ngFor="let c of getClassesFiltrees(newSeance.sigleEcole)" [value]="c.code">{{ c.nom }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Salle *</label>
+        <select [(ngModel)]="newSeance.salle">
+          <option value="">-- Choisir --</option>
+          <option *ngFor="let s of salles" [value]="s">{{ s }}</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Jour *</label>
+          <select [(ngModel)]="newSeance.jour">
+            <option *ngFor="let j of jours" [value]="j">{{ j }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Heure début</label>
+          <select [(ngModel)]="newSeance.heureDebut">
+            <option *ngFor="let h of creneaux" [value]="h">{{ h }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Heure fin</label>
+          <select [(ngModel)]="newSeance.heureFin">
+            <option *ngFor="let h of creneaux" [value]="h">{{ h }}</option>
+          </select>
+        </div>
+      </div>
+      <!-- Alerte conflit en temps réel -->
+      <div class="form-conflict-alert" *ngIf="newSeance.enseignantId && newSeance.jour && newSeance.heureDebut">
+        <ng-container *ngFor="let s of seances">
+          <div *ngIf="s.enseignantId === +newSeance.enseignantId && s.jour === newSeance.jour && chevauchement(newSeance.heureDebut, newSeance.heureFin, s.heureDebut, s.heureFin)" class="conflict-warning">
+            <mat-icon>warning</mat-icon>
+            <span>Conflit : {{ s.enseignant }} a déjà <strong>{{ s.matiere }}</strong> ({{ s.sigleEcole }}) à ce créneau !</span>
+          </div>
+        </ng-container>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAddModal()">Annuler</button>
+      <button class="btn-save" (click)="handleAdd()" [disabled]="!newSeance.codeMatiere || !newSeance.sigleEcole || !newSeance.classe">
+        <mat-icon>save</mat-icon> Planifier
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL ÉDITION ═══ -->
+<div *ngIf="isEditModalOpen" class="modal-overlay" (click)="closeEditModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Modifier la séance</h2>
+      <button class="modal-close" (click)="closeEditModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>École *</label>
+          <select [(ngModel)]="editSeanceData.sigleEcole" (ngModelChange)="onEcoleChange(editSeanceData)">
+            <option *ngFor="let e of ecoles" [value]="e.sigle">{{ e.sigle }} — {{ e.nom }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Type *</label>
+          <select [(ngModel)]="editSeanceData.type" (ngModelChange)="onTypeChange(editSeanceData)">
+            <option *ngFor="let t of types" [value]="t">{{ t }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Matière *</label>
+        <select [(ngModel)]="editSeanceData.codeMatiere" (ngModelChange)="onMatiereChange(editSeanceData)">
+          <option *ngFor="let m of matieres" [value]="m.code">{{ m.nom }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Enseignant *</label>
+        <select [(ngModel)]="editSeanceData.enseignantId" (ngModelChange)="onEnseignantChange(editSeanceData)">
+          <option *ngFor="let e of getEnseignantsFiltres(editSeanceData.sigleEcole)" [value]="e.id">{{ e.nom }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Classe *</label>
+        <select [(ngModel)]="editSeanceData.classe" (ngModelChange)="onClasseChange(editSeanceData)">
+          <option *ngFor="let c of getClassesFiltrees(editSeanceData.sigleEcole)" [value]="c.code">{{ c.nom }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Salle *</label>
+        <select [(ngModel)]="editSeanceData.salle">
+          <option *ngFor="let s of salles" [value]="s">{{ s }}</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Jour *</label>
+          <select [(ngModel)]="editSeanceData.jour">
+            <option *ngFor="let j of jours" [value]="j">{{ j }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Heure début</label>
+          <select [(ngModel)]="editSeanceData.heureDebut">
+            <option *ngFor="let h of creneaux" [value]="h">{{ h }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Heure fin</label>
+          <select [(ngModel)]="editSeanceData.heureFin">
+            <option *ngFor="let h of creneaux" [value]="h">{{ h }}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeEditModal()">Annuler</button>
+      <button class="btn-save" (click)="handleEdit()"><mat-icon>save</mat-icon> Sauvegarder</button>
+    </div>
+  </div>
+</div>

@@ -16,7 +16,6 @@ import java.util.List;
 @RequestMapping("/api/room-optimization")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class RoomOptimizationController {
     
     private final RoomOptimizationService optimizationService;

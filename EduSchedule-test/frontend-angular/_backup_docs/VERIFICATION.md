@@ -1,0 +1,1 @@
+Backup of VERIFICATION.md before deletion.

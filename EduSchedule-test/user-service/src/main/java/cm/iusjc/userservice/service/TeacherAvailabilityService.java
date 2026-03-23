@@ -62,6 +62,14 @@ public class TeacherAvailabilityService {
         return mapToDTO(saved);
     }
     
+    public List<TeacherAvailabilityDTO> getAllAvailabilities() {
+        return availabilityRepository.findAll()
+                .stream()
+                .filter(a -> Boolean.TRUE.equals(a.getActive()))
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+    }
+
     @Cacheable(value = "teacherAvailability", key = "#teacherId")
     public List<TeacherAvailabilityDTO> getTeacherAvailabilities(Long teacherId) {
         return availabilityRepository.findByTeacherIdAndActiveTrue(teacherId)

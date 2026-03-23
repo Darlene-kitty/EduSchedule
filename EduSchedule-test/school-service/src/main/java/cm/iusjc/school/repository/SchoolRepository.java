@@ -112,9 +112,8 @@ public interface SchoolRepository extends JpaRepository<School, Long> {
     List<Object[]> getSchoolCountByCity();
     
     /**
-     * Trouve les écoles avec le plus d'utilisateurs
+     * Trouve les écoles actives (triées par nom)
      */
-    @Query("SELECT s FROM School s WHERE s.active = true ORDER BY " +
-           "(SELECT COUNT(u) FROM User u WHERE u.schoolId = s.id) DESC")
+    @Query("SELECT s FROM School s WHERE s.active = true ORDER BY s.name ASC")
     List<School> findSchoolsOrderByUserCount();
 }

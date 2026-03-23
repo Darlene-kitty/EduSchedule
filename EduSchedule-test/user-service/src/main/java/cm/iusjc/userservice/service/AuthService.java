@@ -11,6 +11,7 @@ import cm.iusjc.userservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -68,8 +69,9 @@ public class AuthService {
             );
             
         } catch (AuthenticationException e) {
-            log.error("Authentication failed for user: {}", request.getUsername());
-            throw new RuntimeException("Invalid username or password");
+            log.error("Authentication failed for user: {} — reason: {} ({})", 
+                request.getUsername(), e.getMessage(), e.getClass().getSimpleName());
+            throw new BadCredentialsException("Invalid username or password");
         }
     }
     

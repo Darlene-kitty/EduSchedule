@@ -37,7 +37,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 export const notificationsApi = {
   // Récupérer toutes les notifications
   async getAllNotifications(): Promise<Notification[]> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/notifications`, {
+    const response = await fetch(`${API_BASE_URL}/api/notifications`, {
       method: 'GET',
       headers: getAuthHeaders(),
     })
@@ -51,7 +51,7 @@ export const notificationsApi = {
 
   // Récupérer une notification par ID
   async getNotificationById(id: number): Promise<Notification> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/notifications/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/api/notifications/${id}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     })
@@ -65,7 +65,7 @@ export const notificationsApi = {
 
   // Récupérer les notifications par destinataire
   async getNotificationsByRecipient(recipient: string): Promise<Notification[]> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/notifications/recipient/${encodeURIComponent(recipient)}`, {
+    const response = await fetch(`${API_BASE_URL}/api/notifications/recipient/${encodeURIComponent(recipient)}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     })
@@ -79,7 +79,7 @@ export const notificationsApi = {
 
   // Récupérer les notifications par statut
   async getNotificationsByStatus(status: string): Promise<Notification[]> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/notifications/status/${status}`, {
+    const response = await fetch(`${API_BASE_URL}/api/notifications/status/${status}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     })
@@ -93,7 +93,7 @@ export const notificationsApi = {
 
   // Créer une nouvelle notification
   async createNotification(notificationData: CreateNotificationRequest): Promise<Notification> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/notifications`, {
+    const response = await fetch(`${API_BASE_URL}/api/notifications`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(notificationData),
@@ -109,7 +109,7 @@ export const notificationsApi = {
 
   // Envoyer une notification existante
   async sendNotification(id: number): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/notifications/${id}/send`, {
+    const response = await fetch(`${API_BASE_URL}/api/notifications/${id}/send`, {
       method: 'POST',
       headers: getAuthHeaders(),
     })
@@ -121,7 +121,7 @@ export const notificationsApi = {
 
   // Envoyer un email directement
   async sendDirectEmail(emailData: SendEmailRequest): Promise<{ status: string; message: string; notificationId?: string; recipient?: string }> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/notifications/send`, {
+    const response = await fetch(`${API_BASE_URL}/api/notifications/send`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(emailData),
@@ -137,7 +137,7 @@ export const notificationsApi = {
 
   // Envoyer un email de test
   async sendTestEmail(testData?: TestEmailRequest): Promise<{ status: string; message: string; notificationId?: string; recipient?: string }> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/notifications/test-email`, {
+    const response = await fetch(`${API_BASE_URL}/api/notifications/test-email`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(testData || {}),

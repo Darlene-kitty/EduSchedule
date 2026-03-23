@@ -41,7 +41,14 @@ public class TeacherAvailabilityService {
     private NotificationService notificationService;
     
     // CRUD Operations
-    
+
+    @Transactional(readOnly = true)
+    public List<TeacherAvailabilityDTO> getAllAvailabilities() {
+        return availabilityRepository.findAll().stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
     @Transactional
     public TeacherAvailabilityDTO createAvailability(TeacherAvailabilityDTO availabilityDTO) {
         validateAvailabilityDTO(availabilityDTO);

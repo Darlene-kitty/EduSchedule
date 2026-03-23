@@ -2,12 +2,17 @@ package cm.iusjc.userservice.controller;
 
 import cm.iusjc.userservice.dto.RegisterRequest;
 import cm.iusjc.userservice.dto.UserDTO;
+import cm.iusjc.userservice.dto.ProfileUpdateRequest;
+import cm.iusjc.userservice.dto.PasswordChangeRequest;
+import cm.iusjc.userservice.dto.UserUpdateRequest;
 import cm.iusjc.userservice.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,7 +27,11 @@ public class UserController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
     public ResponseEntity<List<UserDTO>> getAllUsers() {
-        return ResponseEntity.ok(userService.getAllUsers());
+        try {
+            return ResponseEntity.ok(userService.getAllUsers());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
     
     @GetMapping("/{id}")
@@ -45,14 +54,31 @@ public class UserController {
     
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<UserDTO> updateUser(@PathVariable Long id, @Valid @RequestBody RegisterRequest request) {
-        return ResponseEntity.ok(userService.updateUser(id, request));
+    public ResponseEntity<UserDTO> updateUser(@PathVariable Long id, @Valid @RequestBody UserUpdateRequest request) {
+        try {
+            return ResponseEntity.ok(userService.updateUser(id, request));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
     
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<UserDTO> updateProfile(@Valid @RequestBody ProfileUpdateRequest request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return ResponseEntity.ok(userService.updateProfile(auth.getName(), request));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<Void> changePassword(@Valid @RequestBody PasswordChangeRequest request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        userService.changePassword(auth.getName(), request);
         return ResponseEntity.noContent().build();
     }
 }

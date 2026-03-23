@@ -16,7 +16,6 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/multi-school")
-@CrossOrigin(origins = "*")
 public class MultiSchoolController {
     
     private static final Logger logger = LoggerFactory.getLogger(MultiSchoolController.class);
