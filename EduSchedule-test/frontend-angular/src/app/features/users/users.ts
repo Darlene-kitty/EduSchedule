@@ -75,7 +75,7 @@ export class UsersComponent implements OnInit {
     this.usersManagementService.getUsers().subscribe(users => {
       this.users = users.map(u => ({
         id: u.id,
-        name: u.name ?? [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || '',
+        name: u.name ?? ([u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || ''),
         email: u.email,
         role: this.mapRole(u.role),
         department: u.department || '',
