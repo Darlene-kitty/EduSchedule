@@ -4,6 +4,7 @@ import cm.iusjc.notification.dto.ScheduleChangeEventDTO;
 import cm.iusjc.notification.service.NotificationService;
 import cm.iusjc.notification.service.ReminderService;
 import cm.iusjc.notification.service.ScheduleNotificationService;
+import cm.iusjc.notification.service.WebSocketNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -24,6 +25,7 @@ public class ScheduleEventListener {
     private final NotificationService notificationService;
     private final ReminderService reminderService;
     private final ScheduleNotificationService scheduleNotificationService;
+    private final WebSocketNotificationService wsService;
     
     @RabbitListener(queues = "schedule-notifications")
     public void handleScheduleEvent(Map<String, Object> message) {
@@ -31,12 +33,17 @@ public class ScheduleEventListener {
         log.info("Received schedule event: {}", event);
         
         try {
-            // Convert to ScheduleChangeEventDTO for enhanced processing
             ScheduleChangeEventDTO eventDTO = convertToScheduleChangeEvent(message, event);
-            
-            // Process with enhanced notification service
             scheduleNotificationService.processScheduleChangeEvent(eventDTO);
-            
+
+            // Push WebSocket temps réel
+            wsService.broadcastScheduleChange(
+                    eventDTO.getEventType(),
+                    eventDTO.getScheduleId(),
+                    eventDTO.getCourseName(),
+                    eventDTO.getRoom(),
+                    eventDTO.getChangeDescription()
+            );
         } catch (Exception e) {
             log.error("Error processing schedule event", e);
         }
@@ -78,6 +85,12 @@ public class ScheduleEventListener {
             switch (event) {
                 case "reservation.created":
                     handleReservationCreated(message);
+                    break;
+                case "reservation.approved":
+                    handleReservationApproved(message);
+                    break;
+                case "reservation.rejected":
+                    handleReservationRejected(message);
                     break;
                 case "reservation.updated":
                     handleReservationUpdated(message);
@@ -237,11 +250,55 @@ public class ScheduleEventListener {
         log.info("Multi-school assignment notification sent to teacher: {}", teacherId);
     }
     
+    private void handleReservationApproved(Map<String, Object> message) {
+        Long reservationId = getLongValue(message, "reservationId");
+        String title = (String) message.getOrDefault("title", "Réservation");
+        String startTime = (String) message.get("startTime");
+        String endTime   = (String) message.get("endTime");
+        List<String> affectedUsers = getAffectedUsers(message);
+
+        String subject = "✅ Réservation confirmée";
+        String body = String.format(
+            "Votre réservation a été approuvée :\n\n📋 %s\n📅 %s → %s\n\nVous pouvez consulter les détails dans l'application.",
+            title, startTime, endTime);
+
+        for (String email : affectedUsers) {
+            notificationService.createNotification(email, subject, body, "EMAIL");
+        }
+
+        // Push WebSocket
+        Long userId = getLongValue(message, "userId");
+        wsService.broadcastReservationEvent("approved", reservationId, title, userId, "CONFIRMED");
+        log.info("Approval notification sent for reservation {}", reservationId);
+    }
+
+    private void handleReservationRejected(Map<String, Object> message) {
+        Long reservationId = getLongValue(message, "reservationId");
+        String title  = (String) message.getOrDefault("title", "Réservation");
+        String reason = (String) message.getOrDefault("reason", "Non spécifiée");
+        List<String> affectedUsers = getAffectedUsers(message);
+
+        String subject = "❌ Réservation refusée";
+        String body = String.format(
+            "Votre réservation a été refusée :\n\n📋 %s\n📝 Motif : %s\n\nVeuillez contacter l'administration pour plus d'informations.",
+            title, reason);
+
+        for (String email : affectedUsers) {
+            notificationService.createNotification(email, subject, body, "EMAIL");
+        }
+
+        // Push WebSocket
+        Long userId = getLongValue(message, "userId");
+        wsService.broadcastReservationEvent("rejected", reservationId, title, userId, "REJECTED");
+        log.info("Rejection notification sent for reservation {}", reservationId);
+    }
+
     private void handleReservationCreated(Map<String, Object> message) {
         String resourceName = (String) message.get("resourceName");
         String startTime = (String) message.get("startTime");
         String endTime = (String) message.get("endTime");
         Long reservationId = getLongValue(message, "reservationId");
+        String title = (String) message.getOrDefault("title", "Nouvelle réservation");
         
         List<String> affectedUsers = getAffectedUsers(message);
         
@@ -258,7 +315,10 @@ public class ScheduleEventListener {
         for (String userEmail : affectedUsers) {
             notificationService.createNotification(userEmail, subject, messageText, "EMAIL");
         }
-        
+
+        // Push WebSocket — notifie les admins en temps réel
+        wsService.broadcastReservationEvent("created", reservationId, title,
+                getLongValue(message, "userId"), "PENDING");
         log.info("Notifications created for reservation.created event: {}", reservationId);
     }
     
@@ -291,6 +351,7 @@ public class ScheduleEventListener {
         String startTime = (String) message.get("startTime");
         Long reservationId = getLongValue(message, "reservationId");
         String reason = (String) message.getOrDefault("reason", "Non spécifiée");
+        String title = (String) message.getOrDefault("title", "Réservation");
         
         List<String> affectedUsers = getAffectedUsers(message);
         
@@ -307,7 +368,10 @@ public class ScheduleEventListener {
         for (String userEmail : affectedUsers) {
             notificationService.createNotification(userEmail, subject, messageText, "EMAIL");
         }
-        
+
+        // Push WebSocket
+        wsService.broadcastReservationEvent("cancelled", reservationId, title,
+                getLongValue(message, "userId"), "CANCELLED");
         log.info("Notifications created for reservation.cancelled event: {}", reservationId);
     }
     

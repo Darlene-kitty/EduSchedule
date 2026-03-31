@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
-import { CoursesManagementService } from '../../core/services/courses-management.service';
+import { CoursesManagementService, CoursePayload } from '../../core/services/courses-management.service';
+import { UsersManagementService } from '../../core/services/users-management.service';
 
 export interface Course {
   id: number;
@@ -15,6 +16,14 @@ export interface Course {
   hours: number;
   students: number;
   groups: string[];
+  schoolId?: number;
+  teacherId?: number;
+  // champs backend
+  credits?: number;
+  duration?: number;
+  department?: string;
+  semester?: string;
+  description?: string;
 }
 
 export interface StudentGroup {
@@ -37,6 +46,13 @@ export interface StudentGroup {
 })
 export class CoursesComponent implements OnInit {
   private coursesService = inject(CoursesManagementService);
+  private usersSvc       = inject(UsersManagementService);
+
+  // Listes pour les selects
+  teachers: { id: number; name: string }[] = [];
+  readonly departments = ['Informatique','Mathématiques','Physique','Chimie','Biologie','Économie','Droit','Lettres','Sciences Humaines','Génie Civil','Génie Électrique'];
+  readonly durations   = [30, 45, 60, 90, 120, 150, 180, 240];
+  readonly creditsList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
   activeTab: 'courses' | 'groups' = 'courses';
   searchQuery = '';
@@ -77,7 +93,7 @@ export class CoursesComponent implements OnInit {
     { id: 8, name: 'M1-G2', level: 'M1', promotion: 'Master 1',  capacity: 25, enrolled: 18, courses: ['MATH402'], responsible: 'Dr. Martin Dupont' },
   ];
 
-  newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral' as Course['type'], professor: '', hours: 30, students: 0 };
+  newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral' as Course['type'], professor: '', hours: 30, students: 0, credits: 3, duration: 90, department: 'Informatique', semester: 'S1', description: '' };
   newGroup  = { name: '', level: 'L1', promotion: 'Licence 1', capacity: 30, responsible: '' };
 
 
@@ -99,6 +115,19 @@ export class CoursesComponent implements OnInit {
     this.updateDateTime();
     setInterval(() => this.updateDateTime(), 1000);
     this.loadCourses();
+    this.loadTeachers();
+  }
+
+  private loadTeachers(): void {
+    this.usersSvc.getUsers().subscribe({
+      next: users => {
+        this.teachers = users
+          .filter(u => (u.role || '').toUpperCase().includes('TEACHER'))
+          .map(u => ({ id: u.id, name: u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || '' }))
+          .filter(t => t.name);
+      },
+      error: () => {}
+    });
   }
 
   loadCourses(): void {
@@ -114,9 +143,11 @@ export class CoursesComponent implements OnInit {
             level: c.level || '',
             type: (c as any).type || 'Cours magistral',
             professor: c.teacher || '',
-            hours: c.hours || 0,
+            hours: c.hoursPerWeek || c.hours || 0,
             students: (c as any).students || 0,
-            groups: c.group ? [c.group] : []
+            groups: c.group ? [c.group] : [],
+            schoolId: (c as any).schoolId,
+            teacherId: (c as any).teacherId
           }));
         } else {
           this.courses = this.demoCourses;
@@ -163,9 +194,18 @@ export class CoursesComponent implements OnInit {
   openCourseModal(course?: Course): void {
     this.editingCourse = course || null;
     if (course) {
-      this.newCourse = { name: course.name, code: course.code, level: course.level, type: course.type, professor: course.professor, hours: course.hours, students: course.students };
+      this.newCourse = {
+        name: course.name, code: course.code, level: course.level,
+        type: course.type, professor: course.professor, hours: course.hours,
+        students: course.students,
+        credits: course.credits ?? 3,
+        duration: course.duration ?? 90,
+        department: course.department ?? 'Informatique',
+        semester: course.semester ?? 'S1',
+        description: course.description ?? ''
+      };
     } else {
-      this.newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral', professor: '', hours: 30, students: 0 };
+      this.newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral', professor: '', hours: 30, students: 0, credits: 3, duration: 90, department: 'Informatique', semester: 'S1', description: '' };
     }
     this.isCourseModalOpen = true;
   }
@@ -173,20 +213,54 @@ export class CoursesComponent implements OnInit {
   closeCourseModal(): void { this.isCourseModalOpen = false; this.editingCourse = null; }
 
   saveCourse(): void {
-    if (this.editingCourse) {
-      const payload = { name: this.newCourse.name, code: this.newCourse.code, level: this.newCourse.level, teacher: this.newCourse.professor, hours: this.newCourse.hours };
-      this.coursesService.updateCourse(this.editingCourse.id, payload).subscribe({
-        next: () => { this.courses = this.courses.map(c => c.id === this.editingCourse!.id ? { ...c, ...this.newCourse } : c); this.closeCourseModal(); },
-        error: () => { this.courses = this.courses.map(c => c.id === this.editingCourse!.id ? { ...c, ...this.newCourse } : c); this.closeCourseModal(); }
-      });
-    } else {
-      const payload = { name: this.newCourse.name, code: this.newCourse.code, level: this.newCourse.level, teacher: this.newCourse.professor, hours: this.newCourse.hours, semester: '', group: '' };
-      this.coursesService.addCourse(payload).subscribe({
-        next: (created) => { this.courses = [...this.courses, { id: created.id, ...this.newCourse, groups: [] }]; this.closeCourseModal(); },
-        error: () => { this.courses = [...this.courses, { id: Date.now(), ...this.newCourse, groups: [] }]; this.closeCourseModal(); }
-      });
+      if (this.editingCourse) {
+        const editingId = this.editingCourse.id;
+        const snapshot = { ...this.newCourse };
+        const payload: Partial<CoursePayload> = {
+          name:        snapshot.name,
+          code:        snapshot.code,
+          level:       snapshot.level,
+          semester:    snapshot.semester || 'S1',
+          department:  snapshot.department || 'Informatique',
+          credits:     snapshot.credits ?? 3,
+          duration:    snapshot.duration ?? 90,
+          hoursPerWeek: snapshot.hours,
+          maxStudents: snapshot.students || undefined,
+          description: snapshot.description || undefined,
+          schoolId:    this.editingCourse.schoolId,
+          teacherId:   this.editingCourse.teacherId
+        };
+        this.coursesService.updateCourse(editingId, payload).subscribe({
+          next: () => { this.courses = this.courses.map(c => c.id === editingId ? { ...c, ...snapshot } : c); this.closeCourseModal(); },
+          error: () => { this.courses = this.courses.map(c => c.id === editingId ? { ...c, ...snapshot } : c); this.closeCourseModal(); }
+        });
+      } else {
+        // Valider le format du code avant envoi (pattern backend: 2-4 lettres majuscules + 2-3 chiffres)
+        const codePattern = /^[A-Z]{2,4}[0-9]{2,3}$/;
+        const code = this.newCourse.code.toUpperCase().trim();
+        if (!codePattern.test(code)) {
+          alert('Format du code invalide. Exemple valide : INF101, MATH301');
+          return;
+        }
+        const payload: CoursePayload = {
+          name:        this.newCourse.name,
+          code,
+          level:       this.newCourse.level,
+          semester:    this.newCourse.semester || 'S1',
+          department:  this.newCourse.department || 'Informatique',
+          credits:     this.newCourse.credits ?? 3,
+          duration:    this.newCourse.duration ?? 90,
+          hoursPerWeek: this.newCourse.hours,
+          maxStudents: this.newCourse.students || undefined,
+          description: this.newCourse.description || undefined,
+        };
+        this.coursesService.addCourse(payload).subscribe({
+          next: (created) => { this.courses = [...this.courses, { id: created.id, ...this.newCourse, groups: [] }]; this.closeCourseModal(); },
+          error: () => { this.courses = [...this.courses, { id: Date.now(), ...this.newCourse, groups: [] }]; this.closeCourseModal(); }
+        });
+      }
     }
-  }
+
 
   /* ── Group modal ── */
   openGroupModal(group?: StudentGroup): void {

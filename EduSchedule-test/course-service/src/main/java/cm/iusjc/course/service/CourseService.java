@@ -47,6 +47,7 @@ public class CourseService {
         course.setDuration(courseDTO.getDuration());
         course.setLevel(courseDTO.getLevel());
         course.setDepartment(courseDTO.getDepartment());
+        course.setSemester(courseDTO.getSemester());
         course.setSchoolId(courseDTO.getSchoolId());
         course.setTeacherId(courseDTO.getTeacherId());
         course.setActive(courseDTO.isActive());
@@ -176,6 +177,7 @@ public class CourseService {
         course.setDuration(courseDTO.getDuration());
         course.setLevel(courseDTO.getLevel());
         course.setDepartment(courseDTO.getDepartment());
+        course.setSemester(courseDTO.getSemester());
         course.setSchoolId(courseDTO.getSchoolId());
         course.setTeacherId(courseDTO.getTeacherId());
         course.setActive(courseDTO.isActive());
@@ -375,6 +377,7 @@ public class CourseService {
         dto.setDuration(course.getDuration());
         dto.setLevel(course.getLevel());
         dto.setDepartment(course.getDepartment());
+        dto.setSemester(course.getSemester());
         dto.setSchoolId(course.getSchoolId());
         dto.setTeacherId(course.getTeacherId());
         dto.setActive(course.isActive());

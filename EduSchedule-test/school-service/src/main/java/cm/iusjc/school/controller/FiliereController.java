@@ -21,14 +21,16 @@ public class FiliereController {
 
     @GetMapping
     public ResponseEntity<Map<String, Object>> getAll(
-            @RequestParam(required = false) Long schoolId) {
+            @RequestParam(name = "schoolId", required = false) Long schoolId) {
         try {
             var list = schoolId != null
                     ? filiereService.getBySchool(schoolId)
                     : filiereService.getAll();
             return ResponseEntity.ok(Map.of("success", true, "data", list, "total", list.size()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+            log.error("Error fetching filieres: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("success", false, "message",
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 

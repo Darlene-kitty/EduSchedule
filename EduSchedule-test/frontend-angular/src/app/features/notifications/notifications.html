@@ -75,35 +75,94 @@
       <!-- Settings Tab -->
       <div *ngIf="activeTab === 'settings'" class="settings-card">
         <h3>Préférences de notifications</h3>
+
         <div class="pref-item">
           <div>
             <p class="pref-label">Notifications par email</p>
             <p class="pref-desc">Recevoir les alertes par email</p>
           </div>
           <label class="toggle">
-            <input type="checkbox" checked />
+            <input type="checkbox" [(ngModel)]="preferences.emailEnabled" />
             <span class="toggle-slider"></span>
           </label>
         </div>
+
+        <div class="pref-item">
+          <div>
+            <p class="pref-label">Notifications push</p>
+            <p class="pref-desc">Recevoir les alertes dans l'application</p>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" [(ngModel)]="preferences.pushEnabled" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="pref-item">
+          <div>
+            <p class="pref-label">Changements d'emploi du temps</p>
+            <p class="pref-desc">Être notifié lors de modifications de planning</p>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" [(ngModel)]="preferences.scheduleChanges" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
         <div class="pref-item">
           <div>
             <p class="pref-label">Alertes de conflits</p>
             <p class="pref-desc">Être notifié en cas de conflit d'horaire</p>
           </div>
           <label class="toggle">
-            <input type="checkbox" checked />
+            <input type="checkbox" [(ngModel)]="preferences.conflictAlerts" />
             <span class="toggle-slider"></span>
           </label>
         </div>
+
         <div class="pref-item">
           <div>
-            <p class="pref-label">Nouvelles réservations</p>
-            <p class="pref-desc">Notification pour chaque nouvelle réservation</p>
+            <p class="pref-label">Mises à jour des réservations</p>
+            <p class="pref-desc">Notification pour chaque changement de réservation</p>
           </div>
           <label class="toggle">
-            <input type="checkbox" />
+            <input type="checkbox" [(ngModel)]="preferences.reservationUpdates" />
             <span class="toggle-slider"></span>
           </label>
+        </div>
+
+        <div class="pref-item">
+          <div>
+            <p class="pref-label">Rappels de cours</p>
+            <p class="pref-desc">Recevoir un rappel avant chaque cours</p>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" [(ngModel)]="preferences.reminderNotifications" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="pref-item" *ngIf="preferences.reminderNotifications">
+          <div>
+            <p class="pref-label">Délai de rappel (minutes)</p>
+            <p class="pref-desc">Combien de minutes avant le cours</p>
+          </div>
+          <select class="pref-select" [(ngModel)]="preferences.reminderMinutesBefore">
+            <option [value]="15">15 min</option>
+            <option [value]="30">30 min</option>
+            <option [value]="60">1 heure</option>
+            <option [value]="120">2 heures</option>
+          </select>
+        </div>
+
+        <div class="pref-actions">
+          <button class="btn-save" (click)="savePreferences()" [disabled]="isSavingPrefs">
+            <mat-icon>save</mat-icon>
+            {{ isSavingPrefs ? 'Enregistrement...' : 'Enregistrer' }}
+          </button>
+          <span *ngIf="prefsSaved" class="save-confirm">
+            <mat-icon>check_circle</mat-icon> Préférences sauvegardées
+          </span>
         </div>
       </div>
 

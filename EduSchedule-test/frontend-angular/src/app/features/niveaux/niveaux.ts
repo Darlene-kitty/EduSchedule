@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { NiveauxManagementService } from '../../core/services/niveaux-management.service';
+import { FilieresManagementService, FiliereBackend } from '../../core/services/filieres-management.service';
 
 export interface Niveau {
   id: number;
@@ -43,7 +44,7 @@ export class NiveauxComponent implements OnInit {
   showSuccess = false; successMessage = '';
   loading = false;
 
-  constructor(private niveauxService: NiveauxManagementService) {}
+  constructor(private niveauxService: NiveauxManagementService, private filieresService: FilieresManagementService) {}
 
   types: Niveau['type'][] = ['Licence', 'Master', 'Doctorat', 'Préparatoire', 'CPGE'];
 
@@ -54,54 +55,43 @@ export class NiveauxComponent implements OnInit {
     { sigle: 'CPGE',      nom: 'Classes Préparatoires aux Grandes Écoles',  couleur: '#7C3AED' },
   ];
 
-  allFilieres = [
-    'Génie Informatique', 'Génie Civil', 'Génie Électrique', 'Génie Mécanique', 'Génie Télécom', 'Génie Biomédical',
-    'Management des Entreprises', 'Finance & Comptabilité', 'Marketing', 'Commerce International', 'Ressources Humaines', 'Logistique',
-    'Mathématiques', 'Physique', 'Chimie', 'Sciences de la Vie', 'Lettres & Sciences Humaines', 'Droit des Affaires',
-  ];
+  allFilieres: FiliereBackend[] = [];
 
-  niveaux: Niveau[] = [
-    { id:1,  code:'L1', nom:'Licence 1',         type:'Licence',       ecoles:['SJI','SJM'],            filieres:['Génie Informatique','Génie Civil','Génie Électrique','Génie Mécanique','Génie Télécom','Génie Biomédical','Management des Entreprises','Finance & Comptabilité','Marketing','Commerce International','Ressources Humaines','Logistique'], annee:1, description:'Première année du cycle Licence. Acquisition des fondamentaux disciplinaires.', enabled:true },
-    { id:2,  code:'L2', nom:'Licence 2',         type:'Licence',       ecoles:['SJI','SJM'],            filieres:['Génie Informatique','Génie Civil','Génie Électrique','Génie Mécanique','Génie Télécom','Génie Biomédical','Management des Entreprises','Finance & Comptabilité','Marketing','Commerce International','Ressources Humaines','Logistique'], annee:2, description:'Deuxième année du cycle Licence. Approfondissement des connaissances.', enabled:true },
-    { id:3,  code:'L3', nom:'Licence 3',         type:'Licence',       ecoles:['SJI','SJM'],            filieres:['Génie Informatique','Génie Civil','Génie Électrique','Génie Mécanique','Génie Télécom','Génie Biomédical','Management des Entreprises','Finance & Comptabilité','Marketing','Commerce International','Ressources Humaines','Logistique'], annee:3, description:'Troisième année du cycle Licence. Spécialisation et projet de fin de cycle.', enabled:true },
-    { id:4,  code:'M1', nom:'Master 1',          type:'Master',        ecoles:['SJI','SJM'],            filieres:['Génie Informatique','Génie Civil','Génie Électrique','Génie Mécanique','Génie Télécom','Génie Biomédical','Management des Entreprises','Finance & Comptabilité','Marketing','Commerce International','Ressources Humaines','Logistique'], annee:1, description:'Première année du cycle Master. Spécialisation avancée et initiation à la recherche.', enabled:true },
-    { id:5,  code:'M2', nom:'Master 2',          type:'Master',        ecoles:['SJI','SJM'],            filieres:['Génie Informatique','Génie Civil','Génie Électrique','Génie Mécanique','Génie Télécom','Génie Biomédical','Management des Entreprises','Finance & Comptabilité','Marketing','Commerce International','Ressources Humaines','Logistique'], annee:2, description:'Deuxième année du cycle Master. Mémoire de recherche ou projet professionnel.', enabled:true },
-    { id:6,  code:'P1', nom:'Prépa 1',           type:'Préparatoire',  ecoles:['PRÉPAVOGT'],            filieres:['Mathématiques','Physique','Chimie','Sciences de la Vie'], annee:1, description:'Première année de classe préparatoire. Renforcement intensif en sciences fondamentales.', enabled:true },
-    { id:7,  code:'P2', nom:'Prépa 2',           type:'Préparatoire',  ecoles:['PRÉPAVOGT'],            filieres:['Mathématiques','Physique','Chimie','Sciences de la Vie'], annee:2, description:'Deuxième année de classe préparatoire. Préparation aux concours des grandes écoles.', enabled:true },
-    { id:8,  code:'C1', nom:'CPGE 1',            type:'CPGE',          ecoles:['CPGE'],                 filieres:['Mathématiques','Physique','Chimie','Lettres & Sciences Humaines','Droit des Affaires'], annee:1, description:'Première année CPGE. Formation d\'excellence pour les concours nationaux et internationaux.', enabled:true },
-    { id:9,  code:'C2', nom:'CPGE 2',            type:'CPGE',          ecoles:['CPGE'],                 filieres:['Mathématiques','Physique','Chimie','Lettres & Sciences Humaines','Droit des Affaires'], annee:2, description:'Deuxième année CPGE. Finalisation de la préparation aux grandes écoles.', enabled:true },
-  ];
+  niveaux: Niveau[] = [];
 
   emptyNiveau = (): Omit<Niveau, 'id'> => ({
     code: '', nom: '', type: 'Licence', ecoles: [], filieres: [], annee: 1, description: '', enabled: true
   });
 
-  newNiveau: Omit<Niveau, 'id'>     = this.emptyNiveau();
+  newNiveau: Omit<Niveau, 'id'>      = this.emptyNiveau();
   editNiveauData: Omit<Niveau, 'id'> = this.emptyNiveau();
+
+  // Selected filiere IDs for the modals
+  newFiliereId: number | null = null;
+  editFiliereId: number | null = null;
 
   ngOnInit(): void {
     this.updateDateTime();
     setInterval(() => this.updateDateTime(), 1000);
     this.loadNiveaux();
+    this.filieresService.getAll().subscribe(data => { this.allFilieres = data ?? []; });
   }
 
   loadNiveaux(): void {
     this.loading = true;
     this.niveauxService.getAll().subscribe({
       next: (data) => {
-        if (data && data.length > 0) {
-          this.niveaux = data.map(n => ({
-            id: n.id,
-            code: n.code || '',
-            nom: n.name,
-            type: 'Licence' as Niveau['type'],
-            ecoles: [],
-            filieres: n.filiereName ? [n.filiereName] : [],
-            annee: n.ordre ?? 1,
-            description: '',
-            enabled: n.active
-          }));
-        }
+        this.niveaux = (data ?? []).map(n => ({
+          id: n.id,
+          code: n.code || '',
+          nom: n.name,
+          type: 'Licence' as Niveau['type'],
+          ecoles: [],
+          filieres: n.filiereName ? [n.filiereName] : [],
+          annee: n.ordre ?? 1,
+          description: '',
+          enabled: n.active
+        }));
         this.loading = false;
       },
       error: () => { this.loading = false; }
@@ -163,58 +153,44 @@ export class NiveauxComponent implements OnInit {
   openViewModal(n: Niveau): void { this.viewingNiveau = n; this.isViewModalOpen = true; }
   closeViewModal(): void         { this.isViewModalOpen = false; this.viewingNiveau = null; }
 
-  openAddModal(): void  { this.newNiveau = this.emptyNiveau(); this.isAddModalOpen = true; }
+  openAddModal(): void  { this.newNiveau = this.emptyNiveau(); this.newFiliereId = null; this.isAddModalOpen = true; }
   closeAddModal(): void { this.isAddModalOpen = false; }
   handleAddNiveau(): void {
     const payload = {
       name: this.newNiveau.nom,
       code: this.newNiveau.code,
       ordre: this.newNiveau.annee,
-      filiereId: 1, // TODO: lier à la filière sélectionnée
+      filiereId: this.newFiliereId ?? undefined,
       active: this.newNiveau.enabled
     };
     this.niveauxService.create(payload).subscribe({
-      next: (created) => {
-        if (created) { this.loadNiveaux(); }
-        else {
-          const id = this.niveaux.length ? Math.max(...this.niveaux.map(n => n.id)) + 1 : 1;
-          this.niveaux = [...this.niveaux, { id, ...this.newNiveau }];
-        }
-        this.closeAddModal(); this.toast('Niveau ajouté avec succès !');
-      },
-      error: () => {
-        const id = this.niveaux.length ? Math.max(...this.niveaux.map(n => n.id)) + 1 : 1;
-        this.niveaux = [...this.niveaux, { id, ...this.newNiveau }];
-        this.closeAddModal(); this.toast('Niveau ajouté avec succès !');
-      }
+      next: () => { this.loadNiveaux(); this.closeAddModal(); this.toast('Niveau ajouté avec succès !'); },
+      error: (err: any) => { this.closeAddModal(); this.toast(err?.error?.message || 'Erreur lors de l\'ajout.'); }
     });
   }
 
   openEditModal(n: Niveau): void {
     this.editingNiveau = n;
     this.editNiveauData = { ...n, ecoles: [...n.ecoles], filieres: [...n.filieres] };
+    // Retrouver l'ID de la filière depuis le nom
+    const found = this.allFilieres.find(f => f.name === n.filieres[0]);
+    this.editFiliereId = found?.id ?? null;
     this.isEditModalOpen = true;
   }
   closeEditModal(): void { this.isEditModalOpen = false; this.editingNiveau = null; }
   handleEditNiveau(): void {
     if (!this.editingNiveau) return;
+    const id = this.editingNiveau.id;
     const payload = {
       name: this.editNiveauData.nom,
       code: this.editNiveauData.code,
       ordre: this.editNiveauData.annee,
-      filiereId: 1,
+      filiereId: this.editFiliereId ?? undefined,
       active: this.editNiveauData.enabled
     };
-    this.niveauxService.update(this.editingNiveau.id, payload).subscribe({
-      next: (updated) => {
-        if (updated) { this.loadNiveaux(); }
-        else { this.niveaux = this.niveaux.map(n => n.id === this.editingNiveau!.id ? { id: n.id, ...this.editNiveauData } : n); }
-        this.closeEditModal(); this.toast('Niveau modifié avec succès !');
-      },
-      error: () => {
-        this.niveaux = this.niveaux.map(n => n.id === this.editingNiveau!.id ? { id: n.id, ...this.editNiveauData } : n);
-        this.closeEditModal(); this.toast('Niveau modifié avec succès !');
-      }
+    this.niveauxService.update(id, payload).subscribe({
+      next: () => { this.loadNiveaux(); this.closeEditModal(); this.toast('Niveau modifié avec succès !'); },
+      error: (err: any) => { this.closeEditModal(); this.toast(err?.error?.message || 'Erreur lors de la modification.'); }
     });
   }
 
@@ -222,15 +198,10 @@ export class NiveauxComponent implements OnInit {
   closeDeleteModal(): void         { this.isDeleteModalOpen = false; this.niveauToDelete = null; }
   confirmDelete(): void {
     if (!this.niveauToDelete) return;
-    this.niveauxService.delete(this.niveauToDelete.id).subscribe({
-      next: () => {
-        this.niveaux = this.niveaux.filter(n => n.id !== this.niveauToDelete!.id);
-        this.closeDeleteModal(); this.toast('Niveau supprimé.');
-      },
-      error: () => {
-        this.niveaux = this.niveaux.filter(n => n.id !== this.niveauToDelete!.id);
-        this.closeDeleteModal(); this.toast('Niveau supprimé.');
-      }
+    const id = this.niveauToDelete.id;
+    this.niveauxService.delete(id).subscribe({
+      next: () => { this.niveaux = this.niveaux.filter(n => n.id !== id); this.closeDeleteModal(); this.toast('Niveau supprimé.'); },
+      error: (err: any) => { this.closeDeleteModal(); this.toast(err?.error?.message || 'Erreur lors de la suppression.'); }
     });
   }
 }

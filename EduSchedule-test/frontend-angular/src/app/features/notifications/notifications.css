@@ -64,3 +64,12 @@
 .toggle-slider::before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
 .toggle input:checked + .toggle-slider { background: #15803D; }
 .toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+.pref-select { padding: 6px 12px; border: 1px solid #E5E7EB; border-radius: 8px; font-size: 0.875rem; color: #111827; background: white; cursor: pointer; }
+.pref-actions { display: flex; align-items: center; gap: 14px; padding-top: 20px; }
+.btn-save { display: flex; align-items: center; gap: 6px; background: #15803D; color: white; border: none; padding: 9px 20px; border-radius: 8px; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+.btn-save:hover:not(:disabled) { background: #166534; }
+.btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-save mat-icon { font-size: 16px !important; width: 16px !important; height: 16px !important; }
+.save-confirm { display: flex; align-items: center; gap: 4px; font-size: 0.875rem; color: #15803D; font-weight: 500; }
+.save-confirm mat-icon { font-size: 16px !important; width: 16px !important; height: 16px !important; }

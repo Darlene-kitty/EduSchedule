@@ -2,7 +2,7 @@ package cm.iusjc.course.scheduling.model;
 
 /**
  * Arête orientée dans le réseau de flot.
- * Chaque arête a une capacité et un flot courant.
+ * Chaque arête connaît directement son arête résiduelle (référence directe).
  */
 public class FlowEdge {
 
@@ -11,6 +11,9 @@ public class FlowEdge {
     private final int capacity;
     private int flow;
 
+    /** Référence directe vers l'arête résiduelle (évite les bugs d'indexation) */
+    private FlowEdge residual;
+
     public FlowEdge(int from, int to, int capacity) {
         this.from = from;
         this.to = to;
@@ -18,13 +21,16 @@ public class FlowEdge {
         this.flow = 0;
     }
 
-    public int getFrom()               { return from; }
-    public int getTo()                 { return to; }
-    public int getCapacity()           { return capacity; }
-    public int getFlow()               { return flow; }
-    public int getResidualCapacity()   { return capacity - flow; }
+    public int getFrom()             { return from; }
+    public int getTo()               { return to; }
+    public int getCapacity()         { return capacity; }
+    public int getFlow()             { return flow; }
+    public int getResidualCapacity() { return capacity - flow; }
 
-    public void addFlow(int delta)     { this.flow += delta; }
+    public void addFlow(int delta)   { this.flow += delta; }
+
+    public FlowEdge getResidual()            { return residual; }
+    public void setResidual(FlowEdge residual) { this.residual = residual; }
 
     @Override
     public String toString() {

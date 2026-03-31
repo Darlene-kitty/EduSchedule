@@ -16,6 +16,18 @@ export interface UserManagement {
   status?: 'active' | 'inactive';
   enabled?: boolean;
   createdAt?: string;
+  primarySchoolId?: number;
+  primarySchoolName?: string;
+  schoolIds?: number[];
+}
+
+export interface SchoolAssignment {
+  id?: number;
+  teacherId: number;
+  schoolId: number;
+  schoolName?: string;
+  isPrimarySchool?: boolean;
+  isActive?: boolean;
 }
 
 @Injectable({
@@ -51,5 +63,21 @@ export class UsersManagementService {
     return this.api.delete<void>(`/users/${id}`).pipe(
       tap(() => this.userChangedSubject.next())
     );
+  }
+
+  switchSchool(userId: number, schoolId: number): Observable<void> {
+    return this.api.put<void>(`/users/${userId}/switch-school/${schoolId}`, {}).pipe(
+      tap(() => this.userChangedSubject.next())
+    );
+  }
+
+  assignSchool(userId: number, schoolId: number, schoolName: string, isPrimary = false): Observable<SchoolAssignment> {
+    return this.api.post<SchoolAssignment>(`/users/${userId}/assign-school`, { schoolId, schoolName, isPrimary }).pipe(
+      tap(() => this.userChangedSubject.next())
+    );
+  }
+
+  getUserSchools(userId: number): Observable<SchoolAssignment[]> {
+    return this.api.get<SchoolAssignment[]>(`/users/${userId}/schools`);
   }
 }

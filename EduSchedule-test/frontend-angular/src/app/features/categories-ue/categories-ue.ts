@@ -72,20 +72,7 @@ export class CategoriesUeComponent implements OnInit {
 
   allNiveaux = ['L1','L2','L3','M1','M2','Prépa 1','Prépa 2','CPGE 1','CPGE 2'];
 
-  categories: CategorieUE[] = [
-    { id:1,  code:'MATH',   nom:'Mathématiques',              type:'Fondamentale',    ecoles:['SJI','PRÉPAVOGT','CPGE'], filieres:['Génie Informatique','Génie Civil','Génie Électrique','Génie Mécanique','Mathématiques','Physique'], niveaux:['L1','L2','L3','Prépa 1','Prépa 2','CPGE 1','CPGE 2'], credits:6, volumeHoraire:60, coefficient:3, description:'Analyse, algèbre, probabilités et statistiques appliquées aux sciences de l\'ingénieur.', couleur:'#1D4ED8', enabled:true },
-    { id:2,  code:'PHYS',   nom:'Physique',                   type:'Fondamentale',    ecoles:['SJI','PRÉPAVOGT','CPGE'], filieres:['Génie Électrique','Génie Mécanique','Physique','Chimie'], niveaux:['L1','L2','Prépa 1','Prépa 2','CPGE 1'], credits:4, volumeHoraire:45, coefficient:2, description:'Mécanique, électromagnétisme, thermodynamique et optique.', couleur:'#1D4ED8', enabled:true },
-    { id:3,  code:'INFO',   nom:'Informatique',               type:'Fondamentale',    ecoles:['SJI','SJM'],             filieres:['Génie Informatique','Management des Entreprises','Finance & Comptabilité'], niveaux:['L1','L2','L3'], credits:5, volumeHoraire:50, coefficient:3, description:'Algorithmique, programmation, bases de données et systèmes d\'information.', couleur:'#1D4ED8', enabled:true },
-    { id:4,  code:'ELEC',   nom:'Électronique',               type:'Fondamentale',    ecoles:['SJI'],                   filieres:['Génie Électrique','Génie Télécom','Génie Biomédical'], niveaux:['L2','L3','M1'], credits:4, volumeHoraire:40, coefficient:2, description:'Circuits électroniques, composants actifs et passifs, traitement du signal.', couleur:'#1D4ED8', enabled:true },
-    { id:5,  code:'GEST',   nom:'Gestion & Management',       type:'Fondamentale',    ecoles:['SJM'],                   filieres:['Management des Entreprises','Finance & Comptabilité','Marketing','Commerce International','Ressources Humaines','Logistique'], niveaux:['L1','L2','L3','M1','M2'], credits:6, volumeHoraire:55, coefficient:3, description:'Principes de gestion, organisation des entreprises et management stratégique.', couleur:'#15803D', enabled:true },
-    { id:6,  code:'COMPTA', nom:'Comptabilité & Finance',     type:'Fondamentale',    ecoles:['SJM'],                   filieres:['Finance & Comptabilité','Management des Entreprises'], niveaux:['L1','L2','L3','M1'], credits:5, volumeHoraire:50, coefficient:3, description:'Comptabilité générale, analytique, finance d\'entreprise et audit.', couleur:'#15803D', enabled:true },
-    { id:7,  code:'DROIT',  nom:'Droit des Affaires',         type:'Transversale',    ecoles:['SJM','CPGE'],            filieres:['Droit des Affaires','Commerce International','Management des Entreprises'], niveaux:['L2','L3','M1','CPGE 1','CPGE 2'], credits:3, volumeHoraire:30, coefficient:2, description:'Droit commercial, droit des contrats, droit du travail et droit OHADA.', couleur:'#15803D', enabled:true },
-    { id:8,  code:'LANG',   nom:'Langues & Communication',    type:'Transversale',    ecoles:['SJI','SJM','PRÉPAVOGT','CPGE'], filieres:[], niveaux:['L1','L2','L3','M1','M2','Prépa 1','Prépa 2','CPGE 1','CPGE 2'], credits:2, volumeHoraire:30, coefficient:1, description:'Français, anglais technique et communication professionnelle.', couleur:'#15803D', enabled:true },
-    { id:9,  code:'ENTREP', nom:'Entrepreneuriat',            type:'Transversale',    ecoles:['SJI','SJM'],             filieres:[], niveaux:['L3','M1','M2'], credits:2, volumeHoraire:20, coefficient:1, description:'Création d\'entreprise, business plan, innovation et gestion de projet.', couleur:'#15803D', enabled:true },
-    { id:10, code:'STAGE',  nom:'Stage & Projet',             type:'Professionnelle', ecoles:['SJI','SJM'],             filieres:[], niveaux:['L3','M1','M2'], credits:8, volumeHoraire:0, coefficient:4, description:'Stage en entreprise, projet de fin d\'études et mémoire professionnel.', couleur:'#7C3AED', enabled:true },
-    { id:11, code:'SPORT',  nom:'Sport & Développement',      type:'Optionnelle',     ecoles:['SJI','SJM','PRÉPAVOGT','CPGE'], filieres:[], niveaux:['L1','L2','L3','Prépa 1','Prépa 2'], credits:1, volumeHoraire:20, coefficient:1, description:'Activités sportives et développement personnel.', couleur:'#EA580C', enabled:true },
-    { id:12, code:'CHIM',   nom:'Chimie',                     type:'Fondamentale',    ecoles:['PRÉPAVOGT','CPGE'],      filieres:['Chimie','Sciences de la Vie'], niveaux:['Prépa 1','Prépa 2','CPGE 1','CPGE 2'], credits:4, volumeHoraire:40, coefficient:2, description:'Chimie générale, organique et inorganique.', couleur:'#1D4ED8', enabled:true },
-  ];
+  categories: CategorieUE[] = [];
 
   emptyCategorie = (): Omit<CategorieUE, 'id'> => ({
     code:'', nom:'', type:'Fondamentale', ecoles:[], filieres:[], niveaux:[],
@@ -104,25 +91,23 @@ export class CategoriesUeComponent implements OnInit {
   private loadCategories(): void {
     this.categoriesUeService.getAll().subscribe({
       next: (data) => {
-        if (data && data.length > 0) {
-          this.categories = data.map(c => ({
-            id: c.id,
-            code: c.code,
-            nom: c.nom,
-            type: this.mapType(c.type),
-            ecoles: [],
-            filieres: [],
-            niveaux: [],
-            credits: c.credits ?? 3,
-            volumeHoraire: c.volumeHoraire ?? 30,
-            coefficient: c.coefficient ?? 2,
-            description: c.description ?? '',
-            couleur: c.couleur ?? '#1D4ED8',
-            enabled: c.active
-          }));
-        }
+        this.categories = (data ?? []).map(c => ({
+          id: c.id,
+          code: c.code,
+          nom: c.nom,
+          type: this.mapType(c.type),
+          ecoles: [],
+          filieres: [],
+          niveaux: [],
+          credits: c.credits ?? 3,
+          volumeHoraire: c.volumeHoraire ?? 30,
+          coefficient: c.coefficient ?? 2,
+          description: c.description ?? '',
+          couleur: c.couleur ?? '#1D4ED8',
+          enabled: c.active
+        }));
       },
-      error: () => {} // garde les données démo
+      error: () => {}
     });
   }
 
@@ -199,19 +184,8 @@ export class CategoriesUeComponent implements OnInit {
       couleur: this.newCat.couleur, active: this.newCat.enabled
     };
     this.categoriesUeService.create(payload).subscribe({
-      next: (created) => {
-        if (created) { this.loadCategories(); }
-        else {
-          const id = this.categories.length ? Math.max(...this.categories.map(c => c.id)) + 1 : 1;
-          this.categories = [...this.categories, { id, ...this.newCat }];
-        }
-        this.closeAddModal(); this.toast('Catégorie UE ajoutée !');
-      },
-      error: () => {
-        const id = this.categories.length ? Math.max(...this.categories.map(c => c.id)) + 1 : 1;
-        this.categories = [...this.categories, { id, ...this.newCat }];
-        this.closeAddModal(); this.toast('Catégorie UE ajoutée !');
-      }
+      next: () => { this.loadCategories(); this.closeAddModal(); this.toast('Catégorie UE ajoutée !'); },
+      error: (err) => { this.closeAddModal(); this.toast(err?.error?.message || 'Erreur lors de l\'ajout.'); }
     });
   }
 
@@ -223,6 +197,7 @@ export class CategoriesUeComponent implements OnInit {
   closeEditModal(): void { this.isEditModalOpen = false; this.editingCat = null; }
   handleEdit(): void {
     if (!this.editingCat) return;
+    const id = this.editingCat.id;
     const payload = {
       code: this.editCatData.code, nom: this.editCatData.nom,
       type: this.reverseMapType(this.editCatData.type),
@@ -230,16 +205,9 @@ export class CategoriesUeComponent implements OnInit {
       coefficient: this.editCatData.coefficient, description: this.editCatData.description,
       couleur: this.editCatData.couleur, active: this.editCatData.enabled
     };
-    this.categoriesUeService.update(this.editingCat.id, payload).subscribe({
-      next: (updated) => {
-        if (updated) { this.loadCategories(); }
-        else { this.categories = this.categories.map(c => c.id === this.editingCat!.id ? { id: c.id, ...this.editCatData } : c); }
-        this.closeEditModal(); this.toast('Catégorie UE modifiée !');
-      },
-      error: () => {
-        this.categories = this.categories.map(c => c.id === this.editingCat!.id ? { id: c.id, ...this.editCatData } : c);
-        this.closeEditModal(); this.toast('Catégorie UE modifiée !');
-      }
+    this.categoriesUeService.update(id, payload).subscribe({
+      next: () => { this.loadCategories(); this.closeEditModal(); this.toast('Catégorie UE modifiée !'); },
+      error: (err) => { this.closeEditModal(); this.toast(err?.error?.message || 'Erreur lors de la modification.'); }
     });
   }
 
@@ -247,14 +215,15 @@ export class CategoriesUeComponent implements OnInit {
   closeDeleteModal(): void              { this.isDeleteModalOpen = false; this.catToDelete = null; }
   confirmDelete(): void {
     if (!this.catToDelete) return;
-    this.categoriesUeService.delete(this.catToDelete.id).subscribe({
+    const idToDelete = this.catToDelete.id;
+    this.categoriesUeService.delete(idToDelete).subscribe({
       next: () => {
-        this.categories = this.categories.filter(c => c.id !== this.catToDelete!.id);
+        this.categories = this.categories.filter(c => c.id !== idToDelete);
         this.closeDeleteModal(); this.toast('Catégorie supprimée.');
       },
-      error: () => {
-        this.categories = this.categories.filter(c => c.id !== this.catToDelete!.id);
-        this.closeDeleteModal(); this.toast('Catégorie supprimée.');
+      error: (err) => {
+        const msg = err?.error?.message || 'Erreur lors de la suppression.';
+        this.closeDeleteModal(); this.toast(msg);
       }
     });
   }

@@ -5,8 +5,6 @@ import cm.iusjc.scheduling.entity.Schedule;
 import cm.iusjc.scheduling.repository.ScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,7 +27,6 @@ public class ScheduleService {
      * Crée un nouveau planning
      */
     @Transactional
-    @CacheEvict(value = "schedules", allEntries = true)
     public ScheduleDTO createSchedule(ScheduleDTO scheduleDTO) {
         log.info("Creating new schedule: {}", scheduleDTO.getTitle());
         
@@ -61,7 +58,6 @@ public class ScheduleService {
     /**
      * Récupère tous les plannings
      */
-    @Cacheable(value = "schedules")
     public List<ScheduleDTO> getAllSchedules() {
         log.debug("Fetching all schedules");
         return scheduleRepository.findAll().stream()
@@ -81,7 +77,6 @@ public class ScheduleService {
     /**
      * Récupère un planning par ID
      */
-    @Cacheable(value = "schedules", key = "#id")
     public Optional<ScheduleDTO> getScheduleById(Long id) {
         log.debug("Fetching schedule by ID: {}", id);
         return scheduleRepository.findById(id)
@@ -91,7 +86,6 @@ public class ScheduleService {
     /**
      * Récupère un planning par titre
      */
-    @Cacheable(value = "schedules", key = "#title")
     public Optional<ScheduleDTO> getScheduleByTitle(String title) {
         log.debug("Fetching schedule by title: {}", title);
         return scheduleRepository.findByTitle(title)
@@ -171,7 +165,6 @@ public class ScheduleService {
     /**
      * Récupère les plannings à venir
      */
-    @Cacheable(value = "upcomingSchedules")
     public List<ScheduleDTO> getUpcomingSchedules() {
         log.debug("Fetching upcoming schedules");
         return scheduleRepository.findUpcomingSchedules(LocalDateTime.now()).stream()
@@ -204,7 +197,6 @@ public class ScheduleService {
      * Met à jour un planning
      */
     @Transactional
-    @CacheEvict(value = {"schedules", "upcomingSchedules"}, allEntries = true)
     public ScheduleDTO updateSchedule(Long id, ScheduleDTO scheduleDTO) {
         log.info("Updating schedule with ID: {}", id);
         
@@ -238,7 +230,6 @@ public class ScheduleService {
      * Change le statut d'un planning
      */
     @Transactional
-    @CacheEvict(value = {"schedules", "upcomingSchedules"}, allEntries = true)
     public ScheduleDTO updateScheduleStatus(Long id, String status) {
         log.info("Updating schedule status for ID: {} to {}", id, status);
         
@@ -258,7 +249,6 @@ public class ScheduleService {
      * Annule un planning
      */
     @Transactional
-    @CacheEvict(value = {"schedules", "upcomingSchedules"}, allEntries = true)
     public ScheduleDTO cancelSchedule(Long id) {
         return updateScheduleStatus(id, "CANCELLED");
     }
@@ -267,7 +257,6 @@ public class ScheduleService {
      * Marque un planning comme terminé
      */
     @Transactional
-    @CacheEvict(value = {"schedules", "upcomingSchedules"}, allEntries = true)
     public ScheduleDTO completeSchedule(Long id) {
         return updateScheduleStatus(id, "COMPLETED");
     }
@@ -276,7 +265,6 @@ public class ScheduleService {
      * Réactive un planning
      */
     @Transactional
-    @CacheEvict(value = {"schedules", "upcomingSchedules"}, allEntries = true)
     public ScheduleDTO reactivateSchedule(Long id) {
         return updateScheduleStatus(id, "ACTIVE");
     }
@@ -285,7 +273,6 @@ public class ScheduleService {
      * Supprime un planning
      */
     @Transactional
-    @CacheEvict(value = {"schedules", "upcomingSchedules"}, allEntries = true)
     public void deleteSchedule(Long id) {
         log.info("Deleting schedule with ID: {}", id);
         

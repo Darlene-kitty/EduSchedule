@@ -21,14 +21,16 @@ public class GroupeController {
 
     @GetMapping
     public ResponseEntity<Map<String, Object>> getAll(
-            @RequestParam(required = false) Long niveauId) {
+            @RequestParam(name = "niveauId", required = false) Long niveauId) {
         try {
             var list = niveauId != null
                     ? groupeService.getByNiveau(niveauId)
                     : groupeService.getAll();
             return ResponseEntity.ok(Map.of("success", true, "data", list, "total", list.size()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+            log.error("Error fetching groupes: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("success", false, "message",
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 
@@ -47,7 +49,8 @@ public class GroupeController {
                     .body(Map.of("success", true, "data", created));
         } catch (Exception e) {
             log.error("Error creating groupe: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message",
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 
@@ -58,7 +61,8 @@ public class GroupeController {
             return ResponseEntity.ok(Map.of("success", true, "data", updated));
         } catch (Exception e) {
             log.error("Error updating groupe {}: {}", id, e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message",
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 
@@ -69,7 +73,8 @@ public class GroupeController {
             return ResponseEntity.ok(Map.of("success", true, "message", "Groupe deleted"));
         } catch (Exception e) {
             log.error("Error deleting groupe {}: {}", id, e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message",
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 }

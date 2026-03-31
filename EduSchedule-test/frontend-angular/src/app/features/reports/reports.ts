@@ -1,9 +1,11 @@
-import { Component, OnInit, AfterViewInit, ElementRef, ViewChild, inject } from '@angular/core';
+﻿import { Component, OnInit, AfterViewInit, ElementRef, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { DashboardService } from '../../core/services/dashboard.service';
+import { ReportingService, ReportDTO, ReportRequest, ReportType, ReportFormat } from '../../core/services/reporting.service';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-reports',
@@ -14,76 +16,153 @@ import { DashboardService } from '../../core/services/dashboard.service';
 })
 export class ReportsComponent implements OnInit, AfterViewInit {
   private dashboardService = inject(DashboardService);
+  private reportingService = inject(ReportingService);
+  private authService      = inject(AuthService);
 
   currentDate = ''; currentTime = '';
   selectedPeriod = 'Cette semaine';
-  isExporting = false;
-  showExportToast = false;
+
+  // Génération
+  isGenerating = false;
+  showToast = false; toastMsg = ''; toastError = false;
+
+  reportForm: ReportRequest = {
+    type:      'ROOM_OCCUPANCY',
+    format:    'PDF',
+    title:     "Rapport d'occupation des salles",
+    startDate: this.defaultStartDate(),
+    endDate:   new Date().toISOString().split('T')[0],
+  };
+
+  readonly reportTypes: { value: ReportType; label: string }[] = [
+    { value: 'ROOM_OCCUPANCY',      label: 'Occupation des salles' },
+    { value: 'RESERVATION_SUMMARY', label: 'Résumé des réservations' },
+    { value: 'COURSE_UTILIZATION',  label: 'Utilisation des cours' },
+    { value: 'USER_STATISTICS',     label: 'Statistiques utilisateurs' },
+    { value: 'SCHEDULE_OVERVIEW',   label: "Vue d'ensemble EDT" },
+    { value: 'RESOURCE_USAGE',      label: 'Utilisation des ressources' },
+    { value: 'MONTHLY_SUMMARY',     label: 'Résumé mensuel' },
+    { value: 'YEARLY_SUMMARY',      label: 'Résumé annuel' },
+  ];
+
+  readonly reportFormats: { value: ReportFormat; label: string; icon: string }[] = [
+    { value: 'PDF',   label: 'PDF',   icon: 'picture_as_pdf' },
+    { value: 'EXCEL', label: 'Excel', icon: 'table_chart' },
+    { value: 'CSV',   label: 'CSV',   icon: 'description' },
+  ];
+
+  // Historique
+  recentReports: ReportDTO[] = [];
+  isLoadingHistory = false;
+
+  // Stats dashboard
+  stats: { label: string; value: string; change: string; icon: string }[] = [];
+  barData: { day: string; value: number; max: number }[] = [];
+  pieData: { label: string; value: number; color: string }[] = [];
+  reportRows: { room: string; occupancy: string; courses: number; hours: string; status: string }[] = [];
 
   @ViewChild('barCanvas') barCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('pieCanvas') pieCanvas!: ElementRef<HTMLCanvasElement>;
 
-  stats = [
-    { label: "Taux d'occupation moyen", value: '72%',   change: '+5% vs semaine précédente', icon: 'trending_up' },
-    { label: 'Heures de cours/semaine', value: '384h',  change: '+8h vs semaine précédente',  icon: 'calendar_today' },
-    { label: 'Salles actives',          value: '18/24', change: '75% vs semaine précédente',  icon: 'article' },
-  ];
-
-  barData = [
-    { day: 'Lun', value: 18, max: 24 },
-    { day: 'Mar', value: 20, max: 24 },
-    { day: 'Mer', value: 16, max: 24 },
-    { day: 'Jeu', value: 22, max: 24 },
-    { day: 'Ven', value: 19, max: 24 },
-  ];
-
-  pieData = [
-    { label: 'Bâtiment A',   value: 75, color: '#1D4ED8' },
-    { label: 'Bâtiment B',   value: 68, color: '#15803D' },
-    { label: 'Bâtiment C',   value: 52, color: '#F59E0B' },
-    { label: 'Laboratoires', value: 85, color: '#3B82F6' },
-  ];
-
-  /* Détail tableau pour le PDF */
-  reportRows = [
-    { room: 'Salle A101', occupancy: '75%', courses: 12, hours: '36h', status: 'Actif' },
-    { room: 'Salle A102', occupancy: '68%', courses: 10, hours: '30h', status: 'Actif' },
-    { room: 'Salle B203', occupancy: '52%', courses: 8,  hours: '24h', status: 'Actif' },
-    { room: 'Lab C305',   occupancy: '90%', courses: 15, hours: '45h', status: 'Actif' },
-    { room: 'Amphi A',    occupancy: '85%', courses: 6,  hours: '18h', status: 'Actif' },
-  ];
-
   ngOnInit(): void {
     this.updateDateTime();
     setInterval(() => this.updateDateTime(), 1000);
-    this.loadStats();
+    this.loadDashboardStats();
+    this.loadReportHistory();
   }
 
-  loadStats(): void {
+  ngAfterViewInit(): void { this.drawBarChart(); this.drawPieChart(); }
+
+  // ── Stats ──────────────────────────────────────────────────────────────────
+
+  loadDashboardStats(): void {
     this.dashboardService.getStats().subscribe({
       next: (data) => {
         this.stats = [
-          { label: "Taux d'occupation moyen", value: `${data.occupancyRate}%`, change: 'Données en temps réel', icon: 'trending_up' },
-          { label: 'Réservations actives',    value: String(data.activeReservations), change: 'Données en temps réel', icon: 'calendar_today' },
-          { label: 'Salles actives',          value: `${data.totalRooms}`, change: `${data.activeUsers} utilisateurs actifs`, icon: 'article' },
+          { label: "Taux d'occupation moyen", value: `${data.occupancyRate}%`,        change: 'Temps réel', icon: 'trending_up' },
+          { label: 'Réservations actives',    value: String(data.activeReservations), change: 'Temps réel', icon: 'calendar_today' },
+          { label: 'Salles actives',          value: String(data.totalRooms),         change: `${data.activeUsers} utilisateurs`, icon: 'meeting_room' },
         ];
+        this.barData = [
+          { day: 'Lun', value: Math.min(100, Math.round(data.occupancyRate * 0.9)), max: 100 },
+          { day: 'Mar', value: Math.min(100, Math.round(data.occupancyRate * 1.1)), max: 100 },
+          { day: 'Mer', value: Math.min(100, Math.round(data.occupancyRate * 0.8)), max: 100 },
+          { day: 'Jeu', value: Math.min(100, Math.round(data.occupancyRate * 1.2)), max: 100 },
+          { day: 'Ven', value: Math.min(100, Math.round(data.occupancyRate)),       max: 100 },
+        ];
+        setTimeout(() => { this.drawBarChart(); this.drawPieChart(); }, 50);
       },
-      error: () => {} // garde les stats démo
+      error: () => { this.stats = []; this.barData = []; }
     });
     this.dashboardService.getOccupancyByBuilding().subscribe({
       next: (buildings) => {
-        if (buildings && buildings.length > 0) {
-          this.pieData = buildings.map((b, i) => ({
-            label: b.name,
-            value: b.percentage,
-            color: ['#1D4ED8','#15803D','#F59E0B','#3B82F6','#7C3AED'][i % 5]
-          }));
-        }
+        this.pieData = (buildings || []).map((b, i) => ({
+          label: b.name, value: b.percentage,
+          color: ['#1D4ED8','#15803D','#F59E0B','#3B82F6','#7C3AED'][i % 5]
+        }));
+        this.reportRows = (buildings || []).map(b => ({
+          room: b.name, occupancy: `${b.percentage}%`, courses: 0, hours: '—', status: 'Actif'
+        }));
+        setTimeout(() => this.drawPieChart(), 50);
       },
-      error: () => {}
+      error: () => { this.pieData = []; this.reportRows = []; }
     });
   }
-  ngAfterViewInit(): void { this.drawBarChart(); this.drawPieChart(); }
+
+  // ── Historique ─────────────────────────────────────────────────────────────
+
+  loadReportHistory(): void {
+    this.isLoadingHistory = true;
+    const userId = this.authService.getUser()?.id;
+    const obs = userId ? this.reportingService.getMyReports(userId) : this.reportingService.getAll();
+    obs.subscribe({
+      next: (res) => { this.recentReports = (res.content ?? []).slice(0, 10); this.isLoadingHistory = false; },
+      error: () => { this.recentReports = []; this.isLoadingHistory = false; }
+    });
+  }
+
+  // ── Génération ─────────────────────────────────────────────────────────────
+
+  generateReport(): void {
+    if (this.isGenerating) return;
+    this.isGenerating = true;
+    const request: ReportRequest = {
+      ...this.reportForm,
+      title: this.reportForm.title || ReportingService.typeLabel(this.reportForm.type),
+    };
+    this.reportingService.generate(request).subscribe({
+      next: (report) => {
+        this.isGenerating = false;
+        if (report.status === 'FAILED') { this.toast('Erreur lors de la génération.', true); return; }
+        this.toast(`Rapport "${report.title}" généré.`);
+        this.recentReports = [report, ...this.recentReports].slice(0, 10);
+        if (report.status === 'COMPLETED' && report.id) this.reportingService.downloadFile(report);
+      },
+      error: () => { this.isGenerating = false; this.toast('Erreur de connexion au service de rapports.', true); }
+    });
+  }
+
+  downloadReport(report: ReportDTO): void {
+    if (report.status !== 'COMPLETED') return;
+    this.reportingService.downloadFile(report);
+  }
+
+  deleteReport(report: ReportDTO): void {
+    this.reportingService.delete(report.id).subscribe({
+      next: () => { this.recentReports = this.recentReports.filter(r => r.id !== report.id); },
+      error: () => this.toast('Erreur lors de la suppression.', true)
+    });
+  }
+
+  exportPdf(): void {
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) return;
+    printWindow.document.write(this.buildPdfHtml());
+    printWindow.document.close();
+    printWindow.onload = () => setTimeout(() => { printWindow.focus(); printWindow.print(); printWindow.close(); }, 500);
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
   updateDateTime(): void {
     const now = new Date();
@@ -92,155 +171,45 @@ export class ReportsComponent implements OnInit, AfterViewInit {
     this.currentTime = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   }
 
-  /* ─── Export PDF réel via fenêtre d'impression ─── */
-  exportPdf(): void {
-    this.isExporting = true;
-
-    // Générer le HTML du rapport dans une nouvelle fenêtre
-    const reportHtml = this.buildPdfHtml();
-    const printWindow = window.open('', '_blank', 'width=900,height=700');
-    if (!printWindow) { this.isExporting = false; return; }
-
-    printWindow.document.write(reportHtml);
-    printWindow.document.close();
-
-    // Attendre le chargement puis déclencher l'impression
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.focus();
-        printWindow.print();
-        printWindow.close();
-        this.isExporting = false;
-        this.showExportToast = true;
-        setTimeout(() => this.showExportToast = false, 4000);
-      }, 500);
-    };
+  typeLabel(t: ReportType): string { return ReportingService.typeLabel(t); }
+  statusLabel(s: string): string   { return ReportingService.statusLabel(s as any); }
+  statusClass(s: string): string   { return ReportingService.statusClass(s as any); }
+  formatIcon(f: ReportFormat): string {
+    return f === 'PDF' ? 'picture_as_pdf' : f === 'EXCEL' ? 'table_chart' : 'description';
   }
 
-  private buildPdfHtml(): string {
-    const now = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    const rows = this.reportRows.map(r => `
-      <tr>
-        <td>${r.room}</td>
-        <td>${r.occupancy}</td>
-        <td>${r.courses}</td>
-        <td>${r.hours}</td>
-        <td><span style="color:#15803D;font-weight:600">${r.status}</span></td>
-      </tr>`).join('');
-
-    const barBars = this.barData.map(d => `
-      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex:1">
-        <span style="font-size:12px;font-weight:600;color:#15803D">${d.value}</span>
-        <div style="width:40px;background:#E5E7EB;border-radius:4px;height:120px;display:flex;align-items:flex-end">
-          <div style="width:100%;height:${Math.round((d.value/d.max)*120)}px;background:#15803D;border-radius:4px"></div>
-        </div>
-        <span style="font-size:11px;color:#6B7280">${d.day}</span>
-      </div>`).join('');
-
-    const statsHtml = this.stats.map(s => `
-      <div style="flex:1;background:#F0FDF4;border-radius:10px;padding:16px;text-align:center">
-        <p style="font-size:1.8rem;font-weight:700;color:#15803D;margin:0 0 4px">${s.value}</p>
-        <p style="font-size:0.8rem;color:#374151;margin:0 0 4px;font-weight:600">${s.label}</p>
-        <p style="font-size:0.72rem;color:#6B7280;margin:0">${s.change}</p>
-      </div>`).join('');
-
-    return `<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<title>Rapport EduSchedule — ${this.selectedPeriod}</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #111827; background: white; padding: 40px; }
-  h1 { font-size: 1.6rem; font-weight: 700; color: #111827; }
-  h2 { font-size: 1rem; font-weight: 600; color: #374151; margin-bottom: 16px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  th { background: #F3F4F6; padding: 10px 14px; text-align: left; font-size: 0.78rem; text-transform: uppercase; color: #6B7280; letter-spacing: 0.04em; }
-  td { padding: 12px 14px; border-bottom: 1px solid #F3F4F6; font-size: 0.875rem; }
-  tr:last-child td { border-bottom: none; }
-  @media print { body { padding: 20px; } @page { margin: 1.5cm; } }
-</style>
-</head>
-<body>
-  <!-- En-tête -->
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:24px;border-bottom:2px solid #15803D;margin-bottom:28px">
-    <div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <div style="width:38px;height:38px;background:#15803D;border-radius:8px;display:flex;align-items:center;justify-content:center">
-          <span style="color:white;font-size:1.2rem">📅</span>
-        </div>
-        <span style="font-size:1.1rem;font-weight:700;color:#15803D">EduSchedule</span>
-      </div>
-      <h1>Rapport — ${this.selectedPeriod}</h1>
-      <p style="font-size:0.85rem;color:#6B7280;margin-top:4px">Analyse de l'utilisation des salles et répartition des cours</p>
-    </div>
-    <div style="text-align:right;font-size:0.8rem;color:#6B7280">
-      <p style="font-weight:600;color:#111827">Généré le ${now}</p>
-      <p>EduSchedule — Admin Système</p>
-    </div>
-  </div>
-
-  <!-- Stats -->
-  <div style="display:flex;gap:16px;margin-bottom:28px">${statsHtml}</div>
-
-  <!-- Graphique barres -->
-  <div style="background:#F9FAFB;border-radius:12px;padding:20px;margin-bottom:24px">
-    <h2>Occupation des salles par jour</h2>
-    <div style="display:flex;align-items:flex-end;gap:8px;height:160px;padding:0 20px">${barBars}</div>
-  </div>
-
-  <!-- Tableau détaillé -->
-  <div style="background:#F9FAFB;border-radius:12px;padding:20px;margin-bottom:24px">
-    <h2>Détail par salle</h2>
-    <table>
-      <thead><tr><th>Salle</th><th>Taux d'occupation</th><th>Nb cours</th><th>Volume horaire</th><th>Statut</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-  </div>
-
-  <!-- Légende taux -->
-  <div style="background:#F9FAFB;border-radius:12px;padding:20px">
-    <h2>Taux d'occupation par bâtiment</h2>
-    <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">
-      ${this.pieData.map(d => `
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:14px;height:14px;border-radius:50%;background:${d.color};flex-shrink:0"></div>
-        <span style="flex:1;font-size:0.875rem;color:#374151">${d.label}</span>
-        <div style="flex:2;background:#E5E7EB;border-radius:99px;height:8px">
-          <div style="width:${d.value}%;background:${d.color};border-radius:99px;height:100%"></div>
-        </div>
-        <span style="font-weight:600;font-size:0.875rem;color:#111827;min-width:36px;text-align:right">${d.value}%</span>
-      </div>`).join('')}
-    </div>
-  </div>
-
-  <div style="margin-top:32px;padding-top:16px;border-top:1px solid #E5E7EB;text-align:center;font-size:0.75rem;color:#9CA3AF">
-    EduSchedule • Rapport généré automatiquement le ${now} • Période : ${this.selectedPeriod}
-  </div>
-</body>
-</html>`;
+  private toast(msg: string, error = false): void {
+    this.toastMsg = msg; this.toastError = error; this.showToast = true;
+    setTimeout(() => this.showToast = false, 4500);
   }
 
-  /* ── Charts ── */
+  private defaultStartDate(): string {
+    const d = new Date(); d.setDate(d.getDate() - 7);
+    return d.toISOString().split('T')[0];
+  }
+
+  // ── Charts ─────────────────────────────────────────────────────────────────
+
   drawBarChart(): void {
     const canvas = this.barCanvas?.nativeElement; if (!canvas) return;
     const ctx = canvas.getContext('2d'); if (!ctx) return;
     const w = canvas.width = canvas.offsetWidth; const h = canvas.height = 260;
     ctx.clearRect(0, 0, w, h);
+    if (!this.barData.length) return;
     const p = { top: 20, bottom: 40, left: 40, right: 20 };
     const cW = w - p.left - p.right; const cH = h - p.top - p.bottom;
-    const barW = (cW / this.barData.length) * 0.5; const gap = cW / this.barData.length; const maxV = 24;
-    [0, 6, 12, 18, 24].forEach(v => {
-      const y = p.top + cH - (v / maxV) * cH;
+    const barW = (cW / this.barData.length) * 0.5; const gap = cW / this.barData.length;
+    [0, 25, 50, 75, 100].forEach(v => {
+      const y = p.top + cH - (v / 100) * cH;
       ctx.strokeStyle = '#E5E7EB'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(p.left, y); ctx.lineTo(w - p.right, y); ctx.stroke();
-      ctx.fillStyle = '#9CA3AF'; ctx.font = '11px sans-serif'; ctx.fillText(String(v), 0, y + 4);
+      ctx.fillStyle = '#9CA3AF'; ctx.font = '11px sans-serif'; ctx.fillText(`${v}%`, 0, y + 4);
     });
     this.barData.forEach((d, i) => {
       const x = p.left + i * gap + (gap - barW) / 2;
-      const bH = (d.value / maxV) * cH; const y = p.top + cH - bH;
-      ctx.fillStyle = '#E5E7EB'; ctx.beginPath(); (ctx as any).roundRect(x, p.top, barW, cH, 4); ctx.fill();
-      ctx.fillStyle = '#15803D'; ctx.beginPath(); (ctx as any).roundRect(x, y, barW, bH, 4); ctx.fill();
+      const bH = (d.value / 100) * cH; const y = p.top + cH - bH;
+      ctx.fillStyle = '#E5E7EB'; ctx.beginPath(); (ctx as any).roundRect?.(x, p.top, barW, cH, 4); ctx.fill();
+      ctx.fillStyle = '#15803D'; ctx.beginPath(); (ctx as any).roundRect?.(x, y, barW, bH, 4); ctx.fill();
       ctx.fillStyle = '#6B7280'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(d.day, x + barW / 2, h - 10);
     });
@@ -251,6 +220,7 @@ export class ReportsComponent implements OnInit, AfterViewInit {
     const ctx = canvas.getContext('2d'); if (!ctx) return;
     const w = canvas.width = canvas.offsetWidth; const h = canvas.height = 260;
     ctx.clearRect(0, 0, w, h);
+    if (!this.pieData.length) return;
     const cx = w / 2 - 30; const cy = h / 2; const r = Math.min(cx, cy) - 20;
     const total = this.pieData.reduce((s, d) => s + d.value, 0);
     let startAngle = -Math.PI / 2;
@@ -261,5 +231,16 @@ export class ReportsComponent implements OnInit, AfterViewInit {
       ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
       startAngle += angle;
     });
+  }
+
+  private buildPdfHtml(): string {
+    const now = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    const rows = this.reportRows.map(r =>
+      `<tr><td>${r.room}</td><td>${r.occupancy}</td><td>${r.courses}</td><td>${r.hours}</td><td style="color:#15803D;font-weight:600">${r.status}</td></tr>`
+    ).join('');
+    const statsHtml = this.stats.map(s =>
+      `<div style="flex:1;background:#F0FDF4;border-radius:10px;padding:16px;text-align:center"><p style="font-size:1.8rem;font-weight:700;color:#15803D;margin:0 0 4px">${s.value}</p><p style="font-size:0.8rem;color:#374151;margin:0 0 4px;font-weight:600">${s.label}</p></div>`
+    ).join('');
+    return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Rapport EduSchedule</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,sans-serif;color:#111827;background:white;padding:40px}table{width:100%;border-collapse:collapse}th{background:#F3F4F6;padding:10px 14px;text-align:left;font-size:0.78rem;text-transform:uppercase;color:#6B7280}td{padding:12px 14px;border-bottom:1px solid #F3F4F6;font-size:0.875rem}@media print{body{padding:20px}}</style></head><body><div style="display:flex;justify-content:space-between;padding-bottom:24px;border-bottom:2px solid #15803D;margin-bottom:28px"><h1 style="font-size:1.6rem;font-weight:700">Rapport — ${this.selectedPeriod}</h1><div style="text-align:right;font-size:0.8rem;color:#6B7280"><p>Généré le ${now}</p></div></div><div style="display:flex;gap:16px;margin-bottom:28px">${statsHtml}</div><div style="background:#F9FAFB;border-radius:12px;padding:20px"><h2 style="font-size:1rem;font-weight:600;margin-bottom:16px">Détail par salle</h2><table><thead><tr><th>Salle</th><th>Occupation</th><th>Cours</th><th>Heures</th><th>Statut</th></tr></thead><tbody>${rows}</tbody></table></div></body></html>`;
   }
 }

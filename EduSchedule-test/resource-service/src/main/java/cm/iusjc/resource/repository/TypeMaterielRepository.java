@@ -7,4 +7,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface TypeMaterielRepository extends JpaRepository<TypeMateriel, Long> {
     boolean existsByCode(String code);
+    java.util.List<TypeMateriel> findByActiveTrue();
 }

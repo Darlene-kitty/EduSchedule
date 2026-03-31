@@ -90,19 +90,7 @@ export class ClassesComponent implements OnInit {
     return this.editClasseData.sigleEcole ? (this.niveauxByEcole[this.editClasseData.sigleEcole] || []) : [];
   }
 
-  classes: Classe[] = [
-    { id:1,  code:'GI-L1-A', nom:'GI L1 Groupe A', ecole:'Saint Jean Ingénieur',  sigleEcole:'SJI', couleurEcole:'#1D4ED8', filiere:'Génie Informatique',         niveau:'L1', effectif:42, effectifMax:50, delegue:'Jean Kamga',      salle:'Amphi A', enabled:true },
-    { id:2,  code:'GI-L1-B', nom:'GI L1 Groupe B', ecole:'Saint Jean Ingénieur',  sigleEcole:'SJI', couleurEcole:'#1D4ED8', filiere:'Génie Informatique',         niveau:'L1', effectif:38, effectifMax:50, delegue:'Alice Ngo',        salle:'Salle 12', enabled:true },
-    { id:3,  code:'GI-L2-A', nom:'GI L2 Groupe A', ecole:'Saint Jean Ingénieur',  sigleEcole:'SJI', couleurEcole:'#1D4ED8', filiere:'Génie Informatique',         niveau:'L2', effectif:35, effectifMax:45, delegue:'Paul Essama',      salle:'Salle 8',  enabled:true },
-    { id:4,  code:'GC-L1-A', nom:'GC L1 Groupe A', ecole:'Saint Jean Ingénieur',  sigleEcole:'SJI', couleurEcole:'#1D4ED8', filiere:'Génie Civil',                niveau:'L1', effectif:40, effectifMax:50, delegue:'Marie Fouda',      salle:'Amphi B', enabled:true },
-    { id:5,  code:'ME-L1-A', nom:'ME L1 Groupe A', ecole:'Saint Jean Management', sigleEcole:'SJM', couleurEcole:'#15803D', filiere:'Management des Entreprises', niveau:'L1', effectif:45, effectifMax:55, delegue:'Cédric Owona',     salle:'Salle 20', enabled:true },
-    { id:6,  code:'ME-L1-B', nom:'ME L1 Groupe B', ecole:'Saint Jean Management', sigleEcole:'SJM', couleurEcole:'#15803D', filiere:'Management des Entreprises', niveau:'L1', effectif:43, effectifMax:55, delegue:'Lucie Abena',      salle:'Salle 21', enabled:true },
-    { id:7,  code:'FC-L2-A', nom:'FC L2 Groupe A', ecole:'Saint Jean Management', sigleEcole:'SJM', couleurEcole:'#15803D', filiere:'Finance & Comptabilité',     niveau:'L2', effectif:30, effectifMax:40, delegue:'Robert Nganou',    salle:'Salle 15', enabled:true },
-    { id:8,  code:'PV-P1-A', nom:'Prépa 1 Groupe A',ecole:'Prépavogt',            sigleEcole:'PRÉPAVOGT', couleurEcole:'#DC2626', filiere:'Mathématiques',        niveau:'Prépa 1', effectif:25, effectifMax:30, delegue:'Hélène Biya', salle:'Salle 5',  enabled:true },
-    { id:9,  code:'PV-P2-A', nom:'Prépa 2 Groupe A',ecole:'Prépavogt',            sigleEcole:'PRÉPAVOGT', couleurEcole:'#DC2626', filiere:'Physique',             niveau:'Prépa 2', effectif:22, effectifMax:30, delegue:'Eric Mendo',   salle:'Salle 6',  enabled:true },
-    { id:10, code:'CG-C1-A', nom:'CPGE 1 MPSI',    ecole:'Classes Préparatoires aux Grandes Écoles', sigleEcole:'CPGE', couleurEcole:'#7C3AED', filiere:'Mathématiques', niveau:'CPGE 1', effectif:20, effectifMax:25, delegue:'Sophie Tchoupo', salle:'Salle 2', enabled:true },
-    { id:11, code:'CG-C2-A', nom:'CPGE 2 MP',      ecole:'Classes Préparatoires aux Grandes Écoles', sigleEcole:'CPGE', couleurEcole:'#7C3AED', filiere:'Physique',      niveau:'CPGE 2', effectif:18, effectifMax:25, delegue:'Marc Vogt',      salle:'Salle 3', enabled:true },
-  ];
+  classes: Classe[] = [];
 
   emptyClasse = (): Omit<Classe, 'id'> => ({
     code:'', nom:'', ecole:'', sigleEcole:'', couleurEcole:'#1D4ED8',
@@ -122,23 +110,21 @@ export class ClassesComponent implements OnInit {
     this.loading = true;
     this.groupesService.getAll().subscribe({
       next: (data) => {
-        if (data && data.length > 0) {
-          this.classes = data.map(g => ({
-            id: g.id,
-            code: g.code || '',
-            nom: g.name,
-            ecole: '',
-            sigleEcole: '',
-            couleurEcole: '#1D4ED8',
-            filiere: '',
-            niveau: g.niveauName || '',
-            effectif: 0,
-            effectifMax: g.capacite ?? 50,
-            delegue: '',
-            salle: '',
-            enabled: g.active
-          }));
-        }
+        this.classes = (data ?? []).map(g => ({
+          id: g.id,
+          code: g.code || '',
+          nom: g.name,
+          ecole: '',
+          sigleEcole: '',
+          couleurEcole: '#1D4ED8',
+          filiere: '',
+          niveau: g.niveauName || '',
+          effectif: 0,
+          effectifMax: g.capacite ?? 50,
+          delegue: '',
+          salle: '',
+          enabled: g.active
+        }));
         this.loading = false;
       },
       error: () => { this.loading = false; }
@@ -196,23 +182,12 @@ export class ClassesComponent implements OnInit {
       name: this.newClasse.nom,
       code: this.newClasse.code,
       capacite: this.newClasse.effectifMax,
-      niveauId: 1, // TODO: lier au niveau sélectionné
+      niveauId: 1,
       active: this.newClasse.enabled
     };
     this.groupesService.create(payload).subscribe({
-      next: (created) => {
-        if (created) { this.loadClasses(); }
-        else {
-          const id = this.classes.length ? Math.max(...this.classes.map(c => c.id)) + 1 : 1;
-          this.classes = [...this.classes, { id, ...this.newClasse }];
-        }
-        this.closeAddModal(); this.toast('Classe ajoutée avec succès !');
-      },
-      error: () => {
-        const id = this.classes.length ? Math.max(...this.classes.map(c => c.id)) + 1 : 1;
-        this.classes = [...this.classes, { id, ...this.newClasse }];
-        this.closeAddModal(); this.toast('Classe ajoutée avec succès !');
-      }
+      next: () => { this.loadClasses(); this.closeAddModal(); this.toast('Classe ajoutée avec succès !'); },
+      error: (err: any) => { this.closeAddModal(); this.toast(err?.error?.message || 'Erreur lors de l\'ajout.'); }
     });
   }
 
@@ -224,6 +199,7 @@ export class ClassesComponent implements OnInit {
   closeEditModal(): void { this.isEditModalOpen = false; this.editingClasse = null; }
   handleEditClasse(): void {
     if (!this.editingClasse) return;
+    const id = this.editingClasse.id;
     const payload = {
       name: this.editClasseData.nom,
       code: this.editClasseData.code,
@@ -231,16 +207,9 @@ export class ClassesComponent implements OnInit {
       niveauId: 1,
       active: this.editClasseData.enabled
     };
-    this.groupesService.update(this.editingClasse.id, payload).subscribe({
-      next: (updated) => {
-        if (updated) { this.loadClasses(); }
-        else { this.classes = this.classes.map(c => c.id === this.editingClasse!.id ? { id: c.id, ...this.editClasseData } : c); }
-        this.closeEditModal(); this.toast('Classe modifiée avec succès !');
-      },
-      error: () => {
-        this.classes = this.classes.map(c => c.id === this.editingClasse!.id ? { id: c.id, ...this.editClasseData } : c);
-        this.closeEditModal(); this.toast('Classe modifiée avec succès !');
-      }
+    this.groupesService.update(id, payload).subscribe({
+      next: () => { this.loadClasses(); this.closeEditModal(); this.toast('Classe modifiée avec succès !'); },
+      error: (err: any) => { this.closeEditModal(); this.toast(err?.error?.message || 'Erreur lors de la modification.'); }
     });
   }
 
@@ -248,15 +217,10 @@ export class ClassesComponent implements OnInit {
   closeDeleteModal(): void         { this.isDeleteModalOpen = false; this.classeToDelete = null; }
   confirmDelete(): void {
     if (!this.classeToDelete) return;
-    this.groupesService.delete(this.classeToDelete.id).subscribe({
-      next: () => {
-        this.classes = this.classes.filter(c => c.id !== this.classeToDelete!.id);
-        this.closeDeleteModal(); this.toast('Classe supprimée.');
-      },
-      error: () => {
-        this.classes = this.classes.filter(c => c.id !== this.classeToDelete!.id);
-        this.closeDeleteModal(); this.toast('Classe supprimée.');
-      }
+    const id = this.classeToDelete.id;
+    this.groupesService.delete(id).subscribe({
+      next: () => { this.classes = this.classes.filter(c => c.id !== id); this.closeDeleteModal(); this.toast('Classe supprimée.'); },
+      error: (err: any) => { this.closeDeleteModal(); this.toast(err?.error?.message || 'Erreur lors de la suppression.'); }
     });
   }
 }

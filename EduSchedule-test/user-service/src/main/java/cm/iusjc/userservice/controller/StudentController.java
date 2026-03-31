@@ -2,6 +2,7 @@ package cm.iusjc.userservice.controller;
 
 import cm.iusjc.userservice.dto.RegisterRequest;
 import cm.iusjc.userservice.dto.UserDTO;
+import cm.iusjc.userservice.dto.UserUpdateRequest;
 import cm.iusjc.userservice.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,14 +39,13 @@ public class StudentController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDTO> createStudent(@Valid @RequestBody RegisterRequest request) {
-        // Force le rôle STUDENT quelle que soit la valeur envoyée
         request.setRole("STUDENT");
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUser(request));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<UserDTO> updateStudent(@PathVariable Long id, @Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<UserDTO> updateStudent(@PathVariable Long id, @Valid @RequestBody UserUpdateRequest request) {
         request.setRole("STUDENT");
         return ResponseEntity.ok(userService.updateUser(id, request));
     }

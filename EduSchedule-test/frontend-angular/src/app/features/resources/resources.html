@@ -79,8 +79,8 @@
           [(ngModel)]="searchQuery" />
       </div>
 
-      <!-- Resources Grid -->
-      <div class="resources-grid">
+      <!-- Resources Grid (onglet inventaire) -->
+      <div *ngIf="activeTab === 'inventaire'" class="resources-grid">
         <div *ngFor="let resource of filteredResources" class="resource-card">
 
           <!-- Card Header -->
@@ -135,6 +135,117 @@
           <button class="btn-reserve">Réserver</button>
 
         </div>
+      </div>
+
+      <!-- Onglet Équipement par salle — Dashboard -->
+      <div *ngIf="activeTab === 'equipement'">
+
+        <div *ngIf="isLoadingDashboard" class="eq-loading">
+          <mat-icon class="spin">refresh</mat-icon> Chargement du tableau de bord...
+        </div>
+
+        <ng-container *ngIf="!isLoadingDashboard && equipmentDashboard">
+
+          <!-- KPI Cards -->
+          <div class="eq-kpi-grid">
+            <div class="eq-kpi-card kpi-green">
+              <mat-icon>check_circle</mat-icon>
+              <div>
+                <p class="kpi-num">{{ equipmentDashboard.bonEtat }}</p>
+                <p class="kpi-lbl">Bon état</p>
+              </div>
+            </div>
+            <div class="eq-kpi-card kpi-orange">
+              <mat-icon>warning</mat-icon>
+              <div>
+                <p class="kpi-num">{{ equipmentDashboard.usage }}</p>
+                <p class="kpi-lbl">Usagés</p>
+              </div>
+            </div>
+            <div class="eq-kpi-card kpi-red">
+              <mat-icon>error</mat-icon>
+              <div>
+                <p class="kpi-num">{{ equipmentDashboard.enPanne }}</p>
+                <p class="kpi-lbl">En panne</p>
+              </div>
+            </div>
+            <div class="eq-kpi-card kpi-blue">
+              <mat-icon>build</mat-icon>
+              <div>
+                <p class="kpi-num">{{ equipmentDashboard.enMaintenance }}</p>
+                <p class="kpi-lbl">En maintenance</p>
+              </div>
+            </div>
+            <div class="eq-kpi-card kpi-purple">
+              <mat-icon>speed</mat-icon>
+              <div>
+                <p class="kpi-num">{{ equipmentDashboard.tauxDisponibilite }}%</p>
+                <p class="kpi-lbl">Disponibilité</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Alertes + Top utilisés -->
+          <div class="eq-bottom-grid">
+
+            <!-- Alertes -->
+            <div class="eq-section">
+              <h3 class="eq-section-title">
+                <mat-icon>notifications_active</mat-icon>
+                Alertes maintenance ({{ equipmentAlertes.length }})
+              </h3>
+              <div *ngIf="equipmentAlertes.length === 0" class="eq-empty">
+                <mat-icon>check_circle</mat-icon> Aucune alerte active
+              </div>
+              <div *ngFor="let alerte of equipmentAlertes" class="eq-alerte" [ngClass]="getAlerteClass(alerte.type)">
+                <mat-icon>{{ alerte.type === 'PANNE_SANS_INTERVENTION' ? 'error' : 'warning' }}</mat-icon>
+                <div>
+                  <p class="alerte-nom">{{ alerte.nom }}</p>
+                  <p class="alerte-msg">{{ alerte.message }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Top matériels utilisés -->
+            <div class="eq-section">
+              <h3 class="eq-section-title">
+                <mat-icon>bar_chart</mat-icon>
+                Top matériels utilisés
+              </h3>
+              <div *ngIf="equipmentDashboard.topMaterielsUtilises.length === 0" class="eq-empty">
+                Aucune donnée d'utilisation
+              </div>
+              <div *ngFor="let item of equipmentDashboard.topMaterielsUtilises; let i = index" class="eq-top-row">
+                <span class="top-rank">#{{ i + 1 }}</span>
+                <span class="top-nom">{{ item.nom || 'Matériel #' + item.materielId }}</span>
+                <span class="top-heures">{{ (item.totalMinutes / 60 | number:'1.0-0') }} h</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Maintenances en cours -->
+          <div class="eq-section eq-maintenance-row">
+            <div class="eq-maint-badge">
+              <mat-icon>pending_actions</mat-icon>
+              <span>{{ equipmentDashboard.maintenancesPlanifiees }} planifiée(s)</span>
+            </div>
+            <div class="eq-maint-badge active">
+              <mat-icon>build_circle</mat-icon>
+              <span>{{ equipmentDashboard.maintenancesEnCours }} en cours</span>
+            </div>
+            <div class="eq-maint-badge warning">
+              <mat-icon>schedule</mat-icon>
+              <span>{{ equipmentDashboard.materielsDueForMaintenance }} en retard de maintenance</span>
+            </div>
+          </div>
+
+        </ng-container>
+
+        <div *ngIf="!isLoadingDashboard && !equipmentDashboard" class="eq-empty">
+          <mat-icon>cloud_off</mat-icon> Données indisponibles
+        </div>
+
       </div>
 
     </main>

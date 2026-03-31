@@ -1,8 +1,12 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
-import { NotificationsManagementService, Notification as ApiNotification } from '../../core/services/notifications-management.service';
+import { NotificationsManagementService, Notification as ApiNotification, NotificationPreferences } from '../../core/services/notifications-management.service';
+import { AuthService } from '../../core/services/auth.service';
+import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
+import { Subscription } from 'rxjs';
 
 // Interface locale pour l'affichage UI
 export interface UiNotification {
@@ -14,43 +18,98 @@ export interface UiNotification {
 @Component({
   selector: 'app-notifications',
   standalone: true,
-  imports: [CommonModule, MatIconModule, SidebarComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, SidebarComponent],
   templateUrl: './notifications.html',
   styleUrl: './notifications.css'
 })
-export class NotificationsComponent implements OnInit {
+export class NotificationsComponent implements OnInit, OnDestroy {
   private notifService = inject(NotificationsManagementService);
+  private authService  = inject(AuthService);
+  private wsService    = inject(WebSocketService);
+  private wsSub?: Subscription;
 
   currentDate = ''; currentTime = '';
   activeTab: 'notifications' | 'settings' = 'notifications';
   isLoading = false;
+  isSavingPrefs = false;
+  prefsSaved = false;
 
   notifications: UiNotification[] = [];
 
+  preferences: NotificationPreferences = {
+    emailEnabled: true, pushEnabled: true, scheduleChanges: true,
+    conflictAlerts: true, reservationUpdates: true,
+    reminderNotifications: true, reminderMinutesBefore: 30
+  };
+
   get newCount(): number { return this.notifications.filter(n => n.isNew).length; }
+
+  private get userId(): number {
+    return this.authService.getUser()?.id ?? 0;
+  }
 
   ngOnInit(): void {
     this.updateDateTime();
     setInterval(() => this.updateDateTime(), 1000);
     this.loadNotifications();
+    this.loadPreferences();
+
+    // Connexion WebSocket — push temps réel
+    this.wsService.connect();
+    this.wsSub = this.wsService.allNotifications$.subscribe((msg: WsMessage) => {
+      const uiNotif: UiNotification = {
+        id: Date.now(),
+        title: msg.title || 'Notification',
+        description: msg.message || '',
+        time: new Date().toLocaleString('fr-FR'),
+        icon: this.iconForType(msg.type),
+        iconBg: this.bgForType(msg.type),
+        borderColor: this.borderForType(msg.type),
+        bgColor: 'white',
+        isNew: true,
+        hasActions: false,
+        type: this.uiTypeFor(msg.type)
+      };
+      this.notifications = [uiNotif, ...this.notifications];
+    });
   }
+
+  ngOnDestroy(): void { this.wsSub?.unsubscribe(); }
 
   loadNotifications(): void {
     this.isLoading = true;
     this.notifService.getNotifications().subscribe({
       next: (data) => {
-        if (data && data.length > 0) {
-          this.notifications = data.map(n => this.mapToUi(n));
-        } else {
-          // fallback données démo si backend vide
-          this.notifications = this.getDemoNotifications();
-        }
+        this.notifications = (data || []).map(n => this.mapToUi(n));
         this.isLoading = false;
       },
-      error: () => {
-        this.notifications = this.getDemoNotifications();
+      error: (err) => {
+        console.error('Erreur chargement notifications:', err?.error?.message || err);
+        this.notifications = [];
         this.isLoading = false;
       }
+    });
+  }
+
+  loadPreferences(): void {
+    if (!this.userId) return;
+    this.notifService.getPreferences(this.userId).subscribe({
+      next: (prefs) => { this.preferences = prefs; },
+      error: () => { /* garder les valeurs par défaut */ }
+    });
+  }
+
+  savePreferences(): void {
+    if (!this.userId) return;
+    this.isSavingPrefs = true;
+    this.notifService.savePreferences(this.userId, this.preferences).subscribe({
+      next: (saved) => {
+        this.preferences = saved;
+        this.isSavingPrefs = false;
+        this.prefsSaved = true;
+        setTimeout(() => this.prefsSaved = false, 3000);
+      },
+      error: () => { this.isSavingPrefs = false; }
     });
   }
 
@@ -82,14 +141,6 @@ export class NotificationsComponent implements OnInit {
     };
   }
 
-  private getDemoNotifications(): UiNotification[] {
-    return [
-      { id: 1, title: "Conflit d'horaire détecté", description: 'Double réservation de la salle B203 pour le 22 octobre à 14:00', time: 'Il y a 10 minutes', icon: 'warning', iconBg: '#FEF3C7', borderColor: '#F59E0B', bgColor: '#FFFBEB', isNew: true, hasActions: true, type: 'warning' },
-      { id: 2, title: 'Nouvelle réservation', description: 'Salle A101 réservée pour un séminaire le 25 octobre', time: 'Il y a 1 heure', icon: 'calendar_month', iconBg: '#DBEAFE', borderColor: '#3B82F6', bgColor: '#EFF6FF', isNew: true, hasActions: false, type: 'info' },
-      { id: 3, title: 'Emploi du temps validé', description: "L'emploi du temps de la semaine prochaine a été approuvé", time: 'Il y a 2 heures', icon: 'check_circle', iconBg: '#D1FAE5', borderColor: '#E5E7EB', bgColor: 'white', isNew: false, hasActions: false, type: 'success' },
-    ];
-  }
-
   updateDateTime(): void {
     const now = new Date();
     this.currentDate = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -117,5 +168,29 @@ export class NotificationsComponent implements OnInit {
       case 'group':   return '#7C3AED';
       default:        return '#6B7280';
     }
+  }
+
+  private iconForType(t: string): string {
+    if (t?.includes('CONFLICT') || t?.includes('warning')) return 'warning';
+    if (t?.includes('approved') || t?.includes('success')) return 'check_circle';
+    if (t?.includes('rejected') || t?.includes('cancelled')) return 'cancel';
+    return 'notifications';
+  }
+  private bgForType(t: string): string {
+    if (t?.includes('CONFLICT') || t?.includes('warning')) return '#FEF3C7';
+    if (t?.includes('approved') || t?.includes('success')) return '#D1FAE5';
+    if (t?.includes('rejected') || t?.includes('cancelled')) return '#FEE2E2';
+    return '#DBEAFE';
+  }
+  private borderForType(t: string): string {
+    if (t?.includes('CONFLICT') || t?.includes('warning')) return '#F59E0B';
+    if (t?.includes('approved') || t?.includes('success')) return '#10B981';
+    if (t?.includes('rejected') || t?.includes('cancelled')) return '#EF4444';
+    return '#3B82F6';
+  }
+  private uiTypeFor(t: string): UiNotification['type'] {
+    if (t?.includes('CONFLICT') || t?.includes('warning')) return 'warning';
+    if (t?.includes('approved') || t?.includes('success')) return 'success';
+    return 'info';
   }
 }

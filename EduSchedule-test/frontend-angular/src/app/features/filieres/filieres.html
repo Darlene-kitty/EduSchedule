@@ -12,7 +12,7 @@
         <button class="header-notif-btn"><mat-icon>notifications</mat-icon></button>
         <div class="header-user">
           <div class="header-avatar">AS</div>
-          <span class="header-username">Admin</span>
+          <!-- <span class="header-username"></span> -->
           <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
         </div>
       </div>
@@ -43,7 +43,7 @@
           <span class="stat-count">{{ filieres.length }}</span>
           <span class="stat-label">Toutes</span>
         </button>
-        <button *ngFor="let e of ecoleStats" class="ecole-stat-btn"
+        <button *ngFor="let e of ecoleStats; let i = index" class="ecole-stat-btn"
           [class.active]="filterEcole === e.sigle"
           [style.--ecole-color]="e.couleur"
           (click)="filterEcole = filterEcole === e.sigle ? '' : e.sigle">
@@ -245,9 +245,9 @@
       </div>
       <div class="form-group">
         <label>École *</label>
-        <select [(ngModel)]="newFiliere.sigleEcole" (ngModelChange)="onEcoleChange(newFiliere)">
-          <option value="">-- Choisir une école --</option>
-          <option *ngFor="let e of ecoles" [value]="e.sigle">{{ e.sigle }} — {{ e.nom }}</option>
+        <select [(ngModel)]="newSchoolId">
+          <option [ngValue]="null">-- Choisir une école --</option>
+          <option *ngFor="let e of ecoles" [ngValue]="e.id">{{ e.sigle || e.code }} — {{ e.nom || e.name }}</option>
         </select>
       </div>
       <div class="form-group">
@@ -270,7 +270,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" (click)="closeAddModal()">Annuler</button>
-      <button class="btn-save" (click)="handleAddFiliere()" [disabled]="!newFiliere.code || !newFiliere.nom || !newFiliere.sigleEcole">
+      <button class="btn-save" (click)="handleAddFiliere()" [disabled]="!newFiliere.code || !newFiliere.nom || !newSchoolId">
         <mat-icon>save</mat-icon> Ajouter
       </button>
     </div>
@@ -301,8 +301,9 @@
       </div>
       <div class="form-group">
         <label>École *</label>
-        <select [(ngModel)]="editFiliereData.sigleEcole" (ngModelChange)="onEcoleChange(editFiliereData)">
-          <option *ngFor="let e of ecoles" [value]="e.sigle">{{ e.sigle }} — {{ e.nom }}</option>
+        <select [(ngModel)]="editSchoolId">
+          <option [ngValue]="null">-- Choisir une école --</option>
+          <option *ngFor="let e of ecoles" [ngValue]="e.id">{{ e.sigle || e.code }} — {{ e.nom || e.name }}</option>
         </select>
       </div>
       <div class="form-group">

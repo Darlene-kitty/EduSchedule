@@ -78,4 +78,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     
     @Query("SELECT COUNT(n) FROM Notification n WHERE n.status = 'FAILED' AND n.createdAt >= :since")
     Long countFailedNotificationsSince(@Param("since") LocalDateTime since);
+
+    List<Notification> findByStatusAndRetryCountLessThan(String status, int maxRetries);
 }

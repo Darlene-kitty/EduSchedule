@@ -55,16 +55,7 @@ export class CoursesComponent implements OnInit {
 
   courses: Course[] = [];
 
-  groups: StudentGroup[] = [
-    { id: 1, name: 'L1-G1', level: 'L1', promotion: 'Licence 1', capacity: 30, enrolled: 28, courses: ['INFO101', 'MATH101', 'PHYS101'], responsible: 'Dr. Martin Dupont' },
-    { id: 2, name: 'L1-G2', level: 'L1', promotion: 'Licence 1', capacity: 30, enrolled: 30, courses: ['INFO101', 'MATH101'], responsible: 'Prof. Jean Moreau' },
-    { id: 3, name: 'L2-G1', level: 'L2', promotion: 'Licence 2', capacity: 28, enrolled: 25, courses: ['CHEM205', 'MATH201', 'PHYS201'], responsible: 'Dr. Claire Dubois' },
-    { id: 4, name: 'L2-G2', level: 'L2', promotion: 'Licence 2', capacity: 28, enrolled: 22, courses: ['CHEM205'], responsible: 'Dr. Claire Dubois' },
-    { id: 5, name: 'L3-G1', level: 'L3', promotion: 'Licence 3', capacity: 30, enrolled: 27, courses: ['MATH301', 'STAT301', 'INFO301'], responsible: 'Dr. Martin Dupont' },
-    { id: 6, name: 'L3-G2', level: 'L3', promotion: 'Licence 3', capacity: 30, enrolled: 26, courses: ['MATH301', 'STAT301'], responsible: 'Dr. Marie Blanc' },
-    { id: 7, name: 'M1-G1', level: 'M1', promotion: 'Master 1',  capacity: 25, enrolled: 20, courses: ['PHYS402', 'MATH402'], responsible: 'Prof. Sophie Bernard' },
-    { id: 8, name: 'M1-G2', level: 'M1', promotion: 'Master 1',  capacity: 25, enrolled: 18, courses: ['MATH402'], responsible: 'Dr. Martin Dupont' },
-  ];
+  groups: StudentGroup[] = [];
 
   newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral' as Course['type'], professor: '', hours: 30, students: 0 };
   newGroup  = { name: '', level: 'L1', promotion: 'Licence 1', capacity: 30, responsible: '' };
@@ -76,18 +67,23 @@ export class CoursesComponent implements OnInit {
   }
 
   private loadCourses(): void {
-    this.coursesManagementService.getCourses().subscribe(managedCourses => {
-      this.courses = managedCourses.map(c => ({
-        id: c.id,
-        name: c.name,
-        code: c.code,
-        level: c.level,
-        type: 'Cours magistral' as Course['type'],
-        professor: c.teacher,
-        hours: c.hours,
-        students: 0,
-        groups: [c.group]
-      }));
+    this.coursesManagementService.getCourses().subscribe({
+      next: (managedCourses) => {
+        this.courses = managedCourses.map(c => ({
+          id: c.id,
+          name: c.name,
+          code: c.code,
+          level: c.level,
+          type: 'Cours magistral' as Course['type'],
+          professor: c.teacher,
+          hours: c.hours,
+          students: 0,
+          groups: [c.group]
+        }));
+      },
+      error: (err) => {
+        console.error('Erreur chargement cours:', err?.error?.message || err);
+      }
     });
   }
 
@@ -143,8 +139,9 @@ export class CoursesComponent implements OnInit {
         group: 'G1',
         hours: this.newCourse.hours,
         semester: 'S1'
-      }).subscribe(() => {
-        this.closeCourseModal();
+      }).subscribe({
+        next: () => { this.closeCourseModal(); this.loadCourses(); },
+        error: (err) => alert(err?.error?.message || 'Erreur lors de la mise à jour')
       });
     } else {
       this.coursesManagementService.addCourse({
@@ -155,8 +152,9 @@ export class CoursesComponent implements OnInit {
         group: 'G1',
         hours: this.newCourse.hours,
         semester: 'S1'
-      }).subscribe(() => {
-        this.closeCourseModal();
+      }).subscribe({
+        next: () => { this.closeCourseModal(); this.loadCourses(); },
+        error: (err) => alert(err?.error?.message || 'Erreur lors de la création')
       });
     }
   }
@@ -191,12 +189,14 @@ export class CoursesComponent implements OnInit {
   closeDeleteModal(): void { this.isDeleteModalOpen = false; this.itemToDelete = null; }
   confirmDelete(): void {
     if (!this.itemToDelete) return;
-    if (this.itemToDelete.type === 'course') {
-      this.coursesManagementService.deleteCourse(this.itemToDelete.id).subscribe(() => {
-        this.closeDeleteModal();
+    const { id, type } = this.itemToDelete;
+    if (type === 'course') {
+      this.coursesManagementService.deleteCourse(id).subscribe({
+        next: () => { this.closeDeleteModal(); this.loadCourses(); },
+        error: (err) => alert(err?.error?.message || 'Erreur lors de la suppression')
       });
     } else {
-      this.groups = this.groups.filter(g => g.id !== this.itemToDelete!.id);
+      this.groups = this.groups.filter(g => g.id !== id);
       this.closeDeleteModal();
     }
   }

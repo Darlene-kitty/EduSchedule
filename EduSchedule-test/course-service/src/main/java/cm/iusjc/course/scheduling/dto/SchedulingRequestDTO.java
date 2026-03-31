@@ -25,4 +25,7 @@ public class SchedulingRequestDTO {
 
     /** Nombre max d'heures de cours par jour pour un même groupe */
     private Integer maxHoursPerDay;
+
+    /** Algorithme à utiliser : "ford-fulkerson" (DFS) ou "edmonds-karp" (BFS, défaut) */
+    private String algorithm;
 }

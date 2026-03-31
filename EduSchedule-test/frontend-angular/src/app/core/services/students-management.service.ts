@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable, throwError, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { ApiService } from './api.service';
 
@@ -30,18 +30,19 @@ export class StudentsManagementService {
   }
 
   addStudent(dto: Partial<import('../../features/students/students').Student>): Observable<import('../../features/students/students').Student> {
-    const payload = { firstName: dto.prenom, lastName: dto.nom, email: dto.email, username: dto.matricule, role: 'STUDENT', enabled: dto.enabled ?? true };
+    const safeUsername = (dto.matricule ?? '').replace(/[^a-zA-Z0-9_-]/g, '_').trim() || `student_${Date.now()}`;
+    const payload = { firstName: dto.prenom, lastName: dto.nom, email: dto.email, username: safeUsername, password: 'Student@2025', role: 'STUDENT', enabled: dto.enabled ?? true };
     return this.api.post<any>(this.base, payload).pipe(
-      map(r => this.toFrontend(r.data ?? r)),
-      catchError(() => of({ id: Date.now(), matricule: dto.matricule ?? '', nom: dto.nom ?? '', prenom: dto.prenom ?? '', email: dto.email ?? '', telephone: dto.telephone ?? '', filiere: dto.filiere ?? '', niveau: dto.niveau ?? '', classe: dto.classe ?? '', dateNaissance: dto.dateNaissance ?? '', enabled: dto.enabled ?? true }))
+      map(r => this.toFrontend(r.data ?? r))
     );
   }
 
   updateStudent(id: number, dto: Partial<import('../../features/students/students').Student>): Observable<import('../../features/students/students').Student> {
-    const payload = { firstName: dto.prenom, lastName: dto.nom, email: dto.email, username: dto.matricule, role: 'STUDENT', enabled: dto.enabled };
+    // Sanitize username: remove spaces and special chars not allowed by backend pattern
+    const safeUsername = (dto.matricule ?? '').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const payload = { firstName: dto.prenom, lastName: dto.nom, email: dto.email, username: safeUsername || undefined, role: 'STUDENT', enabled: dto.enabled };
     return this.api.put<any>(`${this.base}/${id}`, payload).pipe(
-      map(r => this.toFrontend(r.data ?? r)),
-      catchError(() => of({ id, matricule: dto.matricule ?? '', nom: dto.nom ?? '', prenom: dto.prenom ?? '', email: dto.email ?? '', telephone: dto.telephone ?? '', filiere: dto.filiere ?? '', niveau: dto.niveau ?? '', classe: dto.classe ?? '', dateNaissance: dto.dateNaissance ?? '', enabled: dto.enabled ?? true }))
+      map(r => this.toFrontend(r.data ?? r))
     );
   }
 

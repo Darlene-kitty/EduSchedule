@@ -15,8 +15,11 @@ export interface Reservation {
   endDateTime?: string;
   purpose?: string;
   title?: string;
+  description?: string;
   requestedBy?: string;
   userId?: number;
+  type?: string;
+  expectedAttendees?: number;
   status: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
   notes?: string;
   createdAt?: string;
@@ -58,15 +61,26 @@ export class ReservationsManagementService {
     return this.api.delete<void>(`/v1/reservations/${id}`);
   }
 
-  approveReservation(id: number): Observable<void> {
-    return this.api.post<void>(`/v1/reservations/${id}/approve`, {});
+  approveReservation(id: number, approvedBy?: number): Observable<Reservation> {
+    const params = approvedBy ? `?approvedBy=${approvedBy}` : '';
+    return this.api.patch<ApiWrapped<Reservation>>(`/v1/reservations/${id}/approve${params}`, {}).pipe(
+      map(res => res?.data ?? (res as any))
+    );
   }
 
-  rejectReservation(id: number): Observable<void> {
-    return this.api.post<void>(`/v1/reservations/${id}/reject`, {});
+  rejectReservation(id: number, rejectedBy?: number, reason?: string): Observable<Reservation> {
+    let params = rejectedBy ? `?rejectedBy=${rejectedBy}` : '';
+    if (reason) params += (params ? '&' : '?') + `reason=${encodeURIComponent(reason)}`;
+    return this.api.patch<ApiWrapped<Reservation>>(`/v1/reservations/${id}/reject${params}`, {}).pipe(
+      map(res => res?.data ?? (res as any))
+    );
   }
 
-  cancelReservation(id: number): Observable<void> {
-    return this.api.post<void>(`/v1/reservations/${id}/cancel`, {});
+  cancelReservation(id: number, cancelledBy?: number, reason?: string): Observable<Reservation> {
+    let params = cancelledBy ? `?cancelledBy=${cancelledBy}` : '';
+    if (reason) params += (params ? '&' : '?') + `reason=${encodeURIComponent(reason)}`;
+    return this.api.patch<ApiWrapped<Reservation>>(`/v1/reservations/${id}/cancel${params}`, {}).pipe(
+      map(res => res?.data ?? (res as any))
+    );
   }
 }

@@ -5,7 +5,6 @@ import cm.iusjc.scheduling.dto.RoomOptimizationRequest;
 import cm.iusjc.scheduling.dto.RoomCriteria;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -20,7 +19,6 @@ public class RoomOptimizationService {
     
     private final RestTemplate restTemplate;
     
-    @Cacheable(value = "optimalRooms", key = "#request.hashCode()")
     public List<OptimalRoomSuggestion> findOptimalRooms(RoomOptimizationRequest request) {
         log.info("Finding optimal rooms for {} students, type: {}, duration: {} minutes", 
                 request.getExpectedAttendees(), request.getCourseType(), request.getDurationMinutes());

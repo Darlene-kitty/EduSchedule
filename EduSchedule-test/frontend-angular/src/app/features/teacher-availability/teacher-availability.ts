@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { TeacherAvailabilityManagementService, TeacherAvailabilityEntry } from '../../core/services/teacher-availability-management.service';
+import { AuthService } from '../../core/services/auth.service';
 
 export type TimeSlot = import('../../core/services/teacher-availability-management.service').TimeSlot;
 export type TeacherAvailability = TeacherAvailabilityEntry;
@@ -17,10 +18,15 @@ export type TeacherAvailability = TeacherAvailabilityEntry;
 })
 export class TeacherAvailabilityComponent implements OnInit {
   private availabilityService = inject(TeacherAvailabilityManagementService);
+  private authService         = inject(AuthService);
+
+  isTeacher = false;
+  currentTeacherName = '';
 
   currentDate = ''; currentTime = '';
   searchQuery = '';
   selectedDay = 'all';
+  selectedTeacher = 'all';   // filtre admin par enseignant
   viewMode: 'calendar' | 'list' = 'calendar';
   isAddModalOpen = false;
   isLoading = false;
@@ -38,38 +44,17 @@ export class TeacherAvailabilityComponent implements OnInit {
 
   availabilities: TeacherAvailability[] = [];
 
-  // données démo utilisées si le backend ne répond pas
-  private demoData: TeacherAvailability[] = [
-    {
-      id: 1, teacherName: 'Dr. Martin Dupont', effectiveDate: '2025-10-21', status: 'active',
-      maxHoursPerDay: 8, maxHoursPerWeek: 40, notes: 'Disponible toute la semaine',
-      slots: [
-        { day: 'MONDAY',    dayLabel: 'Lundi',    startTime: '08:00', endTime: '12:00' },
-        { day: 'MONDAY',    dayLabel: 'Lundi',    startTime: '14:00', endTime: '18:00' },
-        { day: 'TUESDAY',   dayLabel: 'Mardi',    startTime: '09:00', endTime: '12:00' },
-        { day: 'WEDNESDAY', dayLabel: 'Mercredi', startTime: '08:00', endTime: '16:00' },
-        { day: 'THURSDAY',  dayLabel: 'Jeudi',    startTime: '10:00', endTime: '18:00' },
-        { day: 'FRIDAY',    dayLabel: 'Vendredi', startTime: '08:00', endTime: '12:00' },
-      ]
-    },
-    {
-      id: 2, teacherName: 'Prof. Sophie Bernard', effectiveDate: '2025-10-21', status: 'active',
-      maxHoursPerDay: 6, maxHoursPerWeek: 30, notes: 'Indisponible le mercredi matin',
-      slots: [
-        { day: 'MONDAY',   dayLabel: 'Lundi',    startTime: '10:00', endTime: '16:00' },
-        { day: 'TUESDAY',  dayLabel: 'Mardi',    startTime: '08:00', endTime: '18:00' },
-        { day: 'THURSDAY', dayLabel: 'Jeudi',    startTime: '09:00', endTime: '15:00' },
-        { day: 'FRIDAY',   dayLabel: 'Vendredi', startTime: '10:00', endTime: '16:00' },
-      ]
-    },
-  ];
-
   newSlots: TimeSlot[] = [];
   newForm = { teacherName: '', effectiveDate: '', maxHoursPerDay: 8, maxHoursPerWeek: 40, status: 'active', notes: '' };
 
   ngOnInit(): void {
     this.updateDateTime();
     setInterval(() => this.updateDateTime(), 1000);
+
+    const user = this.authService.getUser();
+    this.isTeacher = this.authService.isTeacher();
+    this.currentTeacherName = user?.name || user?.username || '';
+
     this.loadAvailabilities();
   }
 
@@ -77,11 +62,16 @@ export class TeacherAvailabilityComponent implements OnInit {
     this.isLoading = true;
     this.availabilityService.getAll().subscribe({
       next: (data) => {
-        this.availabilities = data && data.length > 0 ? data : this.demoData;
+        const all = data || [];
+        // Un enseignant ne voit que ses propres disponibilités
+        this.availabilities = this.isTeacher
+          ? all.filter(a => a.teacherName === this.currentTeacherName)
+          : all;
         this.isLoading = false;
       },
-      error: () => {
-        this.availabilities = this.demoData;
+      error: (err) => {
+        console.error('Erreur chargement disponibilités:', err?.error?.message || err);
+        this.availabilities = [];
         this.isLoading = false;
       }
     });
@@ -103,13 +93,18 @@ export class TeacherAvailabilityComponent implements OnInit {
     ];
   }
 
+  get teacherNames(): string[] {
+    return [...new Set(this.availabilities.map(a => a.teacherName))].sort();
+  }
+
   get filteredAvailabilities(): TeacherAvailability[] {
     return this.availabilities.filter(a => {
       const matchSearch = !this.searchQuery ||
         a.teacherName.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
         (a.notes || '').toLowerCase().includes(this.searchQuery.toLowerCase());
       const matchDay = this.selectedDay === 'all' || a.slots.some(s => s.day === this.selectedDay);
-      return matchSearch && matchDay;
+      const matchTeacher = this.isTeacher || this.selectedTeacher === 'all' || a.teacherName === this.selectedTeacher;
+      return matchSearch && matchDay && matchTeacher;
     });
   }
 
@@ -134,7 +129,10 @@ export class TeacherAvailabilityComponent implements OnInit {
   openAdd(): void {
     this.editingAvailability = null;
     this.newSlots = [{ day: 'MONDAY', dayLabel: 'Lundi', startTime: '08:00', endTime: '12:00' }];
-    this.newForm = { teacherName: '', effectiveDate: '', maxHoursPerDay: 8, maxHoursPerWeek: 40, status: 'active', notes: '' };
+    this.newForm = {
+      teacherName: this.isTeacher ? this.currentTeacherName : '',
+      effectiveDate: '', maxHoursPerDay: 8, maxHoursPerWeek: 40, status: 'active', notes: ''
+    };
     this.isAddModalOpen = true;
   }
 
@@ -160,26 +158,19 @@ export class TeacherAvailabilityComponent implements OnInit {
 
   handleSave(): void {
     if (this.editingAvailability) {
-      this.availabilityService.update(this.editingAvailability.id, { ...this.newForm, slots: this.newSlots, status: this.newForm.status as any }).subscribe({
+      const id = this.editingAvailability.id;
+      this.availabilityService.update(id, { ...this.newForm, slots: this.newSlots, status: this.newForm.status as any }).subscribe({
         next: (updated) => {
-          const idx = this.availabilities.findIndex(a => a.id === this.editingAvailability!.id);
+          const idx = this.availabilities.findIndex(a => a.id === id);
           if (idx >= 0) this.availabilities[idx] = updated;
           this.closeModal();
         },
-        error: () => {
-          // fallback local
-          const idx = this.availabilities.findIndex(a => a.id === this.editingAvailability!.id);
-          if (idx >= 0) this.availabilities[idx] = { ...this.editingAvailability!, ...this.newForm, slots: this.newSlots, status: this.newForm.status as any };
-          this.closeModal();
-        }
+        error: (err) => alert(err?.error?.message || 'Erreur lors de la modification')
       });
     } else {
       this.availabilityService.create({ ...this.newForm, slots: this.newSlots, status: this.newForm.status as any }).subscribe({
         next: (created) => { this.availabilities.push(created); this.closeModal(); },
-        error: () => {
-          this.availabilities.push({ id: Date.now(), ...this.newForm, slots: this.newSlots, status: this.newForm.status as any });
-          this.closeModal();
-        }
+        error: (err) => alert(err?.error?.message || 'Erreur lors de la création')
       });
     }
   }
@@ -187,8 +178,8 @@ export class TeacherAvailabilityComponent implements OnInit {
   deleteAvailability(id: number): void {
     if (confirm('Supprimer cette disponibilité ?')) {
       this.availabilityService.delete(id).subscribe({
-        next: () => this.availabilities = this.availabilities.filter(a => a.id !== id),
-        error: () => this.availabilities = this.availabilities.filter(a => a.id !== id)
+        next: () => { this.availabilities = this.availabilities.filter(a => a.id !== id); },
+        error: (err) => alert(err?.error?.message || 'Erreur lors de la suppression')
       });
     }
   }

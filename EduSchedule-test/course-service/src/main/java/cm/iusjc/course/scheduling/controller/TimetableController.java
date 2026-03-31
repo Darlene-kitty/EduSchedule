@@ -2,6 +2,8 @@ package cm.iusjc.course.scheduling.controller;
 
 import cm.iusjc.course.scheduling.dto.SchedulingRequestDTO;
 import cm.iusjc.course.scheduling.dto.SchedulingResultDTO;
+import cm.iusjc.course.scheduling.entity.GeneratedSchedule;
+import cm.iusjc.course.scheduling.service.TimetableAdjustmentService;
 import cm.iusjc.course.scheduling.service.TimetableConfirmationService;
 import cm.iusjc.course.scheduling.service.TimetableGenerationService;
 import jakarta.validation.Valid;
@@ -13,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -23,6 +26,7 @@ public class TimetableController {
 
     private final TimetableGenerationService generationService;
     private final TimetableConfirmationService confirmationService;
+    private final TimetableAdjustmentService adjustmentService;
 
     /**
      * Lance la génération de l'emploi du temps.
@@ -53,16 +57,20 @@ public class TimetableController {
      * Polling : retourne l'état courant du job.
      */
     @GetMapping("/status/{jobId}")
-    public ResponseEntity<Map<String, Object>> getStatus(@PathVariable String jobId) {
+    public ResponseEntity<Map<String, Object>> getStatus(@PathVariable("jobId") String jobId) {
         return generationService.getJob(jobId)
-                .map(result -> ResponseEntity.ok(Map.of(
-                        "success", true,
-                        "data", result
-                )))
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-                        "success", false,
-                        "message", "Job introuvable : " + jobId
-                )));
+                .map(result -> {
+                    Map<String, Object> body = new java.util.HashMap<>();
+                    body.put("success", true);
+                    body.put("data", result);
+                    return ResponseEntity.ok(body);
+                })
+                .orElseGet(() -> {
+                    Map<String, Object> body = new java.util.HashMap<>();
+                    body.put("success", false);
+                    body.put("message", "Job introuvable : " + jobId);
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+                });
     }
 
     /**
@@ -99,10 +107,10 @@ public class TimetableController {
      */
     @PostMapping("/{jobId}/confirm")
     public ResponseEntity<Map<String, Object>> confirm(
-            @PathVariable String jobId,
-            @RequestParam Long schoolId,
-            @RequestParam String userId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart) {
+            @PathVariable("jobId") String jobId,
+            @RequestParam("schoolId") Long schoolId,
+            @RequestParam("userId") String userId,
+            @RequestParam("weekStart") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart) {
         try {
             int saved = confirmationService.confirm(jobId, schoolId, userId, weekStart);
             log.info("Timetable confirmed: jobId={} saved={} slots", jobId, saved);
@@ -115,6 +123,7 @@ public class TimetableController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
                     "success", false, "message", e.getMessage()));
         } catch (IllegalStateException e) {
+            log.warn("Confirm rejected for jobId={}: {}", jobId, e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", e.getMessage()));
         } catch (Exception e) {
@@ -122,5 +131,47 @@ public class TimetableController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                     "success", false, "message", e.getMessage()));
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // AJUSTEMENTS DYNAMIQUES
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Retourne les créneaux en conflit ou relaxés pour un enseignant.
+     * Utilisé par le frontend pour afficher les alertes en temps réel.
+     */
+    @GetMapping("/adjustments/teacher/{teacherId}")
+    public ResponseEntity<Map<String, Object>> getAdjustmentsByTeacher(@PathVariable Long teacherId) {
+        List<GeneratedSchedule> pending = adjustmentService.getPendingAdjustments(teacherId);
+        return ResponseEntity.ok(Map.of("success", true, "data", pending, "total", pending.size()));
+    }
+
+    /**
+     * Retourne tous les créneaux nécessitant une attention (toutes écoles).
+     */
+    @GetMapping("/adjustments")
+    public ResponseEntity<Map<String, Object>> getAllAdjustments() {
+        List<GeneratedSchedule> pending = adjustmentService.getAllPendingAdjustments();
+        return ResponseEntity.ok(Map.of("success", true, "data", pending, "total", pending.size()));
+    }
+
+    /**
+     * Déclenche manuellement la vérification de cohérence planning ↔ réservations.
+     */
+    @PostMapping("/sync-check")
+    public ResponseEntity<Map<String, Object>> syncCheck(
+            @RequestParam Long schoolId,
+            @RequestParam String semester,
+            @RequestParam String level) {
+        List<TimetableAdjustmentService.ConflictInfo> conflicts =
+                adjustmentService.syncWithReservations(schoolId, semester, level);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "conflicts", conflicts,
+                "total", conflicts.size(),
+                "message", conflicts.isEmpty()
+                        ? "Aucun conflit détecté"
+                        : conflicts.size() + " conflit(s) détecté(s)"));
     }
 }

@@ -26,6 +26,7 @@ public class TimetableGenerationService {
 
     private final CourseService courseService;
     private final FordFulkersonScheduler scheduler;
+    private final TeacherAvailabilityClient availabilityClient;
 
     // Stockage en mémoire des jobs avec timestamp (à remplacer par Redis en prod)
     private final Map<String, SchedulingResultDTO> jobStore = new ConcurrentHashMap<>();
@@ -43,11 +44,11 @@ public class TimetableGenerationService {
 
         long start = System.currentTimeMillis();
         try {
-            List<CourseDTO> courses = courseService.getCoursesBySchool(request.getSchoolId())
+            List<CourseDTO> rawCourses = courseService.getCoursesBySchool(request.getSchoolId())
                     .stream()
                     .filter(c -> c.isActive()
                             && request.getLevel().equals(c.getLevel())
-                            && request.getSemester().equals(c.getDepartment()) // à adapter selon ton modèle
+                            && request.getSemester().equals(c.getSemester())
                             && c.getHoursPerWeek() != null && c.getHoursPerWeek() > 0)
                     .toList();
 
@@ -60,12 +61,58 @@ public class TimetableGenerationService {
 
             result.setProgress(30);
 
+            // ── Chargement des disponibilités des enseignants ───────────────
+            // Un appel par teacherId unique ; fallback = tout autorisé si aucune dispo enregistrée
+            Set<Long> teacherIds = new HashSet<>();
+            for (CourseDTO c : rawCourses) {
+                if (c.getTeacherId() != null) teacherIds.add(c.getTeacherId());
+            }
+            Map<Long, Set<String>> teacherAllowedKeys = new HashMap<>();
+            for (Long tid : teacherIds) {
+                teacherAllowedKeys.put(tid, availabilityClient.getAllowedSlotKeys(tid));
+            }
+            log.info("Loaded availability constraints for {} teachers", teacherIds.size());
+
+            // ── Tri par priorité : enseignants les plus contraints en premier ──
+            // Compte le nombre de créneaux autorisés par cours → tri croissant
+            // Un enseignant avec peu de créneaux disponibles est prioritaire
+            List<CourseDTO> courses = new ArrayList<>(rawCourses);
+            courses.sort(Comparator.comparingInt(c -> {
+                Long tid = c.getTeacherId();
+                Set<String> allowed = tid != null
+                        ? teacherAllowedKeys.getOrDefault(tid, Collections.emptySet())
+                        : Collections.emptySet();
+                if (allowed.isEmpty()) return slots.size(); // fallback = tout autorisé = moins prioritaire
+                // Compte combien de slots sont couverts par les dispos de cet enseignant
+                long count = slots.stream().filter(slot -> {
+                    String[] p = slot.split("_");
+                    return p.length >= 3 && availabilityClient.isSlotAllowed(allowed, p[0], p[1], p[2]);
+                }).count();
+                return (int) count;
+            }));
+            log.info("Courses sorted by teacher availability constraint (most constrained first): {}",
+                    courses.stream().map(CourseDTO::getCode).toList());
+
             // ── Construction du graphe ──────────────────────────────────────
-            // Nœuds : 0=source, 1..C=cours, C+1..C+S=créneaux, C+S+1..C+S+R=salles, dernier=sink
-            int C = courses.size();
-            int S = slots.size();
-            int R = roomCount;
-            int totalNodes = 1 + C + S + R + 1;
+            // Structure à 4 niveaux :
+            //   Source → Cours → (Cours×Créneau) → (Créneau×Salle) → Sink
+            //
+            // Le nœud (Cours×Créneau) avec capacité 1 garantit qu'un cours
+            // n'occupe qu'UNE SEULE salle par créneau.
+            // Le nœud (Créneau×Salle) avec capacité 1 garantit qu'une salle
+            // n'accueille qu'UN SEUL cours par créneau.
+            int C  = courses.size();
+            int S  = slots.size();
+            int R  = roomCount;
+            int CS = S * R; // combinaisons (créneau, salle)
+
+            // Index des nœuds :
+            //   0          = source
+            //   1..C       = cours
+            //   C+1..C+C*S = nœuds (cours×créneau)
+            //   C+C*S+1..C+C*S+CS = nœuds (créneau×salle)
+            //   dernier    = sink
+            int totalNodes = 1 + C + C * S + CS + 1;
             int source = 0;
             int sink   = totalNodes - 1;
 
@@ -76,73 +123,111 @@ public class TimetableGenerationService {
                 graph.addEdge(source, 1 + i, courses.get(i).getHoursPerWeek());
             }
 
-            // Cours → Créneaux (capacité = 1 pour chaque combinaison possible)
+            // Cours → (Cours×Créneau) : capacité 1, filtrée par disponibilité enseignant
+            // Garantit qu'un cours n'est assigné qu'une fois par créneau
+            for (int i = 0; i < C; i++) {
+                CourseDTO course = courses.get(i);
+                Long tid = course.getTeacherId();
+                Set<String> allowed = tid != null
+                        ? teacherAllowedKeys.getOrDefault(tid, Collections.emptySet())
+                        : Collections.emptySet(); // vide = tout autorisé
+
+                for (int j = 0; j < S; j++) {
+                    String slot = slots.get(j);
+                    String[] parts = slot.split("_");
+                    boolean slotOk = parts.length < 3
+                            || availabilityClient.isSlotAllowed(allowed, parts[0], parts[1], parts[2]);
+
+                    if (slotOk) {
+                        // nœud (cours i, créneau j) = 1 + C + i*S + j
+                        graph.addEdge(1 + i, 1 + C + i * S + j, 1);
+                    }
+                }
+            }
+
+            // (Cours×Créneau) → (Créneau×Salle) : capacité 1 par salle
+            // Un cours sur un créneau peut aller dans n'importe quelle salle disponible
             for (int i = 0; i < C; i++) {
                 for (int j = 0; j < S; j++) {
-                    graph.addEdge(1 + i, 1 + C + j, 1);
+                    int csNode = 1 + C + i * S + j;
+                    for (int k = 0; k < R; k++) {
+                        // nœud (créneau j, salle k) = 1 + C + C*S + j*R + k
+                        graph.addEdge(csNode, 1 + C + C * S + j * R + k, 1);
+                    }
                 }
             }
 
-            // Créneaux → Salles (capacité = 1 : une salle par créneau)
-            for (int j = 0; j < S; j++) {
-                for (int k = 0; k < R; k++) {
-                    graph.addEdge(1 + C + j, 1 + C + S + k, 1);
-                }
-            }
-
-            // Salles → Sink (capacité = nombre de créneaux max par salle)
-            for (int k = 0; k < R; k++) {
-                graph.addEdge(1 + C + S + k, sink, S);
+            // (Créneau×Salle) → Sink : capacité 1 — une salle ne peut accueillir qu'un cours par créneau
+            for (int cs = 0; cs < CS; cs++) {
+                graph.addEdge(1 + C + C * S + cs, sink, 1);
             }
 
             result.setProgress(50);
 
-            // ── Exécution Ford-Fulkerson ────────────────────────────────────
-            int flowValue = scheduler.maxFlow(graph, source, sink);
+            // ── Exécution de l'algorithme choisi ───────────────────────────
+            boolean useDfs = "ford-fulkerson".equalsIgnoreCase(request.getAlgorithm());
+            int flowValue = useDfs
+                    ? scheduler.maxFlowDfs(graph, source, sink)
+                    : scheduler.maxFlow(graph, source, sink);
 
             result.setProgress(80);
 
-            // ── Lecture du résultat : arêtes saturées cours→créneau ─────────
+            // ── Lecture du résultat ─────────────────────────────────────────
+            // On cherche les arêtes saturées : (Cours×Créneau) → (Créneau×Salle) avec flow > 0
             List<ScheduleSlotDTO> assignedSlots = new ArrayList<>();
             List<String> unassigned = new ArrayList<>();
             int totalDemand = courses.stream().mapToInt(c -> c.getHoursPerWeek() != null ? c.getHoursPerWeek() : 0).sum();
+
+            // Plage des nœuds (cours×créneau) : [1+C .. 1+C+C*S-1]
+            int csCourseStart = 1 + C;
+            int csCourseEnd   = 1 + C + C * S - 1;
+            // Plage des nœuds (créneau×salle) : [1+C+C*S .. 1+C+C*S+CS-1]
+            int csRoomStart   = 1 + C + C * S;
 
             for (int i = 0; i < C; i++) {
                 CourseDTO course = courses.get(i);
                 int assignedCount = 0;
 
-                List<FlowEdge> courseEdges = graph.getEdges(1 + i);
+                // Arêtes (Cours×Créneau) pour ce cours : nœuds [1+C+i*S .. 1+C+i*S+S-1]
                 for (int j = 0; j < S; j++) {
-                    FlowEdge edge = courseEdges.get(j); // arête cours→créneau
-                    if (edge.getFlow() > 0) {
-                        String slot = slots.get(j);
-                        String[] parts = slot.split("_");
-                        ScheduleSlotDTO dto = new ScheduleSlotDTO();
-                        dto.setCourseId(course.getId());
-                        dto.setCourseCode(course.getCode());
-                        dto.setCourseName(course.getName());
-                        dto.setTeacherId(course.getTeacherId());
-                        dto.setLevel(course.getLevel());
-                        dto.setSemester(request.getSemester());
-                        if (parts.length >= 3) {
-                            dto.setDayOfWeek(parts[0]);
-                            dto.setStartTime(parts[1]);
-                            dto.setEndTime(parts[2]);
-                        }
-                        // Salle : on cherche l'arête créneau→salle saturée
-                        List<FlowEdge> slotEdges = graph.getEdges(1 + C + j);
-                        for (int k = 0; k < R; k++) {
-                            if (slotEdges.get(k).getFlow() > 0) {
-                                Long roomId = (request.getRoomIds() != null && k < request.getRoomIds().size())
-                                        ? request.getRoomIds().get(k)
-                                        : (long)(k + 1);
-                                dto.setRoomId(roomId);
-                                dto.setRoomName("Salle " + roomId);
-                                break;
+                    int ccNode = 1 + C + i * S + j;
+                    // Arêtes de ce nœud vers (Créneau×Salle)
+                    List<FlowEdge> ccEdges = graph.getEdges(ccNode).stream()
+                            .filter(e -> e.getCapacity() > 0
+                                    && e.getTo() >= csRoomStart
+                                    && e.getTo() < csRoomStart + CS)
+                            .toList();
+
+                    for (FlowEdge edge : ccEdges) {
+                        if (edge.getFlow() > 0) {
+                            int csIdx   = edge.getTo() - csRoomStart; // [0..CS-1]
+                            int slotIdx = csIdx / R;
+                            int roomIdx = csIdx % R;
+
+                            String slot = slots.get(slotIdx);
+                            String[] parts = slot.split("_");
+
+                            ScheduleSlotDTO dto = new ScheduleSlotDTO();
+                            dto.setCourseId(course.getId());
+                            dto.setCourseCode(course.getCode());
+                            dto.setCourseName(course.getName());
+                            dto.setTeacherId(course.getTeacherId());
+                            dto.setLevel(course.getLevel());
+                            dto.setSemester(request.getSemester());
+                            if (parts.length >= 3) {
+                                dto.setDayOfWeek(parts[0]);
+                                dto.setStartTime(parts[1]);
+                                dto.setEndTime(parts[2]);
                             }
+                            Long roomId = (request.getRoomIds() != null && roomIdx < request.getRoomIds().size())
+                                    ? request.getRoomIds().get(roomIdx)
+                                    : (long)(roomIdx + 1);
+                            dto.setRoomId(roomId);
+                            dto.setRoomName("Salle " + roomId);
+
+                            assignedSlots.add(dto);
+                            assignedCount++;
                         }
-                        assignedSlots.add(dto);
-                        assignedCount++;
                     }
                 }
 

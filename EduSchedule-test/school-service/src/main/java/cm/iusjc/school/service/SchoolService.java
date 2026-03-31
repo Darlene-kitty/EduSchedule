@@ -30,9 +30,26 @@ public class SchoolService {
     @Transactional
     @CacheEvict(value = "schools", allEntries = true)
     public SchoolDTO createSchool(SchoolDTO schoolDTO) {
+        // Résoudre les alias frontend (nom→name, sigle→code, telephone→phone, enabled→active)
+        if (schoolDTO.getName() == null && schoolDTO.getSigle() != null) {
+            schoolDTO.setName(schoolDTO.getSigle());
+        }
+        // Si "nom" n'est pas mappé directement (champ ignoré), on utilise sigle comme fallback
+        if (schoolDTO.getName() == null || schoolDTO.getName().isBlank()) {
+            throw new RuntimeException("School name is required");
+        }
+        if (schoolDTO.getCode() == null && schoolDTO.getSigle() != null) {
+            schoolDTO.setCode(schoolDTO.getSigle());
+        }
+        if (schoolDTO.getPhone() == null && schoolDTO.getTelephone() != null) {
+            schoolDTO.setPhone(schoolDTO.getTelephone());
+        }
+        if (schoolDTO.getEnabled() != null) {
+            schoolDTO.setActive(schoolDTO.getEnabled());
+        }
+
         log.info("Creating new school: {}", schoolDTO.getName());
         
-        // Vérifier si l'école existe déjà
         if (schoolRepository.existsByName(schoolDTO.getName())) {
             throw new RuntimeException("School with name '" + schoolDTO.getName() + "' already exists");
         }
@@ -147,25 +164,38 @@ public class SchoolService {
     public SchoolDTO updateSchool(Long id, SchoolDTO schoolDTO) {
         log.info("Updating school with ID: {}", id);
         
+        // Résoudre les alias frontend
+        if (schoolDTO.getName() == null && schoolDTO.getSigle() != null) {
+            schoolDTO.setName(schoolDTO.getSigle());
+        }
+        if (schoolDTO.getCode() == null && schoolDTO.getSigle() != null) {
+            schoolDTO.setCode(schoolDTO.getSigle());
+        }
+        if (schoolDTO.getPhone() == null && schoolDTO.getTelephone() != null) {
+            schoolDTO.setPhone(schoolDTO.getTelephone());
+        }
+        if (schoolDTO.getEnabled() != null) {
+            schoolDTO.setActive(schoolDTO.getEnabled());
+        }
+
         School school = schoolRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("School not found with ID: " + id));
         
-        // Vérifier si le nouveau nom existe déjà (sauf pour cette école)
-        if (!school.getName().equals(schoolDTO.getName()) && 
+        if (schoolDTO.getName() != null && !school.getName().equals(schoolDTO.getName()) && 
             schoolRepository.existsByName(schoolDTO.getName())) {
             throw new RuntimeException("School with name '" + schoolDTO.getName() + "' already exists");
         }
         
-        school.setName(schoolDTO.getName());
-        school.setCode(schoolDTO.getCode());
-        school.setAddress(schoolDTO.getAddress());
-        school.setCity(schoolDTO.getCity());
-        school.setPostalCode(schoolDTO.getPostalCode());
-        school.setCountry(schoolDTO.getCountry());
-        school.setPhone(schoolDTO.getPhone());
-        school.setEmail(schoolDTO.getEmail());
-        school.setWebsite(schoolDTO.getWebsite());
-        school.setDescription(schoolDTO.getDescription());
+        if (schoolDTO.getName() != null) school.setName(schoolDTO.getName());
+        if (schoolDTO.getCode() != null) school.setCode(schoolDTO.getCode());
+        if (schoolDTO.getAddress() != null) school.setAddress(schoolDTO.getAddress());
+        if (schoolDTO.getCity() != null) school.setCity(schoolDTO.getCity());
+        if (schoolDTO.getPostalCode() != null) school.setPostalCode(schoolDTO.getPostalCode());
+        if (schoolDTO.getCountry() != null) school.setCountry(schoolDTO.getCountry());
+        if (schoolDTO.getPhone() != null) school.setPhone(schoolDTO.getPhone());
+        if (schoolDTO.getEmail() != null) school.setEmail(schoolDTO.getEmail());
+        if (schoolDTO.getWebsite() != null) school.setWebsite(schoolDTO.getWebsite());
+        if (schoolDTO.getDescription() != null) school.setDescription(schoolDTO.getDescription());
         school.setActive(schoolDTO.isActive());
         school.setUpdatedAt(LocalDateTime.now());
         
@@ -331,6 +361,10 @@ public class SchoolService {
         dto.setActive(school.isActive());
         dto.setCreatedAt(school.getCreatedAt());
         dto.setUpdatedAt(school.getUpdatedAt());
+        // Alias pour le frontend Angular
+        dto.setSigle(school.getCode() != null ? school.getCode() : school.getName());
+        dto.setTelephone(school.getPhone());
+        dto.setEnabled(school.isActive());
         return dto;
     }
 }

@@ -4,6 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { StudentsManagementService } from '../../core/services/students-management.service';
+import { FilieresManagementService } from '../../core/services/filieres-management.service';
+import { NiveauxManagementService } from '../../core/services/niveaux-management.service';
+import { GroupesManagementService } from '../../core/services/groupes-management.service';
 
 export interface Student {
   id: number;
@@ -39,6 +42,9 @@ export interface ImportResult {
 })
 export class StudentsComponent implements OnInit {
   private studentsService = inject(StudentsManagementService);
+  private filieresService = inject(FilieresManagementService);
+  private niveauxService  = inject(NiveauxManagementService);
+  private groupesService  = inject(GroupesManagementService);
 
   searchQuery = '';
   isAddModalOpen    = false;
@@ -65,9 +71,9 @@ export class StudentsComponent implements OnInit {
 
   expectedColumns = ['Matricule', 'Nom', 'Prénom', 'Email', 'Téléphone', 'Filière', 'Niveau', 'Classe', 'Date naissance', 'Actif (oui/non)'];
 
-  filieres = ['Informatique', 'Mathématiques', 'Physique', 'Chimie', 'Biologie', 'Économie', 'Droit', 'Lettres'];
-  niveaux  = ['L1', 'L2', 'L3', 'M1', 'M2', 'D1', 'D2', 'D3'];
-  classes  = ['Groupe A', 'Groupe B', 'Groupe C', 'Groupe D'];
+  filieres: string[] = [];
+  niveaux:  string[] = [];
+  classes:  string[] = [];
 
   students: Student[] = [];
 
@@ -79,21 +85,26 @@ export class StudentsComponent implements OnInit {
     this.updateDateTime();
     setInterval(() => this.updateDateTime(), 1000);
     this.loadStudents();
+    this.loadFormOptions();
+  }
+
+  private loadFormOptions(): void {
+    this.filieresService.getAll().subscribe(data => {
+      this.filieres = (data ?? []).map(f => f.name);
+    });
+    this.niveauxService.getAll().subscribe(data => {
+      this.niveaux = (data ?? []).map(n => n.name);
+    });
+    this.groupesService.getAll().subscribe(data => {
+      this.classes = (data ?? []).map(g => g.name);
+    });
   }
 
   private loadStudents(): void {
     this.isLoading = true;
     this.studentsService.getStudents().subscribe({
-      next: (data) => { this.students = data; this.isLoading = false; },
-      error: () => {
-        // fallback données démo si backend indisponible
-        this.students = [
-          { id: 1, matricule: 'ETU-2024-001', nom: 'Dupont', prenom: 'Alice', email: 'alice.dupont@univ.fr', telephone: '06 12 34 56 78', filiere: 'Informatique', niveau: 'L3', classe: 'Groupe A', dateNaissance: '2002-05-14', enabled: true },
-          { id: 2, matricule: 'ETU-2024-002', nom: 'Martin', prenom: 'Baptiste', email: 'b.martin@univ.fr', telephone: '06 98 76 54 32', filiere: 'Mathématiques', niveau: 'M1', classe: 'Groupe B', dateNaissance: '2001-11-22', enabled: true },
-          { id: 3, matricule: 'ETU-2024-003', nom: 'Leroy', prenom: 'Camille', email: 'c.leroy@univ.fr', telephone: '07 11 22 33 44', filiere: 'Physique', niveau: 'L2', classe: 'Groupe A', dateNaissance: '2003-03-08', enabled: false },
-        ];
-        this.isLoading = false;
-      }
+      next: (data) => { this.students = data ?? []; this.isLoading = false; },
+      error: () => { this.students = []; this.isLoading = false; }
     });
   }
 
@@ -136,11 +147,9 @@ export class StudentsComponent implements OnInit {
   handleAddStudent(): void {
     this.studentsService.addStudent(this.newStudent).subscribe({
       next: (created) => { this.students = [...this.students, created]; this.closeAddModal(); },
-      error: () => {
-        // fallback local si API indisponible
-        const id = this.students.length ? Math.max(...this.students.map(s => s.id)) + 1 : 1;
-        this.students = [...this.students, { id, ...this.newStudent }];
-        this.closeAddModal();
+      error: (err) => {
+        console.error('Erreur création étudiant:', err);
+        alert('Erreur lors de la création de l\'étudiant. Vérifiez les données saisies.');
       }
     });
   }
@@ -156,9 +165,9 @@ export class StudentsComponent implements OnInit {
         this.students = this.students.map(s => s.id === id ? updated : s);
         this.closeEditModal();
       },
-      error: () => {
-        this.students = this.students.map(s => s.id === id ? { ...s, ...this.editStudentData } : s);
-        this.closeEditModal();
+      error: (err) => {
+        console.error('Erreur modification étudiant:', err);
+        alert('Erreur lors de la modification de l\'étudiant.');
       }
     });
   }
@@ -171,7 +180,7 @@ export class StudentsComponent implements OnInit {
     const id = this.studentToDelete.id;
     this.studentsService.deleteStudent(id).subscribe({
       next: () => { this.students = this.students.filter(s => s.id !== id); this.closeDeleteModal(); },
-      error: () => { this.students = this.students.filter(s => s.id !== id); this.closeDeleteModal(); }
+      error: (err: any) => { this.closeDeleteModal(); console.error('Erreur suppression étudiant:', err); }
     });
   }
 

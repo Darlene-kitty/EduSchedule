@@ -20,12 +20,11 @@
 
         <button class="header-notif-btn">
           <mat-icon>notifications</mat-icon>
-          <span class="notif-dot">2</span>
         </button>
 
         <div class="header-user">
-          <div class="header-avatar">AS</div>
-          <span class="header-username">Admin</span>
+          <div class="header-avatar">{{ getUserInitials() }}</div>
+          <span class="header-username">{{ getUserName() }}</span>
           <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
         </div>
       </div>

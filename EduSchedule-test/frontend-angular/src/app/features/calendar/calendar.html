@@ -1,6 +1,7 @@
 <div class="page-layout">
   <app-sidebar activePage="calendar"></app-sidebar>
   <div class="main-wrapper">
+
     <header class="page-header">
       <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
       <div class="header-right">
@@ -8,79 +9,62 @@
           <span class="header-date">{{ currentDate }}</span>
           <span class="header-time">{{ currentTime }}</span>
         </div>
-        <button class="header-notif-btn"><mat-icon>notifications</mat-icon><span class="notif-dot">2</span></button>
-        <div class="header-user">
-          <div class="header-avatar">AS</div>
-          <span class="header-username">Admin</span>
-          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
-        </div>
       </div>
     </header>
 
-    <!-- Toast sync -->
     <div class="toast-sync" [class.visible]="showSyncToast">
-      <mat-icon [class.spinning]="isSyncing">sync</mat-icon>
-      <span>{{ isSyncing ? 'Synchronisation en cours...' : 'Calendrier synchronisé avec succès !' }}</span>
-    </div>
-
-
-    <!-- Toast sync -->
-    <div class="toast-success" [class.visible]="showSyncToast">
-      <mat-icon>sync</mat-icon>
-      <span>{{ syncMessage }}</span>
+      <mat-icon>sync</mat-icon><span>{{ syncMessage }}</span>
     </div>
 
     <main class="page-content">
       <div class="page-title-row">
         <div>
           <h1 class="page-title">Calendrier intégré</h1>
-          <p class="page-sub">Vue hebdomadaire et mensuelle des emplois du temps</p>
+          <p class="page-sub">{{ periodLabel }}</p>
         </div>
         <div class="title-actions">
-          <select class="select-ctrl" [(ngModel)]="selectedView">
-            <option>Semaine</option><option>Mois</option>
+          <!-- Sélecteur de vue -->
+          <div class="view-switcher">
+            <button [class.active]="selectedView==='Jour'"    (click)="setView('Jour')">Jour</button>
+            <button [class.active]="selectedView==='Semaine'" (click)="setView('Semaine')">Semaine</button>
+            <button [class.active]="selectedView==='Mois'"    (click)="setView('Mois')">Mois</button>
+          </div>
+          <select class="select-ctrl" [(ngModel)]="selectedTeacher" *ngIf="!isTeacher">
+            <option *ngFor="let t of teachers">{{ t }}</option>
           </select>
-          <select class="select-ctrl" [(ngModel)]="selectedTeacher">
-            <option>Tous les enseignants</option>
-            <option>Dr. Dupont</option><option>Dr. Martin</option><option>Prof. Bernard</option>
-          </select>
-          <button class="btn-filter"><mat-icon>filter_list</mat-icon> Filtres</button>
-          <button class="btn-sync" (click)="synchronize()"><mat-icon>sync</mat-icon> Synchroniser</button>
+          <button class="btn-sync" (click)="synchronize()" [disabled]="isSyncing">
+            <mat-icon [class.spinning]="isSyncing">sync</mat-icon>
+            {{ isSyncing ? 'Sync...' : 'Synchroniser' }}
+          </button>
         </div>
       </div>
 
-      <!-- Calendar Card -->
       <div class="calendar-card">
-        <!-- Week Header -->
+        <!-- Navigation -->
         <div class="week-nav">
-          <div>
-            <h3 class="week-label">{{ getWeekLabel() }}</h3>
-            <p class="week-sub">Emploi du temps hebdomadaire</p>
-          </div>
           <div class="nav-btns">
-            <button class="nav-btn" (click)="prevWeek()"><mat-icon>chevron_left</mat-icon></button>
+            <button class="nav-btn" (click)="prev()"><mat-icon>chevron_left</mat-icon></button>
             <button class="today-btn" (click)="goToday()">Aujourd'hui</button>
-            <button class="nav-btn" (click)="nextWeek()"><mat-icon>chevron_right</mat-icon></button>
+            <button class="nav-btn" (click)="next()"><mat-icon>chevron_right</mat-icon></button>
+          </div>
+          <div class="loading-indicator" *ngIf="isLoading">
+            <mat-icon class="spinning">refresh</mat-icon> Chargement...
           </div>
         </div>
 
-        <!-- Grid -->
-        <div class="cal-grid">
-          <!-- Time column + Day headers -->
+        <!-- ══ VUE SEMAINE ══ -->
+        <div class="cal-grid" *ngIf="selectedView==='Semaine'">
           <div class="time-col"></div>
-          <div *ngFor="let day of days" class="day-header">
+          <div *ngFor="let day of days" class="day-header" [class.today]="day.isToday">
             <span class="day-name">{{ day.label }}</span>
             <span class="day-date">{{ day.date }}</span>
           </div>
-
-          <!-- Hours rows -->
           <ng-container *ngFor="let hour of hours">
-            <div class="time-cell">{{ hour }}:00</div>
+            <div class="time-cell" [class.current-hour]="isCurrentHour(hour)">{{ hour }}:00</div>
             <div *ngFor="let day of days; let di = index" class="day-cell">
-              <div
-                *ngFor="let event of getEventsForDayAndHour(di, hour)"
-                class="event-block"
-                [style.background]="event.color">
+              <div *ngFor="let event of getEventsForDayAndHour(di, hour)"
+                   class="event-block" [style.background]="event.color"
+                   [style.height.px]="getEventHeight(event)">
                 <p class="event-subject">{{ event.subject }}</p>
                 <p class="event-room">{{ event.room }}</p>
                 <p class="event-prof">{{ event.professor }}</p>
@@ -88,6 +72,61 @@
               </div>
             </div>
           </ng-container>
+        </div>
+
+        <!-- ══ VUE JOUR ══ -->
+        <div class="cal-grid day-view" *ngIf="selectedView==='Jour'">
+          <div class="time-col"></div>
+          <div class="day-header today">
+            <span class="day-name">{{ currentDayDate | date:'EEEE':'':'fr' }}</span>
+            <span class="day-date">{{ currentDayDate | date:'d MMM':'':'fr' }}</span>
+          </div>
+          <ng-container *ngFor="let hour of hours">
+            <div class="time-cell" [class.current-hour]="isCurrentHour(hour)">{{ hour }}:00</div>
+            <div class="day-cell">
+              <div *ngFor="let event of getEventsForHour(hour)"
+                   class="event-block" [style.background]="event.color"
+                   [style.height.px]="getEventHeight(event)">
+                <p class="event-subject">{{ event.subject }}</p>
+                <p class="event-room">{{ event.room }}</p>
+                <p class="event-prof">{{ event.professor }}</p>
+                <span class="event-type">{{ event.type }}</span>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+
+        <!-- ══ VUE MOIS ══ -->
+        <div class="month-view" *ngIf="selectedView==='Mois'">
+          <div class="month-header">
+            <div *ngFor="let d of ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim']" class="month-day-label">{{ d }}</div>
+          </div>
+          <div *ngFor="let week of monthWeeks" class="month-week">
+            <div *ngFor="let cell of week" class="month-cell"
+                 [class.other-month]="!cell.isCurrentMonth"
+                 [class.today]="cell.isToday">
+              <span class="month-day-num">{{ cell.date | date:'d' }}</span>
+              <div class="month-events">
+                <div *ngFor="let ev of getEventsForDate(cell.date).slice(0,3)"
+                     class="month-event-dot" [style.background]="ev.color"
+                     [title]="ev.subject + ' — ' + ev.professor">
+                  {{ ev.subject | slice:0:18 }}
+                </div>
+                <div *ngIf="getEventsForDate(cell.date).length > 3" class="month-more">
+                  +{{ getEventsForDate(cell.date).length - 3 }} autres
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Légende -->
+      <div class="legend">
+        <div class="legend-item" *ngFor="let entry of [['CM','#1D4ED8'],['TD','#15803D'],['TP','#7C3AED'],['Séminaire','#EA580C']]">
+          <span class="legend-dot" [style.background]="entry[1]"></span>
+          <span>{{ entry[0] }}</span>
         </div>
       </div>
 

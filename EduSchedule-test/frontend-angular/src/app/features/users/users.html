@@ -17,10 +17,14 @@
       </div>
     </header>
 
-    <!-- Toast -->
+    <!-- Toasts -->
     <div class="toast-success" [class.visible]="showImportSuccess">
       <mat-icon>check_circle</mat-icon>
       <span>{{ importSuccessCount }} utilisateur(s) importé(s) avec succès !</span>
+    </div>
+    <div class="toast-success" [class.visible]="showSuccess">
+      <mat-icon>check_circle</mat-icon>
+      <span>{{ successMessage }}</span>
     </div>
 
     <main class="page-content">
@@ -51,7 +55,7 @@
         <div class="table-wrapper">
           <table class="users-table">
             <thead>
-              <tr><th>Nom</th><th>Rôle</th><th>Département</th><th>Contact</th><th>Statut</th><th>Actions</th></tr>
+              <tr><th>Nom</th><th>Rôle</th><th>École</th><th>Contact</th><th>Statut</th><th>Actions</th></tr>
             </thead>
             <tbody>
               <tr *ngFor="let user of filteredUsers" class="table-row">
@@ -60,13 +64,19 @@
                   <div class="user-email"><mat-icon class="email-icon">mail</mat-icon>{{ user.email }}</div>
                 </td>
                 <td><span class="role-badge" [ngClass]="getRoleClass(user.role)">{{ user.role }}</span></td>
-                <td>{{ user.department }}</td>
-                <td class="contact-cell"><mat-icon class="phone-icon">phone</mat-icon>{{ user.phone }}</td>
+                <td>
+                  <span *ngIf="user.primarySchoolName" class="school-tag">
+                    <mat-icon>account_balance</mat-icon>{{ user.primarySchoolName }}
+                  </span>
+                  <span *ngIf="!user.primarySchoolName" class="no-school">—</span>
+                </td>
+                <td class="contact-cell"><mat-icon class="phone-icon">phone</mat-icon>{{ user.phone || '—' }}</td>
                 <td><span class="status-badge" [class.active]="user.enabled" [class.inactive]="!user.enabled">{{ user.enabled ? 'Actif' : 'Inactif' }}</span></td>
                 <td>
                   <div class="actions-cell">
-                    <button class="action-btn view-btn" (click)="openViewModal(user)" title="Voir"><mat-icon>visibility</mat-icon></button>
+                    <button class="action-btn view-btn" (click)="openViewModal(user)" title="Vue d'ensemble"><mat-icon>visibility</mat-icon></button>
                     <button class="action-btn edit-btn" (click)="openEditModal(user)" title="Modifier"><mat-icon>edit</mat-icon></button>
+                    <button class="action-btn switch-btn" (click)="openSwitchSchoolModal(user)" title="Changer d'école"><mat-icon>swap_horiz</mat-icon></button>
                     <button class="action-btn delete-btn" (click)="openDeleteModal(user)" title="Supprimer"><mat-icon>delete</mat-icon></button>
                   </div>
                 </td>
@@ -82,143 +92,102 @@
   </div>
 </div>
 
-<!-- ═══════════════════ MODAL IMPORT EXCEL ═══════════════════ -->
-<div *ngIf="isImportModalOpen" class="modal-overlay" (click)="closeImportModal()">
-  <div class="modal modal-import" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <div class="modal-header-left">
-        <div class="import-modal-icon"><mat-icon>upload_file</mat-icon></div>
-        <div>
-          <h2>Importer des utilisateurs</h2>
-          <p>Fichier CSV ou Excel (.xlsx)</p>
+<!-- ═══════════════════ MODAL AJOUT ═══════════════════ -->
+<div *ngIf="isAddModalOpen" class="modal-overlay" (click)="closeAddModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header"><h2>Nouvel utilisateur</h2><button class="modal-close" (click)="closeAddModal()"><mat-icon>close</mat-icon></button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Prénom *</label><input type="text" [(ngModel)]="newUser.firstName" placeholder="Prénom" /></div>
+        <div class="form-group"><label>Nom *</label><input type="text" [(ngModel)]="newUser.lastName" placeholder="Nom de famille" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Nom d'utilisateur</label><input type="text" [(ngModel)]="newUser.username" placeholder="Généré automatiquement" /></div>
+        <div class="form-group"><label>Email *</label><input type="email" [(ngModel)]="newUser.email" placeholder="email@iusj.cm" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Mot de passe *</label><input type="password" [(ngModel)]="newUser.password" placeholder="Min. 6 caractères" /></div>
+        <div class="form-group"><label>Rôle *</label>
+          <select [(ngModel)]="newUser.role">
+            <option>Enseignant</option><option>Administrateur</option><option>Étudiant</option>
+          </select>
         </div>
       </div>
-      <button class="modal-close" (click)="closeImportModal()"><mat-icon>close</mat-icon></button>
-    </div>
-
-    <!-- ÉTAPE 1 : Upload -->
-    <div *ngIf="importStep === 1" class="modal-body">
-      <div class="template-banner">
-        <mat-icon>download</mat-icon>
-        <div>
-          <p class="template-title">Télécharger le modèle</p>
-          <p class="template-sub">Utilisez notre modèle pour formater correctement vos données</p>
-        </div>
-        <button class="btn-template" (click)="downloadTemplate()">
-          <mat-icon>file_download</mat-icon> Modèle CSV
-        </button>
+      <div class="form-row">
+        <div class="form-group"><label>Département</label><input type="text" [(ngModel)]="newUser.department" /></div>
+        <div class="form-group"><label>Téléphone</label><input type="tel" [(ngModel)]="newUser.phone" /></div>
       </div>
-
-      <div class="drop-zone"
-        [class.dragging]="isDragging"
-        [class.has-file]="importFile"
-        (dragover)="onImportDragOver($event)"
-        (dragleave)="onImportDragLeave()"
-        (drop)="onImportDrop($event)"
-        (click)="fileInput.click()">
-        <input #fileInput type="file" accept=".csv,.xlsx,.xls" style="display:none" (change)="onImportFileSelected($event)" />
-
-        <div *ngIf="!importFile" class="drop-content">
-          <div class="drop-icon-circle"><mat-icon>cloud_upload</mat-icon></div>
-          <p class="drop-title">Glissez votre fichier ici</p>
-          <p class="drop-sub">ou <span class="drop-link">cliquez pour sélectionner</span></p>
-          <p class="drop-formats">CSV, XLS, XLSX • Max 10 Mo</p>
-        </div>
-
-        <div *ngIf="importFile" class="file-selected">
-          <mat-icon class="file-icon">description</mat-icon>
-          <div class="file-info">
-            <p class="file-name">{{ importFile.name }}</p>
-            <p class="file-size">{{ formatSize(importFile.size) }}</p>
-          </div>
-          <button class="file-remove" (click)="removeImportFile($event)"><mat-icon>close</mat-icon></button>
-        </div>
-      </div>
-
-      <div class="format-info">
-        <p class="format-title">Colonnes attendues :</p>
-        <div class="columns-list">
-          <span *ngFor="let col of expectedColumns" class="column-tag">{{ col }}</span>
-        </div>
-      </div>
-
-      <div *ngIf="importParseError" class="error-banner">
-        <mat-icon>error</mat-icon><span>{{ importParseError }}</span>
+      <div class="form-group">
+        <label>École principale</label>
+        <select [(ngModel)]="newUser.schoolId">
+          <option [ngValue]="null">— Aucune école —</option>
+          <option *ngFor="let s of availableSchools" [ngValue]="s.id">{{ s.nom || s.name }} ({{ s.sigle || s.code }})</option>
+        </select>
       </div>
     </div>
-
-    <!-- ÉTAPE 2 : Aperçu -->
-    <div *ngIf="importStep === 2 && importResult" class="modal-body preview-body">
-      <div class="summary-badges">
-        <div class="summary-badge total"><mat-icon>table_rows</mat-icon><div><p class="badge-num">{{ importResult.total }}</p><p class="badge-lbl">Total</p></div></div>
-        <div class="summary-badge valid"><mat-icon>check_circle</mat-icon><div><p class="badge-num">{{ importResult.valid }}</p><p class="badge-lbl">Valides</p></div></div>
-        <div class="summary-badge invalid" *ngIf="importResult.invalid > 0"><mat-icon>error</mat-icon><div><p class="badge-num">{{ importResult.invalid }}</p><p class="badge-lbl">Erreurs</p></div></div>
-      </div>
-
-      <div class="preview-tabs">
-        <button class="ptab" [class.active]="importPreviewFilter === 'all'"     (click)="importPreviewFilter = 'all'">Tous ({{ importResult.total }})</button>
-        <button class="ptab" [class.active]="importPreviewFilter === 'valid'"   (click)="importPreviewFilter = 'valid'">✓ Valides ({{ importResult.valid }})</button>
-        <button class="ptab" [class.active]="importPreviewFilter === 'invalid'" (click)="importPreviewFilter = 'invalid'" *ngIf="importResult.invalid > 0">⚠ Erreurs ({{ importResult.invalid }})</button>
-      </div>
-
-      <div class="preview-table-wrapper">
-        <table class="preview-table">
-          <thead><tr><th>#</th><th>Nom</th><th>Email</th><th>Rôle</th><th>Département</th><th>Statut</th><th>✓</th></tr></thead>
-          <tbody>
-            <tr *ngFor="let row of importFilteredRows; let i = index" [class.row-invalid]="!row.valid">
-              <td class="col-num">{{ i + 1 }}</td>
-              <td class="col-name">{{ row.username }}</td>
-              <td class="col-email">{{ row.email }}</td>
-              <td><span class="role-mini" [ngClass]="getImportRoleClass(row.role)">{{ row.role }}</span></td>
-              <td>{{ row.department }}</td>
-              <td><span class="status-mini" [class.active]="row.enabled">{{ row.enabled ? 'Actif' : 'Inactif' }}</span></td>
-              <td>
-                <mat-icon *ngIf="row.valid" class="valid-icon">check_circle</mat-icon>
-                <mat-icon *ngIf="!row.valid" class="error-icon" [title]="row.errors.join(', ')">warning</mat-icon>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <p class="import-note" *ngIf="importResult.invalid > 0">
-        <mat-icon>info</mat-icon> Seules les {{ importResult.valid }} lignes valides seront importées.
-      </p>
-    </div>
-
     <div class="modal-footer">
-      <button class="btn-cancel" (click)="closeImportModal()">Annuler</button>
-      <div class="footer-right">
-        <button *ngIf="importStep === 2" class="btn-back" (click)="importStep = 1">
-          <mat-icon>arrow_back</mat-icon> Retour
-        </button>
-        <button *ngIf="importStep === 1" class="btn-next" [disabled]="!importFile || isImportLoading" (click)="parseImportFile()">
-          <mat-icon>visibility</mat-icon> {{ isImportLoading ? 'Analyse...' : 'Aperçu' }}
-        </button>
-        <button *ngIf="importStep === 2 && importResult && importResult.valid > 0" class="btn-import-confirm" (click)="confirmImport()">
-          <mat-icon>upload</mat-icon> Importer {{ importResult.valid }} utilisateur(s)
-        </button>
-      </div>
+      <button class="btn-cancel" (click)="closeAddModal()">Annuler</button>
+      <button class="btn-save" (click)="handleAddUser()" [disabled]="!newUser.firstName || !newUser.email || !newUser.password">
+        <mat-icon>save</mat-icon> Ajouter
+      </button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════════ MODAL VUE DÉTAILS ═══════════════════ -->
+<!-- ═══════════════════ MODAL ÉDITION ═══════════════════ -->
+<div *ngIf="isEditModalOpen" class="modal-overlay" (click)="closeEditModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header"><h2>Modifier l'utilisateur</h2><button class="modal-close" (click)="closeEditModal()"><mat-icon>close</mat-icon></button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Nom complet</label><input type="text" [(ngModel)]="editUserData.name" /></div>
+        <div class="form-group"><label>Nom d'utilisateur</label><input type="text" [(ngModel)]="editUserData.username" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Email</label><input type="email" [(ngModel)]="editUserData.email" /></div>
+        <div class="form-group"><label>Rôle</label>
+          <select [(ngModel)]="editUserData.role">
+            <option>Enseignant</option><option>Administrateur</option><option>Étudiant</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Département</label><input type="text" [(ngModel)]="editUserData.department" /></div>
+        <div class="form-group"><label>Téléphone</label><input type="tel" [(ngModel)]="editUserData.phone" /></div>
+      </div>
+      <div class="form-group toggle-group">
+        <label>Statut</label>
+        <label class="toggle"><input type="checkbox" [(ngModel)]="editUserData.enabled" /><span class="toggle-slider"></span></label>
+        <span class="toggle-label">{{ editUserData.enabled ? 'Actif' : 'Inactif' }}</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeEditModal()">Annuler</button>
+      <button class="btn-save" (click)="handleEditUser()"><mat-icon>save</mat-icon> Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL VUE D'ENSEMBLE ═══════════════════ -->
 <div *ngIf="isViewModalOpen && viewingUser" class="modal-overlay" (click)="closeViewModal()">
-  <div class="modal modal-view" (click)="$event.stopPropagation()">
+  <div class="modal modal-view modal-overview" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h2>Détails de l'utilisateur</h2>
+      <h2>Vue d'ensemble — {{ viewingUser.name }}</h2>
       <button class="modal-close" (click)="closeViewModal()"><mat-icon>close</mat-icon></button>
     </div>
     <div class="modal-body">
+      <!-- Hero -->
       <div class="view-hero">
         <div class="view-avatar">{{ getAvatarInitials(viewingUser.name) }}</div>
         <div class="view-hero-info">
           <h3>{{ viewingUser.name }}</h3>
+          <p class="view-username">@{{ viewingUser.username }}</p>
           <p>{{ viewingUser.email }}</p>
           <span class="role-badge" [ngClass]="getRoleClass(viewingUser.role)">{{ viewingUser.role }}</span>
         </div>
       </div>
+
+      <!-- Infos de base -->
       <div class="view-details-grid">
         <div class="view-detail-item">
           <div class="view-detail-icon blue"><mat-icon>business</mat-icon></div>
@@ -230,7 +199,7 @@
         </div>
         <div class="view-detail-item">
           <div class="view-detail-icon purple"><mat-icon>mail</mat-icon></div>
-          <div><p class="view-detail-label">Email</p><p class="view-detail-value">{{ viewingUser.email || '—' }}</p></div>
+          <div><p class="view-detail-label">Email</p><p class="view-detail-value">{{ viewingUser.email }}</p></div>
         </div>
         <div class="view-detail-item">
           <div class="view-detail-icon" [class.orange]="viewingUser.enabled" [class.gray]="!viewingUser.enabled">
@@ -244,11 +213,77 @@
           </div>
         </div>
       </div>
+
+      <!-- Écoles assignées -->
+      <div class="view-section">
+        <p class="view-section-title"><mat-icon>account_balance</mat-icon> Écoles assignées</p>
+        <div *ngIf="viewUserSchoolsLoading" class="loading-schools">
+          <mat-icon class="spin">refresh</mat-icon> Chargement...
+        </div>
+        <div *ngIf="!viewUserSchoolsLoading && viewUserSchools.length === 0" class="no-schools-msg">
+          <mat-icon>info</mat-icon> Aucune école assignée
+        </div>
+        <div *ngIf="!viewUserSchoolsLoading && viewUserSchools.length > 0" class="schools-list">
+          <div *ngFor="let sa of viewUserSchools" class="school-assignment-item">
+            <div class="school-assign-icon" [class.primary]="sa.isPrimarySchool">
+              <mat-icon>{{ sa.isPrimarySchool ? 'star' : 'account_balance' }}</mat-icon>
+            </div>
+            <div class="school-assign-info">
+              <p class="school-assign-name">{{ sa.schoolName || 'École #' + sa.schoolId }}</p>
+              <p class="school-assign-sub">{{ sa.isPrimarySchool ? 'École principale' : 'École secondaire' }}</p>
+            </div>
+            <span class="school-assign-status" [class.active]="sa.isActive">{{ sa.isActive ? 'Actif' : 'Inactif' }}</span>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" (click)="closeViewModal()">Fermer</button>
+      <button class="btn-switch" (click)="closeViewModal(); openSwitchSchoolModal(viewingUser!)">
+        <mat-icon>swap_horiz</mat-icon> Changer d'école
+      </button>
       <button class="btn-save btn-edit-from-view" (click)="closeViewModal(); openEditModal(viewingUser!)">
         <mat-icon>edit</mat-icon> Modifier
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL SWITCH ÉCOLE ═══════════════════ -->
+<div *ngIf="isSwitchSchoolOpen && switchingUser" class="modal-overlay" (click)="closeSwitchSchoolModal()">
+  <div class="modal modal-switch" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Permuter l'école</h2>
+      <button class="modal-close" (click)="closeSwitchSchoolModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="switch-user-preview">
+        <div class="view-avatar small">{{ getAvatarInitials(switchingUser.name) }}</div>
+        <div>
+          <p class="switch-user-name">{{ switchingUser.name }}</p>
+          <p class="switch-user-current">
+            École actuelle : <strong>{{ switchingUser.primarySchoolName || 'Aucune' }}</strong>
+          </p>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Nouvelle école principale *</label>
+        <select [(ngModel)]="selectedSwitchSchoolId">
+          <option [ngValue]="null">— Sélectionner une école —</option>
+          <option *ngFor="let s of availableSchools" [ngValue]="s.id">
+            {{ s.nom || s.name }} ({{ s.sigle || s.code }})
+          </option>
+        </select>
+      </div>
+      <div class="switch-info-banner">
+        <mat-icon>info</mat-icon>
+        <p>L'utilisateur sera déplacé vers la nouvelle école sélectionnée. Les emplois du temps existants ne seront pas affectés.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeSwitchSchoolModal()">Annuler</button>
+      <button class="btn-save" (click)="confirmSwitchSchool()" [disabled]="!selectedSwitchSchoolId">
+        <mat-icon>swap_horiz</mat-icon> Confirmer la permutation
       </button>
     </div>
   </div>
@@ -281,53 +316,115 @@
   </div>
 </div>
 
-<!-- ═══════════════════ MODAL AJOUT ═══════════════════ -->
-<div *ngIf="isAddModalOpen" class="modal-overlay" (click)="closeAddModal()">
-  <div class="modal" (click)="$event.stopPropagation()">
-    <div class="modal-header"><h2>Nouvel utilisateur</h2><button class="modal-close" (click)="closeAddModal()"><mat-icon>close</mat-icon></button></div>
-    <div class="modal-body">
-      <div class="form-row">
-        <div class="form-group"><label>Nom complet</label><input type="text" [(ngModel)]="newUser.name" placeholder="Dr. Nom Prénom" /></div>
-        <div class="form-group"><label>Email</label><input type="email" [(ngModel)]="newUser.email" placeholder="email@univ.fr" /></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label>Rôle</label><select [(ngModel)]="newUser.role"><option>Enseignant</option><option>Administrateur</option><option>Étudiant</option></select></div>
-        <div class="form-group"><label>Département</label><input type="text" [(ngModel)]="newUser.department" /></div>
-      </div>
-      <div class="form-group"><label>Téléphone</label><input type="tel" [(ngModel)]="newUser.phone" /></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-cancel" (click)="closeAddModal()">Annuler</button>
-      <button class="btn-save" (click)="handleAddUser()"><mat-icon>save</mat-icon> Ajouter</button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════ MODAL ÉDITION ═══════════════════ -->
-<div *ngIf="isEditModalOpen" class="modal-overlay" (click)="closeEditModal()">
-  <div class="modal" (click)="$event.stopPropagation()">
-    <div class="modal-header"><h2>Modifier l'utilisateur</h2><button class="modal-close" (click)="closeEditModal()"><mat-icon>close</mat-icon></button></div>
-    <div class="modal-body">
-      <div class="form-row">
-        <div class="form-group"><label>Nom complet</label><input type="text" [(ngModel)]="editUserData.name" /></div>
-        <div class="form-group"><label>Email</label><input type="email" [(ngModel)]="editUserData.email" /></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label>Rôle</label><select [(ngModel)]="editUserData.role"><option>Enseignant</option><option>Administrateur</option><option>Étudiant</option></select></div>
-        <div class="form-group"><label>Département</label><input type="text" [(ngModel)]="editUserData.department" /></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label>Téléphone</label><input type="tel" [(ngModel)]="editUserData.phone" /></div>
-        <div class="form-group toggle-group">
-          <label>Statut</label>
-          <label class="toggle"><input type="checkbox" [(ngModel)]="editUserData.enabled" /><span class="toggle-slider"></span></label>
-          <span class="toggle-label">{{ editUserData.enabled ? 'Actif' : 'Inactif' }}</span>
+<!-- ═══════════════════ MODAL IMPORT EXCEL ═══════════════════ -->
+<div *ngIf="isImportModalOpen" class="modal-overlay" (click)="closeImportModal()">
+  <div class="modal modal-import" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="import-modal-icon"><mat-icon>upload_file</mat-icon></div>
+        <div>
+          <h2>Importer des utilisateurs</h2>
+          <p>Fichier CSV ou Excel (.xlsx)</p>
         </div>
       </div>
+      <button class="modal-close" (click)="closeImportModal()"><mat-icon>close</mat-icon></button>
     </div>
+
+    <div *ngIf="importStep === 1" class="modal-body">
+      <div class="template-banner">
+        <mat-icon>download</mat-icon>
+        <div>
+          <p class="template-title">Télécharger le modèle</p>
+          <p class="template-sub">Utilisez notre modèle pour formater correctement vos données</p>
+        </div>
+        <button class="btn-template" (click)="downloadTemplate()">
+          <mat-icon>file_download</mat-icon> Modèle CSV
+        </button>
+      </div>
+
+      <div class="drop-zone"
+        [class.dragging]="isDragging"
+        [class.has-file]="importFile"
+        (dragover)="onImportDragOver($event)"
+        (dragleave)="onImportDragLeave()"
+        (drop)="onImportDrop($event)"
+        (click)="fileInput.click()">
+        <input #fileInput type="file" accept=".csv,.xlsx,.xls" style="display:none" (change)="onImportFileSelected($event)" />
+        <div *ngIf="!importFile" class="drop-content">
+          <div class="drop-icon-circle"><mat-icon>cloud_upload</mat-icon></div>
+          <p class="drop-title">Glissez votre fichier ici</p>
+          <p class="drop-sub">ou <span class="drop-link">cliquez pour sélectionner</span></p>
+          <p class="drop-formats">CSV, XLS, XLSX • Max 10 Mo</p>
+        </div>
+        <div *ngIf="importFile" class="file-selected">
+          <mat-icon class="file-icon">description</mat-icon>
+          <div class="file-info">
+            <p class="file-name">{{ importFile.name }}</p>
+            <p class="file-size">{{ formatSize(importFile.size) }}</p>
+          </div>
+          <button class="file-remove" (click)="removeImportFile($event)"><mat-icon>close</mat-icon></button>
+        </div>
+      </div>
+
+      <div class="format-info">
+        <p class="format-title">Colonnes attendues :</p>
+        <div class="columns-list">
+          <span *ngFor="let col of expectedColumns" class="column-tag">{{ col }}</span>
+        </div>
+      </div>
+      <div *ngIf="importParseError" class="error-banner">
+        <mat-icon>error</mat-icon><span>{{ importParseError }}</span>
+      </div>
+    </div>
+
+    <div *ngIf="importStep === 2 && importResult" class="modal-body preview-body">
+      <div class="summary-badges">
+        <div class="summary-badge total"><mat-icon>table_rows</mat-icon><div><p class="badge-num">{{ importResult.total }}</p><p class="badge-lbl">Total</p></div></div>
+        <div class="summary-badge valid"><mat-icon>check_circle</mat-icon><div><p class="badge-num">{{ importResult.valid }}</p><p class="badge-lbl">Valides</p></div></div>
+        <div class="summary-badge invalid" *ngIf="importResult.invalid > 0"><mat-icon>error</mat-icon><div><p class="badge-num">{{ importResult.invalid }}</p><p class="badge-lbl">Erreurs</p></div></div>
+      </div>
+      <div class="preview-tabs">
+        <button class="ptab" [class.active]="importPreviewFilter === 'all'"     (click)="importPreviewFilter = 'all'">Tous ({{ importResult.total }})</button>
+        <button class="ptab" [class.active]="importPreviewFilter === 'valid'"   (click)="importPreviewFilter = 'valid'">✓ Valides ({{ importResult.valid }})</button>
+        <button class="ptab" [class.active]="importPreviewFilter === 'invalid'" (click)="importPreviewFilter = 'invalid'" *ngIf="importResult.invalid > 0">⚠ Erreurs ({{ importResult.invalid }})</button>
+      </div>
+      <div class="preview-table-wrapper">
+        <table class="preview-table">
+          <thead><tr><th>#</th><th>Nom</th><th>Email</th><th>Rôle</th><th>Département</th><th>Statut</th><th>✓</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let row of importFilteredRows; let i = index" [class.row-invalid]="!row.valid">
+              <td class="col-num">{{ i + 1 }}</td>
+              <td class="col-name">{{ row.username }}</td>
+              <td class="col-email">{{ row.email }}</td>
+              <td><span class="role-mini" [ngClass]="getImportRoleClass(row.role)">{{ row.role }}</span></td>
+              <td>{{ row.department }}</td>
+              <td><span class="status-mini" [class.active]="row.enabled">{{ row.enabled ? 'Actif' : 'Inactif' }}</span></td>
+              <td>
+                <mat-icon *ngIf="row.valid" class="valid-icon">check_circle</mat-icon>
+                <mat-icon *ngIf="!row.valid" class="error-icon" [title]="row.errors.join(', ')">warning</mat-icon>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="import-note" *ngIf="importResult.invalid > 0">
+        <mat-icon>info</mat-icon> Seules les {{ importResult.valid }} lignes valides seront importées.
+      </p>
+    </div>
+
     <div class="modal-footer">
-      <button class="btn-cancel" (click)="closeEditModal()">Annuler</button>
-      <button class="btn-save" (click)="handleEditUser()"><mat-icon>save</mat-icon> Sauvegarder</button>
+      <button class="btn-cancel" (click)="closeImportModal()">Annuler</button>
+      <div class="footer-right">
+        <button *ngIf="importStep === 2" class="btn-back" (click)="importStep = 1">
+          <mat-icon>arrow_back</mat-icon> Retour
+        </button>
+        <button *ngIf="importStep === 1" class="btn-next" [disabled]="!importFile || isImportLoading" (click)="parseImportFile()">
+          <mat-icon>visibility</mat-icon> {{ isImportLoading ? 'Analyse...' : 'Aperçu' }}
+        </button>
+        <button *ngIf="importStep === 2 && importResult && importResult.valid > 0" class="btn-import-confirm" (click)="confirmImport()">
+          <mat-icon>upload</mat-icon> Importer {{ importResult.valid }} utilisateur(s)
+        </button>
+      </div>
     </div>
   </div>
 </div>

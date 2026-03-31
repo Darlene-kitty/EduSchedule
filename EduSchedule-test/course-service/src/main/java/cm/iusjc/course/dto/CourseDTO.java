@@ -42,6 +42,9 @@ public class CourseDTO {
     
     @Size(max = 100, message = "Department cannot exceed 100 characters")
     private String department;
+
+    @Size(max = 10, message = "Semester cannot exceed 10 characters")
+    private String semester; // S1, S2
     
     @NotNull(message = "School ID is required")
     private Long schoolId;

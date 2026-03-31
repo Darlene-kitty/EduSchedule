@@ -68,7 +68,7 @@
         <div class="gen-panel-header">
           <div class="gen-panel-title">
             <mat-icon>auto_awesome</mat-icon>
-            <span>Génération automatique — Ford-Fulkerson</span>
+            <span>Génération automatique — {{ genAlgo === 'edmonds-karp' ? 'Edmonds-Karp (BFS)' : 'Ford-Fulkerson (DFS)' }}</span>
           </div>
           <button class="conflits-close" (click)="showGenPanel = false; resetGeneration()"><mat-icon>close</mat-icon></button>
         </div>
@@ -95,6 +95,13 @@
             <div class="gen-field">
               <label>Max h/jour</label>
               <input type="number" [(ngModel)]="genRequest.maxHoursPerDay" min="2" max="10" />
+            </div>
+            <div class="gen-field">
+              <label>Algorithme</label>
+              <select [(ngModel)]="genAlgo">
+                <option value="edmonds-karp">Edmonds-Karp (BFS)</option>
+                <option value="ford-fulkerson">Ford-Fulkerson (DFS)</option>
+              </select>
             </div>
           </div>
 
@@ -230,8 +237,6 @@
               <div *ngFor="let gs of getGeneratedSlotsCreneau(jour, heure)"
                 class="seance-card seance-card--preview">
                 <div class="seance-top">
-                  <mat-icon class="drag-handle">auto_awesome</mat-icon>
-                  <span class="seance-type">IA</span>
                 </div>
                 <div class="seance-matiere">{{ gs.courseName }}</div>
                 <div class="seance-info"><mat-icon>meeting_room</mat-icon><span>{{ gs.roomName }}</span></div>

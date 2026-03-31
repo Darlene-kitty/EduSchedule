@@ -62,6 +62,13 @@ start "Room :8095" cmd /k "%MVN_RUN%"
 cd ..
 timeout /t 20 /nobreak > nul
 
+REM ── 5b. RESOURCE SERVICE ─────────────────────────────────────────────────
+echo [5b] Resource Service (port 8082)...
+cd resource-service
+start "Resource :8082" cmd /k "%MVN_RUN%"
+cd ..
+timeout /t 15 /nobreak > nul
+
 REM ── 6. API GATEWAY ─────────────────────────────────────────────────────────
 echo [6/6] API Gateway (port 8080)...
 cd api-gateway

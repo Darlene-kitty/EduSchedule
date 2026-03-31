@@ -4,7 +4,6 @@ import cm.iusjc.reservation.entity.Reservation;
 import cm.iusjc.reservation.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -19,7 +18,6 @@ public class ConflictDetectionService {
     
     private final ReservationRepository reservationRepository;
     
-    @Cacheable(value = "conflictQueries", key = "#resourceId + '_' + #startTime + '_' + #endTime + '_' + #excludeReservationId")
     public List<Reservation> checkConflicts(Long resourceId, LocalDateTime startTime, 
                                           LocalDateTime endTime, Integer setupTime, 
                                           Integer cleanupTime, Long excludeReservationId) {
@@ -38,7 +36,6 @@ public class ConflictDetectionService {
         return conflicts;
     }
     
-    @Cacheable(value = "conflictQueries", key = "#resourceId + '_' + #startTime + '_' + #endTime")
     public boolean hasConflicts(Long resourceId, LocalDateTime startTime, 
                                LocalDateTime endTime, Integer setupTime, 
                                Integer cleanupTime, Long excludeReservationId) {
@@ -58,7 +55,6 @@ public class ConflictDetectionService {
     }
     
     // Vérification rapide de disponibilité sans détails
-    @Cacheable(value = "conflictQueries", key = "'availability_' + #resourceId + '_' + #date")
     public boolean isResourceAvailable(Long resourceId, LocalDateTime date) {
         Long count = reservationRepository.countReservationsForResourceAndDate(resourceId, date);
         return count == 0;

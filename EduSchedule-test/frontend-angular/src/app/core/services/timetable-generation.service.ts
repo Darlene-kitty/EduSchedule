@@ -10,6 +10,7 @@ export interface SchedulingRequest {
   availableSlots?: string[];
   roomIds?: number[];
   maxHoursPerDay?: number;
+  algorithm?: 'ford-fulkerson' | 'edmonds-karp';
 }
 
 export interface ScheduleSlot {

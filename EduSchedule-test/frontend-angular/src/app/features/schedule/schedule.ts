@@ -4,13 +4,16 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { ScheduleManagementService } from '../../core/services/schedule-management.service';
+import { CoursesManagementService } from '../../core/services/courses-management.service';
+import { RoomsManagementService, Room } from '../../core/services/rooms-management.service';
+import { UsersManagementService } from '../../core/services/users-management.service';
+import { AuthService } from '../../core/services/auth.service';
 import {
   TimetableGenerationService,
   SchedulingRequest,
   GenerationJob,
   ScheduleSlot
 } from '../../core/services/timetable-generation.service';
-import { RoomsManagementService, Room } from '../../core/services/rooms-management.service';
 
 export interface Seance {
   id: number;
@@ -50,12 +53,19 @@ export class SchedulesComponent implements OnInit {
   private scheduleService   = inject(ScheduleManagementService);
   private timetableSvc      = inject(TimetableGenerationService);
   private roomSvc           = inject(RoomsManagementService);
+  private coursesSvc        = inject(CoursesManagementService);
+  private usersSvc          = inject(UsersManagementService);
+  private authService       = inject(AuthService);
+
+  isTeacher = false;
+  currentTeacherName = '';
 
   // ── Génération automatique ──
   showGenPanel   = false;
   genRooms       = signal<Room[]>([]);
   genSelectedRooms = signal<number[]>([]);
   genRequest: SchedulingRequest = { schoolId: 1, semester: 'S1', level: 'L1', maxHoursPerDay: 6 };
+  genAlgo: 'ford-fulkerson' | 'edmonds-karp' = 'edmonds-karp';
   genJob         = signal<GenerationJob | null>(null);
   isGenerating   = signal(false);
   isConfirming   = signal(false);
@@ -91,6 +101,7 @@ export class SchedulesComponent implements OnInit {
 
     const payload: SchedulingRequest = {
       ...this.genRequest,
+      algorithm: this.genAlgo,
       roomIds: this.genSelectedRooms().length ? this.genSelectedRooms() : undefined
     };
 
@@ -112,6 +123,9 @@ export class SchedulesComponent implements OnInit {
   confirmGeneration(): void {
     const j = this.genJob();
     if (!j?.jobId) return;
+    if (j.status !== 'COMPLETED' && j.status !== 'PARTIAL') {
+      return;
+    }
     this.isConfirming.set(true);
     const today = new Date();
     const monday = new Date(today);
@@ -253,61 +267,13 @@ export class SchedulesComponent implements OnInit {
     { sigle:'CPGE',      nom:'Classes Préparatoires aux Grandes Écoles', couleur:'#7C3AED' },
   ];
 
-  enseignants = [
-    { id:1, nom:'Dr. Alain Mbarga',       ecoles:['SJI'],             specialite:'Génie Informatique' },
-    { id:2, nom:'Dr. Pierre Essama',      ecoles:['SJI'],             specialite:'Génie Civil' },
-    { id:3, nom:'Dr. Samuel Nkoa',        ecoles:['SJI','PRÉPAVOGT'], specialite:'Électronique' },
-    { id:4, nom:'Prof. Marie-Claire Ateba',ecoles:['SJM'],            specialite:'Management' },
-    { id:5, nom:'Dr. Robert Nganou',      ecoles:['SJM'],             specialite:'Finance' },
-    { id:6, nom:'Dr. Paul Vogt Essomba',  ecoles:['PRÉPAVOGT','CPGE'],specialite:'Mathématiques' },
-    { id:7, nom:'Dr. Hélène Mbarga',      ecoles:['CPGE'],            specialite:'Physique' },
-    { id:8, nom:'Dr. Sylvie Biya',        ecoles:['SJM'],             specialite:'Marketing' },
-    { id:9, nom:'Dr. Cédric Owona',       ecoles:['SJI','SJM'],       specialite:'Télécom & Réseaux' },
-  ];
+  // Chargées depuis l'API
+  enseignants: { id: number; nom: string; ecoles: string[]; specialite: string }[] = [];
+  classes: { code: string; nom: string; ecole: string; filiere: string; niveau: string }[] = [];
+  salles: string[] = [];
+  matieres: { code: string; nom: string }[] = [];
 
-  classes = [
-    { code:'GI-L1-A', nom:'GI L1 Groupe A', ecole:'SJI', filiere:'Génie Informatique', niveau:'L1' },
-    { code:'GI-L1-B', nom:'GI L1 Groupe B', ecole:'SJI', filiere:'Génie Informatique', niveau:'L1' },
-    { code:'GI-L2-A', nom:'GI L2 Groupe A', ecole:'SJI', filiere:'Génie Informatique', niveau:'L2' },
-    { code:'GC-L1-A', nom:'GC L1 Groupe A', ecole:'SJI', filiere:'Génie Civil',        niveau:'L1' },
-    { code:'ME-L1-A', nom:'ME L1 Groupe A', ecole:'SJM', filiere:'Management',         niveau:'L1' },
-    { code:'ME-L1-B', nom:'ME L1 Groupe B', ecole:'SJM', filiere:'Management',         niveau:'L1' },
-    { code:'FC-L2-A', nom:'FC L2 Groupe A', ecole:'SJM', filiere:'Finance',            niveau:'L2' },
-    { code:'PV-P1-A', nom:'Prépa 1 Gr. A',  ecole:'PRÉPAVOGT', filiere:'Mathématiques',niveau:'Prépa 1' },
-    { code:'CG-C1-A', nom:'CPGE 1 MPSI',    ecole:'CPGE', filiere:'Mathématiques',     niveau:'CPGE 1' },
-  ];
-
-  salles = [
-    'Amphi A','Amphi B','Salle 101','Salle 102','Salle 201','Salle 202',
-    'Salle Info 1','Salle Info 2','TP Électrique','Labo Chimie','Labo Physique',
-    'Salle CPGE 1','Salle CPGE 2','Salle Conf.',
-  ];
-
-  matieres = [
-    { code:'MATH',  nom:'Mathématiques' },
-    { code:'PHYS',  nom:'Physique' },
-    { code:'INFO',  nom:'Informatique' },
-    { code:'ELEC',  nom:'Électronique' },
-    { code:'GEST',  nom:'Gestion & Management' },
-    { code:'COMPTA',nom:'Comptabilité & Finance' },
-    { code:'DROIT', nom:'Droit des Affaires' },
-    { code:'LANG',  nom:'Langues & Communication' },
-    { code:'CHIM',  nom:'Chimie' },
-    { code:'MKT',   nom:'Marketing' },
-  ];
-
-  seances: Seance[] = [
-    { id:1,  matiere:'Mathématiques',       codeMatiere:'MATH',  type:'CM', enseignant:'Dr. Paul Vogt Essomba',  enseignantId:6, ecole:'PRÉPAVOGT', sigleEcole:'PRÉPAVOGT', couleurEcole:'#DC2626', classe:'PV-P1-A', filiere:'Mathématiques', niveau:'Prépa 1', salle:'Salle CPGE 1', jour:'Lundi',    heureDebut:'07:00', heureFin:'09:00', couleur:'#DC2626', semaine:1 },
-    { id:2,  matiere:'Informatique',        codeMatiere:'INFO',  type:'CM', enseignant:'Dr. Alain Mbarga',       enseignantId:1, ecole:'SJI',       sigleEcole:'SJI',       couleurEcole:'#1D4ED8', classe:'GI-L1-A', filiere:'Génie Informatique', niveau:'L1', salle:'Salle 101', jour:'Lundi',    heureDebut:'08:00', heureFin:'10:00', couleur:'#1D4ED8', semaine:1 },
-    { id:3,  matiere:'Gestion & Management',codeMatiere:'GEST',  type:'CM', enseignant:'Prof. Marie-Claire Ateba',enseignantId:4,ecole:'SJM',       sigleEcole:'SJM',       couleurEcole:'#15803D', classe:'ME-L1-A', filiere:'Management',    niveau:'L1', salle:'Salle 201', jour:'Lundi',    heureDebut:'08:00', heureFin:'10:00', couleur:'#15803D', semaine:1 },
-    { id:4,  matiere:'Électronique',        codeMatiere:'ELEC',  type:'TD', enseignant:'Dr. Samuel Nkoa',        enseignantId:3, ecole:'SJI',       sigleEcole:'SJI',       couleurEcole:'#1D4ED8', classe:'GI-L2-A', filiere:'Génie Informatique', niveau:'L2', salle:'TP Électrique', jour:'Mardi',   heureDebut:'10:00', heureFin:'12:00', couleur:'#7C3AED', semaine:1 },
-    { id:5,  matiere:'Physique',            codeMatiere:'PHYS',  type:'CM', enseignant:'Dr. Hélène Mbarga',      enseignantId:7, ecole:'CPGE',      sigleEcole:'CPGE',      couleurEcole:'#7C3AED', classe:'CG-C1-A', filiere:'Mathématiques', niveau:'CPGE 1', salle:'Salle CPGE 1', jour:'Mardi',   heureDebut:'07:00', heureFin:'09:00', couleur:'#7C3AED', semaine:1 },
-    { id:6,  matiere:'Comptabilité',        codeMatiere:'COMPTA',type:'TD', enseignant:'Dr. Robert Nganou',      enseignantId:5, ecole:'SJM',       sigleEcole:'SJM',       couleurEcole:'#15803D', classe:'FC-L2-A', filiere:'Finance',       niveau:'L2', salle:'Salle 202', jour:'Mercredi', heureDebut:'14:00', heureFin:'16:00', couleur:'#15803D', semaine:1 },
-    { id:7,  matiere:'Informatique',        codeMatiere:'INFO',  type:'TP', enseignant:'Dr. Alain Mbarga',       enseignantId:1, ecole:'SJI',       sigleEcole:'SJI',       couleurEcole:'#1D4ED8', classe:'GI-L1-B', filiere:'Génie Informatique', niveau:'L1', salle:'Salle Info 1', jour:'Jeudi',   heureDebut:'14:00', heureFin:'16:00', couleur:'#7C3AED', semaine:1 },
-    { id:8,  matiere:'Mathématiques',       codeMatiere:'MATH',  type:'CM', enseignant:'Dr. Paul Vogt Essomba',  enseignantId:6, ecole:'CPGE',      sigleEcole:'CPGE',      couleurEcole:'#7C3AED', classe:'CG-C1-A', filiere:'Mathématiques', niveau:'CPGE 1', salle:'Salle CPGE 2', jour:'Jeudi',   heureDebut:'07:00', heureFin:'09:00', couleur:'#DC2626', semaine:1 },
-    { id:9,  matiere:'Marketing',           codeMatiere:'MKT',   type:'CM', enseignant:'Dr. Sylvie Biya',        enseignantId:8, ecole:'SJM',       sigleEcole:'SJM',       couleurEcole:'#15803D', classe:'ME-L1-A', filiere:'Management',    niveau:'L1', salle:'Salle 201', jour:'Vendredi', heureDebut:'10:00', heureFin:'12:00', couleur:'#EA580C', semaine:1 },
-    { id:10, matiere:'Langues',             codeMatiere:'LANG',  type:'TD', enseignant:'Dr. Cédric Owona',       enseignantId:9, ecole:'SJI',       sigleEcole:'SJI',       couleurEcole:'#1D4ED8', classe:'GI-L1-A', filiere:'Génie Informatique', niveau:'L1', salle:'Salle 102', jour:'Vendredi', heureDebut:'14:00', heureFin:'16:00', couleur:'#0891B2', semaine:1 },
-  ];
+  seances: Seance[] = [];
 
   emptySeance = (): Omit<Seance,'id'> => ({
     matiere:'', codeMatiere:'', type:'CM',
@@ -324,7 +290,55 @@ export class SchedulesComponent implements OnInit {
   ngOnInit(): void {
     this.updateDateTime();
     setInterval(() => this.updateDateTime(), 1000);
+
+    // Détecter le rôle
+    const user = this.authService.getUser();
+    this.isTeacher = this.authService.isTeacher();
+    this.currentTeacherName = user?.name || user?.username || '';
+
     this.loadSchedule();
+    this.loadReferenceData();
+  }
+
+  private loadReferenceData(): void {
+    // Enseignants depuis user-service
+    this.usersSvc.getUsers().subscribe({
+      next: users => {
+        this.enseignants = users
+          .filter(u => (u.role || '').toUpperCase().includes('TEACHER'))
+          .map(u => ({
+            id: u.id,
+            nom: u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || '',
+            ecoles: [],
+            specialite: u.department || ''
+          }));
+      },
+      error: () => {}
+    });
+
+    // Cours depuis course-service
+    this.coursesSvc.getCourses().subscribe({
+      next: courses => {
+        const seen = new Set<string>();
+        this.matieres = courses
+          .filter(c => { const k = c.code; if (seen.has(k)) return false; seen.add(k); return true; })
+          .map(c => ({ code: c.code, nom: c.name }));
+        // Groupes/classes uniques
+        const groupsSeen = new Set<string>();
+        this.classes = courses
+          .filter(c => c.group && !groupsSeen.has(c.group) && groupsSeen.add(c.group))
+          .map(c => ({ code: c.group ?? '', nom: c.group ?? '', ecole: '', filiere: c.name, niveau: c.level }));
+      },
+      error: () => {}
+    });
+
+    // Salles depuis resource-service
+    this.roomSvc.getRooms().subscribe({
+      next: rooms => { this.salles = rooms.map(r => r.name); },
+      error: () => {}
+    });
+
+    // Salles dispo pour la génération
     this.roomSvc.getAvailableRooms().subscribe({
       next: data => { this.genRooms.set(data); this.genSelectedRooms.set(data.map(r => r.id)); },
       error: () => {}
@@ -335,32 +349,34 @@ export class SchedulesComponent implements OnInit {
     this.isLoading = true;
     this.scheduleService.getSchedule().subscribe({
       next: (data) => {
-        if (data && data.length > 0) {
-          const jours = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-          this.seances = data.map(e => ({
-            id: e.id,
-            matiere: e.courseName || e.title || 'À définir',
-            codeMatiere: String(e.courseId || ''),
-            type: 'CM' as Seance['type'],
-            enseignant: e.teacher || 'À définir',
-            enseignantId: 0,
-            ecole: '',
-            sigleEcole: '',
-            couleurEcole: e.color || '#1D4ED8',
-            classe: e.group || '',
-            filiere: '',
-            niveau: e.level || '',
-            salle: e.room || 'À définir',
-            jour: typeof e.dayOfWeek === 'number' ? (jours[e.dayOfWeek] || 'Lundi') : 'Lundi',
-            heureDebut: e.startTime || '08:00',
-            heureFin: e.endTime || '10:00',
-            couleur: e.color || '#1D4ED8',
-            semaine: 1
-          }));
-        }
+        const jours = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+        this.seances = (data || []).map(e => ({
+          id: e.id,
+          matiere: e.courseName || e.title || 'À définir',
+          codeMatiere: String(e.courseId || ''),
+          type: 'CM' as Seance['type'],
+          enseignant: e.teacher || 'À définir',
+          enseignantId: 0,
+          ecole: '',
+          sigleEcole: '',
+          couleurEcole: e.color || '#1D4ED8',
+          classe: e.group || '',
+          filiere: '',
+          niveau: e.level || '',
+          salle: e.room || 'À définir',
+          jour: typeof e.dayOfWeek === 'number' ? (jours[e.dayOfWeek] || 'Lundi') : 'Lundi',
+          heureDebut: e.startTime || '08:00',
+          heureFin: e.endTime || '10:00',
+          couleur: e.color || '#1D4ED8',
+          semaine: 1
+        }));
         this.isLoading = false;
       },
-      error: () => { this.isLoading = false; } // garde les données démo
+      error: (err) => {
+        console.error('Erreur chargement planning:', err?.error?.message || err);
+        this.seances = [];
+        this.isLoading = false;
+      }
     });
   }
 
@@ -378,7 +394,9 @@ export class SchedulesComponent implements OnInit {
       const matchClasse = !this.filterClasse || s.classe     === this.filterClasse;
       const matchEns    = !this.filterEnseignant || s.enseignantId === +this.filterEnseignant;
       const matchSem    = s.semaine === this.semaineActive;
-      return matchEcole && matchClasse && matchEns && matchSem;
+      // Un enseignant ne voit que ses propres séances
+      const matchTeacher = !this.isTeacher || s.enseignant === this.currentTeacherName;
+      return matchEcole && matchClasse && matchEns && matchSem && matchTeacher;
     });
   }
 
@@ -474,10 +492,21 @@ export class SchedulesComponent implements OnInit {
   openAddModal(): void  { this.newSeance = this.emptySeance(); this.isAddModalOpen = true; }
   closeAddModal(): void { this.isAddModalOpen = false; }
   handleAdd(): void {
-    const id = this.seances.length ? Math.max(...this.seances.map(s => s.id)) + 1 : 1;
-    this.seances = [...this.seances, { id, ...this.newSeance }];
-    this.closeAddModal();
-    this.toast(this.conflits.length > 0 ? `Séance ajoutée — ${this.conflits.length} conflit(s) détecté(s) !` : 'Séance ajoutée avec succès !');
+    this.scheduleService.addScheduleEntry({
+      courseName: this.newSeance.matiere,
+      courseId: this.newSeance.codeMatiere ? +this.newSeance.codeMatiere : undefined,
+      teacher: this.newSeance.enseignant,
+      room: this.newSeance.salle,
+      group: this.newSeance.classe,
+      level: this.newSeance.niveau,
+      dayOfWeek: this.newSeance.jour,
+      startTime: this.newSeance.heureDebut,
+      endTime: this.newSeance.heureFin,
+      color: this.newSeance.couleur
+    } as any).subscribe({
+      next: () => { this.closeAddModal(); this.loadSchedule(); this.toast('Séance ajoutée avec succès !'); },
+      error: (err) => alert(err?.error?.message || 'Erreur lors de l\'ajout')
+    });
   }
 
   openEditModal(s: Seance): void {
@@ -488,15 +517,31 @@ export class SchedulesComponent implements OnInit {
   closeEditModal(): void { this.isEditModalOpen = false; this.editingSeance = null; }
   handleEdit(): void {
     if (!this.editingSeance) return;
-    this.seances = this.seances.map(s => s.id === this.editingSeance!.id ? { id: s.id, ...this.editSeanceData } : s);
-    this.closeEditModal(); this.toast('Séance modifiée !');
+    const id = this.editingSeance.id;
+    this.scheduleService.updateScheduleEntry(id, {
+      courseName: this.editSeanceData.matiere,
+      teacher: this.editSeanceData.enseignant,
+      room: this.editSeanceData.salle,
+      group: this.editSeanceData.classe,
+      level: this.editSeanceData.niveau,
+      dayOfWeek: this.editSeanceData.jour,
+      startTime: this.editSeanceData.heureDebut,
+      endTime: this.editSeanceData.heureFin,
+      color: this.editSeanceData.couleur
+    } as any).subscribe({
+      next: () => { this.closeEditModal(); this.loadSchedule(); this.toast('Séance modifiée !'); },
+      error: (err) => alert(err?.error?.message || 'Erreur lors de la modification')
+    });
   }
 
   openDeleteModal(s: Seance): void { this.seanceToDelete = s; this.isDeleteModalOpen = true; }
   closeDeleteModal(): void         { this.isDeleteModalOpen = false; this.seanceToDelete = null; }
   confirmDelete(): void {
     if (!this.seanceToDelete) return;
-    this.seances = this.seances.filter(s => s.id !== this.seanceToDelete!.id);
-    this.closeDeleteModal(); this.toast('Séance supprimée.');
+    const id = this.seanceToDelete.id;
+    this.scheduleService.deleteScheduleEntry(id).subscribe({
+      next: () => { this.closeDeleteModal(); this.loadSchedule(); this.toast('Séance supprimée.'); },
+      error: (err) => alert(err?.error?.message || 'Erreur lors de la suppression')
+    });
   }
 }

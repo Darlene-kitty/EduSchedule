@@ -150,7 +150,7 @@ class FordFulkersonSchedulerTest {
         assertEquals(0, sToA.getResidualCapacity(), "L'arête S→A doit être saturée");
 
         // L'arête résiduelle A→S doit avoir capacité 10
-        FlowEdge aToS = graph.getResidual(0, 0);
+        FlowEdge aToS = graph.getEdges(0).get(0).getResidual();
         assertEquals(10, aToS.getResidualCapacity(), "L'arête résiduelle A→S doit valoir 10");
     }
 }

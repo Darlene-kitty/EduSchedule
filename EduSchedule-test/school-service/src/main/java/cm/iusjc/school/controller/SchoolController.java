@@ -8,7 +8,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -27,7 +26,6 @@ public class SchoolController {
      * Crée une nouvelle école
      */
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> createSchool(@Valid @RequestBody SchoolDTO schoolDTO) {
         try {
             log.info("Creating school: {}", schoolDTO.getName());
@@ -227,7 +225,6 @@ public class SchoolController {
      * Met à jour une école
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> updateSchool(
             @PathVariable Long id, 
             @Valid @RequestBody SchoolDTO schoolDTO) {
@@ -252,7 +249,6 @@ public class SchoolController {
      * Active/désactive une école
      */
     @PatchMapping("/{id}/toggle-status")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> toggleSchoolStatus(@PathVariable Long id) {
         try {
             SchoolDTO updatedSchool = schoolService.toggleSchoolStatus(id);
@@ -275,7 +271,6 @@ public class SchoolController {
      * Supprime une école (soft delete)
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> deleteSchool(@PathVariable Long id) {
         try {
             schoolService.deleteSchool(id);
@@ -297,7 +292,6 @@ public class SchoolController {
      * Supprime définitivement une école
      */
     @DeleteMapping("/{id}/hard")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> hardDeleteSchool(@PathVariable Long id) {
         try {
             schoolService.hardDeleteSchool(id);
@@ -363,7 +357,6 @@ public class SchoolController {
      * Obtient les statistiques des écoles
      */
     @GetMapping("/statistics")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getSchoolStatistics() {
         try {
             long totalSchools = schoolService.countSchools();

@@ -152,6 +152,12 @@ export const routes: Routes = [
       .then(m => m.TimetableGeneratorComponent),
     canActivate: [authGuard, roleGuard('ADMIN')]
   },
+  {
+    path: 'exam-scheduling',
+    loadComponent: () => import('./features/exam-scheduling/exam-scheduling')
+      .then(m => m.ExamSchedulingComponent),
+    canActivate: [authGuard, roleGuard('ADMIN')]
+  },
 
   // Fallback
   {

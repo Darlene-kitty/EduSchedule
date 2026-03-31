@@ -7,8 +7,6 @@ import cm.iusjc.scheduling.repository.ScheduleRepository;
 import cm.iusjc.scheduling.repository.TimeSlotRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,7 +29,6 @@ public class TimeSlotService {
      * Crée un nouveau créneau horaire
      */
     @Transactional
-    @CacheEvict(value = "timeSlots", allEntries = true)
     public TimeSlotDTO createTimeSlot(TimeSlotDTO timeSlotDTO) {
         log.info("Creating new time slot: {} {} - {}", 
             timeSlotDTO.getDayOfWeek(), timeSlotDTO.getStartTime(), timeSlotDTO.getEndTime());
@@ -63,7 +60,6 @@ public class TimeSlotService {
     /**
      * Récupère tous les créneaux horaires
      */
-    @Cacheable(value = "timeSlots")
     public List<TimeSlotDTO> getAllTimeSlots() {
         log.debug("Fetching all time slots");
         return timeSlotRepository.findAll().stream()
@@ -83,7 +79,6 @@ public class TimeSlotService {
     /**
      * Récupère un créneau horaire par ID
      */
-    @Cacheable(value = "timeSlots", key = "#id")
     public Optional<TimeSlotDTO> getTimeSlotById(Long id) {
         log.debug("Fetching time slot by ID: {}", id);
         return timeSlotRepository.findById(id)
@@ -169,7 +164,6 @@ public class TimeSlotService {
     /**
      * Récupère les créneaux horaires disponibles
      */
-    @Cacheable(value = "availableTimeSlots")
     public List<TimeSlotDTO> getAvailableTimeSlots() {
         log.debug("Fetching available time slots");
         return timeSlotRepository.findAvailableTimeSlots().stream()
@@ -191,7 +185,6 @@ public class TimeSlotService {
      * Met à jour un créneau horaire
      */
     @Transactional
-    @CacheEvict(value = {"timeSlots", "availableTimeSlots"}, allEntries = true)
     public TimeSlotDTO updateTimeSlot(Long id, TimeSlotDTO timeSlotDTO) {
         log.info("Updating time slot with ID: {}", id);
         
@@ -227,7 +220,6 @@ public class TimeSlotService {
      * Associe un créneau horaire à un planning
      */
     @Transactional
-    @CacheEvict(value = {"timeSlots", "availableTimeSlots"}, allEntries = true)
     public TimeSlotDTO assignToSchedule(Long timeSlotId, Long scheduleId) {
         log.info("Assigning time slot {} to schedule {}", timeSlotId, scheduleId);
         
@@ -248,7 +240,6 @@ public class TimeSlotService {
      * Libère un créneau horaire d'un planning
      */
     @Transactional
-    @CacheEvict(value = {"timeSlots", "availableTimeSlots"}, allEntries = true)
     public TimeSlotDTO unassignFromSchedule(Long timeSlotId) {
         log.info("Unassigning time slot {} from schedule", timeSlotId);
         
@@ -266,7 +257,6 @@ public class TimeSlotService {
      * Supprime un créneau horaire
      */
     @Transactional
-    @CacheEvict(value = {"timeSlots", "availableTimeSlots"}, allEntries = true)
     public void deleteTimeSlot(Long id) {
         log.info("Deleting time slot with ID: {}", id);
         
@@ -282,7 +272,6 @@ public class TimeSlotService {
      * Supprime tous les créneaux horaires d'un planning
      */
     @Transactional
-    @CacheEvict(value = {"timeSlots", "availableTimeSlots"}, allEntries = true)
     public void deleteTimeSlotsBySchedule(Long scheduleId) {
         log.info("Deleting time slots for schedule: {}", scheduleId);
         

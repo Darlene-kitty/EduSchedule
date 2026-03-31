@@ -5,10 +5,15 @@ import cm.iusjc.notification.dto.NotificationDTO;
 import cm.iusjc.notification.dto.NotificationPreferencesDTO;
 import cm.iusjc.notification.dto.NotificationTemplateDTO;
 import cm.iusjc.notification.dto.ScheduleChangeEventDTO;
+import cm.iusjc.notification.entity.Notification;
+import cm.iusjc.notification.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
@@ -18,72 +23,114 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class ScheduleNotificationService {
-    
+
     private final NotificationService notificationService;
+    private final NotificationRepository notificationRepository;
     private final EmailService emailService;
-    
+
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy à HH:mm");
-    
+    private static final int MAX_RETRIES = 3;
+
     public void processScheduleChangeEvent(ScheduleChangeEventDTO event) {
         log.info("Processing schedule change event: {} for schedule {}", event.getEventType(), event.getScheduleId());
-        
+
         try {
             List<String> affectedEmails = event.getAllAffectedEmails();
             NotificationTemplateDTO template = createNotificationTemplate(event);
-            
+
             for (String email : affectedEmails) {
                 sendScheduleNotification(email, event, template);
             }
-            
+
             log.info("Successfully processed schedule change event for {} users", affectedEmails.size());
-            
+
         } catch (Exception e) {
             log.error("Error processing schedule change event: {}", e.getMessage(), e);
         }
     }
-    
+
     private void sendScheduleNotification(String email, ScheduleChangeEventDTO event, NotificationTemplateDTO template) {
+        // Créer l'enregistrement en statut PENDING avant l'envoi
+        Notification record = createPendingRecord(email, event, template);
+
         try {
             Map<String, Object> userVariables = createUserVariables(event, email);
             template.setVariables(userVariables);
-            
-            if (event.getNotificationChannels().contains("EMAIL")) {
-                sendEmailNotification(email, event, template);
+
+            List<String> channels = event.getNotificationChannels();
+            if (channels != null && channels.contains("EMAIL")) {
+                emailService.sendHtmlEmail(email, template.getProcessedEmailSubject(), template.getProcessedEmailBody());
             }
-            
-            createNotificationRecord(email, event, template);
-            
+
+            // Marquer comme SENT
+            markDelivered(record);
+
         } catch (Exception e) {
             log.error("Error sending notification to {}: {}", email, e.getMessage());
+            markFailed(record, e.getMessage());
         }
     }
-    
-    private void sendEmailNotification(String email, ScheduleChangeEventDTO event, NotificationTemplateDTO template) {
-        try {
-            String subject = template.getProcessedEmailSubject();
-            String body = template.getProcessedEmailBody();
-            
-            emailService.sendHtmlEmail(email, subject, body);
-            log.debug("Email notification sent to {} for event {}", email, event.getEventType());
-            
-        } catch (Exception e) {
-            log.error("Error sending email to {}: {}", email, e.getMessage());
-        }
+
+    @Transactional
+    private Notification createPendingRecord(String email, ScheduleChangeEventDTO event, NotificationTemplateDTO template) {
+        Notification n = new Notification();
+        n.setRecipient(email);
+        n.setSubject(template.getEmailSubject());
+        n.setTitle(template.getEmailSubject());
+        n.setMessage(template.getEmailBodyHtml() != null ? template.getEmailBodyHtml() : "");
+        n.setType("SCHEDULE_CHANGE");
+        n.setChannel("EMAIL");
+        n.setStatus("PENDING");
+        n.setEventType(event.getEventType());
+        n.setEventId(event.getScheduleId());
+        n.setPriority(event.getPriority() != null ? event.getPriority() : "NORMAL");
+        n.setRetryCount(0);
+        n.setMaxRetries(MAX_RETRIES);
+        n.setCreatedAt(LocalDateTime.now());
+        n.setUpdatedAt(LocalDateTime.now());
+        return notificationRepository.save(n);
     }
-    
-    private void createNotificationRecord(String email, ScheduleChangeEventDTO event, NotificationTemplateDTO template) {
-        try {
-            NotificationDTO notification = new NotificationDTO();
-            notification.setRecipientEmail(email);
-            notification.setSubject(template.getProcessedEmailSubject());
-            notification.setMessage(template.getProcessedEmailBody());
-            notification.setType("SCHEDULE_CHANGE");
-            notification.setChannel("EMAIL");
-            
-            notificationService.createNotification(notification);
-            
-        } catch (Exception e) {
-            log.error("Error creating notification record: {}", e.getMessage());
+
+    @Transactional
+    private void markDelivered(Notification n) {
+        n.setStatus("SENT");
+        n.setSent(true);
+        n.setSentAt(LocalDateTime.now());
+        n.setUpdatedAt(LocalDateTime.now());
+        notificationRepository.save(n);
+        log.debug("Notification {} marked as SENT", n.getId());
+    }
+
+    @Transactional
+    private void markFailed(Notification n, String reason) {
+        n.setRetryCount(n.getRetryCount() + 1);
+        n.setStatus(n.getRetryCount() >= MAX_RETRIES ? "FAILED" : "PENDING");
+        n.setMetadata("lastError=" + reason);
+        n.setUpdatedAt(LocalDateTime.now());
+        notificationRepository.save(n);
+        log.warn("Notification {} failed (attempt {}/{}): {}", n.getId(), n.getRetryCount(), MAX_RETRIES, reason);
+    }
+
+    /**
+     * Retry automatique toutes les 5 minutes pour les notifications PENDING en échec.
+     */
+    @Scheduled(fixedDelay = 300_000)
+    @Transactional
+    public void retryFailedNotifications() {
+        List<Notification> pending = notificationRepository
+                .findByStatusAndRetryCountLessThan("PENDING", MAX_RETRIES);
+
+        if (pending.isEmpty()) return;
+
+        log.info("Retrying {} pending notification(s)", pending.size());
+
+        for (Notification n : pending) {
+            try {
+                emailService.sendEmail(n.getRecipient(), n.getSubject(), n.getMessage());
+                markDelivered(n);
+            } catch (Exception e) {
+                markFailed(n, e.getMessage());
+            }
         }
     }
     

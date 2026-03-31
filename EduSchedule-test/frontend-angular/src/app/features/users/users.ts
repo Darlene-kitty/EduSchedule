@@ -3,16 +3,22 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
-import { UsersManagementService, UserManagement } from '../../core/services/users-management.service';
+import { UsersManagementService, UserManagement, SchoolAssignment } from '../../core/services/users-management.service';
+import { SchoolManagementService, SchoolEntry } from '../../core/services/school-management.service';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 export interface User {
   id: number;
   name: string;
+  username: string;
   email: string;
   role: 'Enseignant' | 'Administrateur' | 'Étudiant';
   department: string;
   phone: string;
   enabled: boolean;
+  primarySchoolId?: number;
+  primarySchoolName?: string;
 }
 
 export interface ImportedUser {
@@ -34,20 +40,32 @@ export interface ImportResult {
 })
 export class UsersComponent implements OnInit {
   private usersManagementService = inject(UsersManagementService);
+  private schoolService = inject(SchoolManagementService);
 
   searchQuery = '';
-  isAddModalOpen    = false;
-  isEditModalOpen   = false;
-  isImportModalOpen = false;
-  isViewModalOpen   = false;
-  isDeleteModalOpen = false;
+  isAddModalOpen      = false;
+  isEditModalOpen     = false;
+  isImportModalOpen   = false;
+  isViewModalOpen     = false;
+  isDeleteModalOpen   = false;
+  isSwitchSchoolOpen  = false;
 
   editingUser:  User | null = null;
   viewingUser:  User | null = null;
   userToDelete: User | null = null;
+  switchingUser: User | null = null;
 
   currentDate = ''; currentTime = '';
   importSuccessCount = 0; showImportSuccess = false;
+  showSuccess = false; successMessage = '';
+
+  // Vue d'ensemble utilisateur
+  viewUserSchools: SchoolAssignment[] = [];
+  viewUserSchoolsLoading = false;
+
+  // Switch école
+  selectedSwitchSchoolId: number | null = null;
+  availableSchools: SchoolEntry[] = [];
 
   /* ── Import state ── */
   importStep: 1 | 2 = 1;
@@ -62,26 +80,47 @@ export class UsersComponent implements OnInit {
 
   users: User[] = [];
 
-  newUser      = { name: '', email: '', role: 'Enseignant' as User['role'], department: '', phone: '', enabled: true };
-  editUserData = { name: '', email: '', role: 'Enseignant' as User['role'], department: '', phone: '', enabled: true };
+  newUser = {
+    firstName: '', lastName: '', username: '', email: '', password: '',
+    role: 'Enseignant' as User['role'], department: '', phone: '', enabled: true,
+    schoolId: null as number | null
+  };
+  editUserData = {
+    name: '', username: '', email: '', role: 'Enseignant' as User['role'],
+    department: '', phone: '', enabled: true
+  };
 
-  ngOnInit(): void { 
-    this.updateDateTime(); 
+  ngOnInit(): void {
+    this.updateDateTime();
     setInterval(() => this.updateDateTime(), 1000);
     this.loadUsers();
+    this.loadSchools();
   }
 
   private loadUsers(): void {
-    this.usersManagementService.getUsers().subscribe(users => {
-      this.users = users.map(u => ({
-        id: u.id,
-        name: u.name ?? ([u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || ''),
-        email: u.email,
-        role: this.mapRole(u.role),
-        department: u.department || '',
-        phone: u.phone || '',
-        enabled: u.enabled ?? u.status === 'active'
-      }));
+    this.usersManagementService.getUsers().subscribe({
+      next: users => {
+        this.users = users.map(u => ({
+          id: u.id,
+          name: u.name ?? ([u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || ''),
+          username: u.username || '',
+          email: u.email,
+          role: this.mapRole(u.role),
+          department: u.department || '',
+          phone: u.phone || '',
+          enabled: u.enabled ?? u.status === 'active',
+          primarySchoolId: u.primarySchoolId,
+          primarySchoolName: u.primarySchoolName
+        }));
+      },
+      error: () => {}
+    });
+  }
+
+  private loadSchools(): void {
+    this.schoolService.getAll().subscribe({
+      next: schools => { this.availableSchools = schools; },
+      error: () => {}
     });
   }
 
@@ -93,9 +132,9 @@ export class UsersComponent implements OnInit {
   }
 
   private reverseMapRole(role: 'Enseignant' | 'Administrateur' | 'Étudiant'): string {
-    if (role === 'Administrateur') return 'admin';
-    if (role === 'Étudiant') return 'student';
-    return 'teacher';
+    if (role === 'Administrateur') return 'ADMIN';
+    if (role === 'Étudiant') return 'STUDENT';
+    return 'TEACHER';
   }
 
   updateDateTime(): void {
@@ -111,56 +150,114 @@ export class UsersComponent implements OnInit {
     return this.users.filter(u =>
       u.name.toLowerCase().includes(q) ||
       u.email.toLowerCase().includes(q) ||
+      u.username.toLowerCase().includes(q) ||
       u.department.toLowerCase().includes(q)
     );
   }
 
-  /* ── Voir ── */
-  openViewModal(user: User): void { this.viewingUser = user; this.isViewModalOpen = true; }
-  closeViewModal(): void          { this.isViewModalOpen = false; this.viewingUser = null; }
+  toast(msg: string): void {
+    this.successMessage = msg;
+    this.showSuccess = true;
+    setTimeout(() => this.showSuccess = false, 3500);
+  }
+
+  /* ── Voir (vue d'ensemble) ── */
+  openViewModal(user: User): void {
+    this.viewingUser = user;
+    this.isViewModalOpen = true;
+    this.viewUserSchools = [];
+    this.viewUserSchoolsLoading = true;
+    this.usersManagementService.getUserSchools(user.id).pipe(catchError(() => of([]))).subscribe(schools => {
+      this.viewUserSchools = schools;
+      this.viewUserSchoolsLoading = false;
+    });
+  }
+  closeViewModal(): void { this.isViewModalOpen = false; this.viewingUser = null; }
 
   /* ── Ajout ── */
-  openAddModal(): void  { this.newUser = { name: '', email: '', role: 'Enseignant', department: '', phone: '', enabled: true }; this.isAddModalOpen = true; }
+  openAddModal(): void {
+    this.newUser = { firstName: '', lastName: '', username: '', email: '', password: '',
+      role: 'Enseignant', department: '', phone: '', enabled: true, schoolId: null };
+    this.isAddModalOpen = true;
+  }
   closeAddModal(): void { this.isAddModalOpen = false; }
-  handleAddUser(): void { 
-    const nameParts = this.newUser.name.trim().split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName  = nameParts.slice(1).join(' ') || '';
-    const username  = this.newUser.email.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '_');
+
+  handleAddUser(): void {
+    const username = this.newUser.username || this.newUser.email.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '_');
     this.usersManagementService.addUser({
-      name: this.newUser.name,
       username,
-      firstName,
-      lastName,
+      firstName: this.newUser.firstName,
+      lastName: this.newUser.lastName,
+      name: `${this.newUser.firstName} ${this.newUser.lastName}`.trim(),
       email: this.newUser.email,
-      password: 'ChangeMe123!',
-      role: this.reverseMapRole(this.newUser.role).toUpperCase(),
+      password: this.newUser.password || 'ChangeMe123!',
+      role: this.reverseMapRole(this.newUser.role),
       department: this.newUser.department,
       phone: this.newUser.phone,
       status: this.newUser.enabled ? 'active' : 'inactive'
-    }).subscribe(() => {
-      this.closeAddModal();
-      this.loadUsers();
+    }).subscribe({
+      next: (created) => {
+        // Si une école est sélectionnée, assigner l'utilisateur
+        if (this.newUser.schoolId && created.id) {
+          const school = this.availableSchools.find(s => s.id === this.newUser.schoolId);
+          this.usersManagementService.assignSchool(created.id, this.newUser.schoolId, school?.name || school?.nom || '', true)
+            .pipe(catchError(() => of(null))).subscribe();
+        }
+        this.closeAddModal();
+        this.loadUsers();
+        this.toast('Utilisateur ajouté avec succès !');
+      },
+      error: () => this.toast('Erreur lors de l\'ajout de l\'utilisateur.')
     });
   }
 
   /* ── Édition ── */
-  openEditModal(user: User): void { this.editingUser = user; this.editUserData = { ...user }; this.isEditModalOpen = true; }
-  closeEditModal(): void          { this.isEditModalOpen = false; this.editingUser = null; }
+  openEditModal(user: User): void {
+    this.editingUser = user;
+    this.editUserData = { name: user.name, username: user.username, email: user.email,
+      role: user.role, department: user.department, phone: user.phone, enabled: user.enabled };
+    this.isEditModalOpen = true;
+  }
+  closeEditModal(): void { this.isEditModalOpen = false; this.editingUser = null; }
+
   handleEditUser(): void {
     if (!this.editingUser) return;
     const nameParts = this.editUserData.name.trim().split(' ');
     const firstName = nameParts[0] || '';
     const lastName  = nameParts.slice(1).join(' ') || '';
     this.usersManagementService.updateUser(this.editingUser.id, {
-      firstName,
-      lastName,
+      username: this.editUserData.username || undefined,
+      firstName, lastName,
       email: this.editUserData.email,
-      role: this.reverseMapRole(this.editUserData.role).toUpperCase(),
+      role: this.reverseMapRole(this.editUserData.role),
       enabled: this.editUserData.enabled
-    }).subscribe(() => {
-      this.closeEditModal();
-      this.loadUsers();
+    }).subscribe({
+      next: () => { this.closeEditModal(); this.loadUsers(); this.toast('Utilisateur modifié avec succès !'); },
+      error: () => this.toast('Erreur lors de la modification.')
+    });
+  }
+
+  /* ── Switch école ── */
+  openSwitchSchoolModal(user: User): void {
+    this.switchingUser = user;
+    this.selectedSwitchSchoolId = user.primarySchoolId || null;
+    this.isSwitchSchoolOpen = true;
+  }
+  closeSwitchSchoolModal(): void { this.isSwitchSchoolOpen = false; this.switchingUser = null; }
+
+  confirmSwitchSchool(): void {
+    if (!this.switchingUser || !this.selectedSwitchSchoolId) return;
+    this.usersManagementService.switchSchool(this.switchingUser.id, this.selectedSwitchSchoolId).subscribe({
+      next: () => { this.closeSwitchSchoolModal(); this.loadUsers(); this.toast('École permutée avec succès !'); },
+      error: () => {
+        // Si l'enseignant n'est pas encore assigné, on l'assigne d'abord
+        const school = this.availableSchools.find(s => s.id === this.selectedSwitchSchoolId);
+        this.usersManagementService.assignSchool(this.switchingUser!.id, this.selectedSwitchSchoolId!, school?.name || school?.nom || '', true)
+          .subscribe({
+            next: () => { this.closeSwitchSchoolModal(); this.loadUsers(); this.toast('École assignée avec succès !'); },
+            error: () => this.toast('Erreur lors de la permutation.')
+          });
+      }
     });
   }
 
@@ -169,9 +266,9 @@ export class UsersComponent implements OnInit {
   closeDeleteModal(): void          { this.isDeleteModalOpen = false; this.userToDelete = null; }
   confirmDelete(): void {
     if (!this.userToDelete) return;
-    this.usersManagementService.deleteUser(this.userToDelete.id).subscribe(() => {
-      this.closeDeleteModal();
-      this.loadUsers();
+    this.usersManagementService.deleteUser(this.userToDelete.id).subscribe({
+      next: () => { this.closeDeleteModal(); this.loadUsers(); this.toast('Utilisateur supprimé.'); },
+      error: () => this.toast('Erreur lors de la suppression.')
     });
   }
 
@@ -243,29 +340,22 @@ export class UsersComponent implements OnInit {
   confirmImport(): void {
     if (!this.importResult) return;
     const validRows = this.importResult.rows.filter(r => r.valid);
-    
     validRows.forEach(u => {
       const nameParts = u.username.trim().split(' ');
       const firstName = nameParts[0] || '';
       const lastName  = nameParts.slice(1).join(' ') || '';
       const username  = u.email.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '_');
       this.usersManagementService.addUser({
-        name: u.username,
-        username,
-        firstName,
-        lastName,
-        email: u.email,
+        name: u.username, username, firstName, lastName, email: u.email,
         password: 'ChangeMe123!',
-        role: this.reverseMapRole((u.role as User['role']) || 'Enseignant').toUpperCase(),
-        department: u.department,
-        phone: u.phone,
+        role: this.reverseMapRole((u.role as User['role']) || 'Enseignant'),
+        department: u.department, phone: u.phone,
         status: u.enabled ? 'active' : 'inactive'
       }).subscribe();
     });
-    
     this.importSuccessCount = validRows.length;
     this.showImportSuccess = true;
-    setTimeout(() => this.showImportSuccess = false, 4000);
+    setTimeout(() => { this.showImportSuccess = false; this.loadUsers(); }, 4000);
     this.closeImportModal();
   }
 
@@ -273,8 +363,8 @@ export class UsersComponent implements OnInit {
     const BOM = '\uFEFF';
     const csv = BOM + [
       '"Nom complet";"Email";"Rôle";"Département";"Téléphone";"Actif (oui/non)"',
-      '"Dr. Martin Dupont";"martin.dupont@univ.fr";"Enseignant";"Mathématiques";"01 23 45 67 89";"oui"',
-      '"Admin Jean Moreau";"jean.moreau@univ.fr";"Administrateur";"Administration";"01 23 45 67 90";"oui"',
+      '"Dr. Martin Dupont";"martin.dupont@iusj.cm";"Enseignant";"Mathématiques";"237 6XX XX XX XX";"oui"',
+      '"Admin Jean Moreau";"jean.moreau@iusj.cm";"Administrateur";"Administration";"237 6XX XX XX XX";"oui"',
     ].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
@@ -287,7 +377,6 @@ export class UsersComponent implements OnInit {
     return `${(bytes / 1024 / 1024).toFixed(1)} Mo`;
   }
 
-  /* ── Helpers ── */
   getRoleClass(role: string): string {
     if (role === 'Administrateur') return 'badge-admin';
     if (role === 'Étudiant')       return 'badge-student';

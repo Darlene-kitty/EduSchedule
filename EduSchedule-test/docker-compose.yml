@@ -196,10 +196,15 @@ services:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SERVER_PORT=8084
       - CALENDAR_SERVICE_URL=http://calendar-service:8089
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_DEFAULT_USER=iusjc
+      - RABBITMQ_DEFAULT_PASS=iusjc2025
     depends_on:
       mysql:
         condition: service_healthy
       eureka-server:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - eduschedule-network
@@ -244,10 +249,15 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=iusjc
       - SPRING_DATASOURCE_PASSWORD=iusjc2025
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_USERNAME=iusjc
+      - SPRING_RABBITMQ_PASSWORD=iusjc2025
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SERVER_PORT=8086
     depends_on:
       mysql:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       eureka-server:
         condition: service_healthy

@@ -19,10 +19,12 @@ public class CategorieUEService {
 
     private final CategorieUERepository repository;
 
+    @Transactional(readOnly = true)
     public List<CategorieUEDTO> getAll() {
         return repository.findAll().stream().map(this::toDTO).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public Optional<CategorieUEDTO> getById(Long id) {
         return repository.findById(id).map(this::toDTO);
     }
@@ -45,7 +47,7 @@ public class CategorieUEService {
     @Transactional
     public void delete(Long id) {
         CategorieUE entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("CategorieUE not found: " + id));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("CategorieUE not found: " + id));
         entity.setActive(false);
         repository.save(entity);
     }

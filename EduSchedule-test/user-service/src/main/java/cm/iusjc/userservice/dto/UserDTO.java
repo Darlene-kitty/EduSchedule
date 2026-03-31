@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -18,4 +19,8 @@ public class UserDTO {
     private Boolean enabled;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    // Écoles assignées (pour les enseignants)
+    private Long primarySchoolId;
+    private String primarySchoolName;
+    private List<Long> schoolIds;
 }

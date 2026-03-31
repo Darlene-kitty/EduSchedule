@@ -97,6 +97,11 @@ export class DashboardComponent implements OnInit {
     return this.currentUser?.name || this.currentUser?.username || 'Utilisateur';
   }
 
+  getUserInitials(): string {
+    const name = this.getUserName();
+    return name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
+  }
+
   refreshDashboard(): void {
     this.loadDashboardData();
   }

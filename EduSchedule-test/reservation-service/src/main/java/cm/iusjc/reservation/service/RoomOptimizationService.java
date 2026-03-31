@@ -366,8 +366,21 @@ public class RoomOptimizationService {
     }
     
     private double calculateUsageHistoryScore(Long roomId) {
-        // Score basé sur l'historique d'utilisation (simulation)
-        return Math.random() * 10; // 0-10 points
+        // Score basé sur l'historique réel des réservations (0-10 points)
+        List<Reservation> history = reservationRepository.findByResourceId(roomId);
+        if (history.isEmpty()) return 5.0; // score neutre si pas d'historique
+
+        long total      = history.size();
+        long confirmed  = history.stream().filter(r -> r.getStatus() == cm.iusjc.reservation.entity.ReservationStatus.CONFIRMED).count();
+        long cancelled  = history.stream().filter(r -> r.getStatus() == cm.iusjc.reservation.entity.ReservationStatus.CANCELLED).count();
+
+        // Taux de confirmation (fiabilité)
+        double reliabilityRate = (double) confirmed / total;
+        // Pénalité pour annulations fréquentes
+        double cancellationPenalty = (double) cancelled / total;
+
+        // Score : fiabilité compte pour 7 pts, faible annulation pour 3 pts
+        return Math.round((reliabilityRate * 7.0 + (1.0 - cancellationPenalty) * 3.0) * 10.0) / 10.0;
     }
     
     private boolean isRoomSuitableForCourseType(Resource room, String courseType) {

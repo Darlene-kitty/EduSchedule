@@ -25,7 +25,9 @@ public class CategorieUEController {
             var list = service.getAll();
             return ResponseEntity.ok(Map.of("success", true, "data", list, "total", list.size()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+            log.error("Error fetching categoriesUE: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("success", false, "message",
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 
@@ -44,7 +46,8 @@ public class CategorieUEController {
                     .body(Map.of("success", true, "data", created));
         } catch (Exception e) {
             log.error("Error creating categorieUE: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message",
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 
@@ -55,7 +58,8 @@ public class CategorieUEController {
             return ResponseEntity.ok(Map.of("success", true, "data", updated));
         } catch (Exception e) {
             log.error("Error updating categorieUE {}: {}", id, e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message",
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 
@@ -64,9 +68,12 @@ public class CategorieUEController {
         try {
             service.delete(id);
             return ResponseEntity.ok(Map.of("success", true, "message", "CategorieUE deleted"));
+        } catch (jakarta.persistence.EntityNotFoundException e) {
+            return ResponseEntity.status(404).body(Map.of("success", false, "message", e.getMessage()));
         } catch (Exception e) {
             log.error("Error deleting categorieUE {}: {}", id, e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message",
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 }

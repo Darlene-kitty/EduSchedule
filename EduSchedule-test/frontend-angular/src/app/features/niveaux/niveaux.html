@@ -245,13 +245,11 @@
         </div>
       </div>
       <div class="form-group">
-        <label>Filières associées</label>
-        <div class="checkbox-grid">
-          <label *ngFor="let f of allFilieres" class="checkbox-item">
-            <input type="checkbox" [checked]="hasFiliereNew(f)" (change)="toggleFiliere(newNiveau, f)" />
-            <span>{{ f }}</span>
-          </label>
-        </div>
+        <label>Filière associée</label>
+        <select [(ngModel)]="newFiliereId">
+          <option [ngValue]="null">-- Choisir une filière --</option>
+          <option *ngFor="let f of allFilieres" [ngValue]="f.id">{{ f.name }}</option>
+        </select>
       </div>
     </div>
     <div class="modal-footer">
@@ -315,13 +313,11 @@
         </div>
       </div>
       <div class="form-group">
-        <label>Filières associées</label>
-        <div class="checkbox-grid">
-          <label *ngFor="let f of allFilieres" class="checkbox-item">
-            <input type="checkbox" [checked]="hasFiliereEdit(f)" (change)="toggleFiliere(editNiveauData, f)" />
-            <span>{{ f }}</span>
-          </label>
-        </div>
+        <label>Filière associée</label>
+        <select [(ngModel)]="editFiliereId">
+          <option [ngValue]="null">-- Choisir une filière --</option>
+          <option *ngFor="let f of allFilieres" [ngValue]="f.id">{{ f.name }}</option>
+        </select>
       </div>
     </div>
     <div class="modal-footer">

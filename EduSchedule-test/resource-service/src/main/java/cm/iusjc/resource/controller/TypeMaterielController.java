@@ -18,7 +18,7 @@ public class TypeMaterielController {
 
     @GetMapping
     public ResponseEntity<Map<String, Object>> getAll() {
-        List<TypeMateriel> list = repository.findAll();
+        List<TypeMateriel> list = repository.findByActiveTrue();
         return ResponseEntity.ok(Map.of("success", true, "data", list, "total", list.size()));
     }
 

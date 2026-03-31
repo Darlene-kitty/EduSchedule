@@ -46,6 +46,7 @@
 .type-conference  { background: #1D4ED8; color: white; }
 .type-seminaire   { background: #374151; color: white; }
 .type-examen      { background: #7C3AED; color: white; }
+.type-competition { background: #EA580C; color: white; }
 .type-event       { background: #6B7280; color: white; }
 
 .event-meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; padding-top: 16px; border-top: 1px solid #F3F4F6; }

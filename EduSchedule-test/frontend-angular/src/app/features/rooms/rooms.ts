@@ -91,21 +91,33 @@ export class Rooms implements OnInit {
   }
 
   private loadSalles(): void {
-    this.roomsService.getRooms().subscribe(rooms => {
+    this.roomsService.getRooms().subscribe((rooms: any[]) => {
       this.salles = rooms.map(r => ({
         id: r.id,
-        code: String(r.id),
+        code: r.code ?? String(r.id),
         nom: r.name,
-        type: (r.type as Salle['type']) || 'Salle de cours',
+        type: (this.backendTypeToDisplay(r.type)) as Salle['type'],
         ecole: '',
-        batiment: r.building ?? '',
-        etage: '',
-        capacite: r.capacity,
-        equipements: r.equipment || [],
-        disponible: r.status === 'available',
-        enabled: true
+        batiment: r.batiment ?? '',
+        etage: r.etage ?? '',
+        capacite: r.capacite ?? 0,
+        equipements: [],
+        disponible: r.disponible ?? true,
+        enabled: r.active ?? true
       }));
     });
+  }
+
+  private backendTypeToDisplay(type: string): string {
+    const map: Record<string, string> = {
+      'AMPHITHEATRE':  'Amphithéâtre',
+      'SALLE_COURS':   'Salle de cours',
+      'SALLE_TP':      'Salle TP',
+      'LABORATOIRE':   'Laboratoire',
+      'SALLE_TD':      'Salle de réunion',
+      'BIBLIOTHEQUE':  'Salle de cours',
+    };
+    return map[type] ?? 'Salle de cours';
   }
 
   updateDateTime(): void {
@@ -156,7 +168,7 @@ export class Rooms implements OnInit {
       type: this.newSalle.type,
       equipment: this.newSalle.equipements,
       status: this.newSalle.disponible ? 'available' : 'occupied'
-    }).subscribe(() => {
+    }, this.newSalle.code).subscribe(() => {
       this.closeAddModal();
       this.toast('Salle ajoutée avec succès !');
       this.loadSalles();
@@ -178,7 +190,7 @@ export class Rooms implements OnInit {
       type: this.editSalleData.type,
       equipment: this.editSalleData.equipements,
       status: this.editSalleData.disponible ? 'available' : 'occupied'
-    }).subscribe(() => {
+    }, this.editSalleData.code).subscribe(() => {
       this.closeEditModal();
       this.toast('Salle modifiée avec succès !');
       this.loadSalles();

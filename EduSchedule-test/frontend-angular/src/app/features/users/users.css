@@ -308,3 +308,52 @@
 .btn-import-confirm { display: flex; align-items: center; gap: 6px; background: #15803D; color: white; border: none; padding: 9px 18px; border-radius: 9px; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
 .btn-import-confirm:hover { background: #166534; }
 .btn-import-confirm mat-icon { font-size: 16px !important; width: 16px !important; height: 16px !important; }
+
+/* School tag in table */
+.school-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; color: #1D4ED8; background: #EFF6FF; padding: 3px 8px; border-radius: 6px; }
+.school-tag mat-icon { font-size: 14px !important; width: 14px !important; height: 14px !important; }
+.no-school { color: #9CA3AF; font-size: 0.85rem; }
+
+/* Switch button */
+.action-btn.switch-btn { color: #7C3AED; }
+.action-btn.switch-btn:hover { background: #F5F3FF; }
+
+/* Modal overview */
+.modal-overview { max-width: 600px; }
+.view-username { font-size: 0.8rem; color: #9CA3AF; margin: 2px 0; }
+
+/* Schools list in view modal */
+.view-section { margin-top: 20px; }
+.view-section-title { display: flex; align-items: center; gap: 6px; font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 12px; }
+.view-section-title mat-icon { font-size: 18px !important; width: 18px !important; height: 18px !important; color: #6B7280; }
+.loading-schools { display: flex; align-items: center; gap: 8px; color: #6B7280; font-size: 0.875rem; }
+.loading-schools mat-icon { font-size: 18px !important; width: 18px !important; height: 18px !important; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.no-schools-msg { display: flex; align-items: center; gap: 6px; color: #9CA3AF; font-size: 0.875rem; padding: 12px; background: #F9FAFB; border-radius: 8px; }
+.no-schools-msg mat-icon { font-size: 16px !important; width: 16px !important; height: 16px !important; }
+.schools-list { display: flex; flex-direction: column; gap: 8px; }
+.school-assignment-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #F9FAFB; border-radius: 8px; border: 1px solid #E5E7EB; }
+.school-assign-icon { width: 36px; height: 36px; border-radius: 8px; background: #EFF6FF; display: flex; align-items: center; justify-content: center; color: #3B82F6; }
+.school-assign-icon.primary { background: #FEF9C3; color: #CA8A04; }
+.school-assign-icon mat-icon { font-size: 18px !important; width: 18px !important; height: 18px !important; }
+.school-assign-info { flex: 1; }
+.school-assign-name { font-size: 0.875rem; font-weight: 600; color: #111827; margin: 0; }
+.school-assign-sub { font-size: 0.75rem; color: #6B7280; margin: 2px 0 0; }
+.school-assign-status { font-size: 0.75rem; font-weight: 600; padding: 3px 8px; border-radius: 20px; background: #FEE2E2; color: #DC2626; }
+.school-assign-status.active { background: #DCFCE7; color: #15803D; }
+
+/* Switch school modal */
+.modal-switch { max-width: 480px; }
+.switch-user-preview { display: flex; align-items: center; gap: 14px; padding: 14px; background: #F9FAFB; border-radius: 10px; margin-bottom: 20px; }
+.view-avatar.small { width: 40px; height: 40px; font-size: 0.9rem; }
+.switch-user-name { font-size: 0.95rem; font-weight: 600; color: #111827; margin: 0 0 4px; }
+.switch-user-current { font-size: 0.8rem; color: #6B7280; margin: 0; }
+.switch-info-banner { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: #EFF6FF; border-radius: 8px; margin-top: 16px; color: #1D4ED8; font-size: 0.8rem; }
+.switch-info-banner mat-icon { font-size: 18px !important; width: 18px !important; height: 18px !important; flex-shrink: 0; margin-top: 1px; }
+.switch-info-banner p { margin: 0; line-height: 1.5; }
+
+/* btn-switch */
+.btn-switch { display: flex; align-items: center; gap: 6px; background: #7C3AED; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+.btn-switch:hover { background: #6D28D9; }
+.btn-switch mat-icon { font-size: 18px !important; width: 18px !important; height: 18px !important; }

@@ -5,7 +5,9 @@ import cm.iusjc.userservice.dto.UserDTO;
 import cm.iusjc.userservice.dto.ProfileUpdateRequest;
 import cm.iusjc.userservice.dto.PasswordChangeRequest;
 import cm.iusjc.userservice.dto.UserUpdateRequest;
+import cm.iusjc.userservice.dto.TeacherSchoolAssignmentDTO;
 import cm.iusjc.userservice.service.UserService;
+import cm.iusjc.userservice.service.TeacherSchoolAssignmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,15 +25,18 @@ import java.util.List;
 public class UserController {
     
     private final UserService userService;
+    private final TeacherSchoolAssignmentService assignmentService;
     
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserDTO> createUser(@Valid @RequestBody RegisterRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUser(request));
+    }
+
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
     public ResponseEntity<List<UserDTO>> getAllUsers() {
-        try {
-            return ResponseEntity.ok(userService.getAllUsers());
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
+        return ResponseEntity.ok(userService.getAllUsers());
     }
     
     @GetMapping("/{id}")
@@ -55,11 +60,7 @@ public class UserController {
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDTO> updateUser(@PathVariable Long id, @Valid @RequestBody UserUpdateRequest request) {
-        try {
-            return ResponseEntity.ok(userService.updateUser(id, request));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
-        }
+        return ResponseEntity.ok(userService.updateUser(id, request));
     }
     
     @DeleteMapping("/{id}")
@@ -80,5 +81,42 @@ public class UserController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         userService.changePassword(auth.getName(), request);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Permuter un utilisateur vers une nouvelle école (école principale)
+     */
+    @PutMapping("/{id}/switch-school/{schoolId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> switchSchool(@PathVariable Long id, @PathVariable Long schoolId) {
+        assignmentService.setPrimarySchool(id, schoolId);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Assigner un utilisateur à une école
+     */
+    @PostMapping("/{id}/assign-school")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<TeacherSchoolAssignmentDTO> assignSchool(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, Object> body) {
+        TeacherSchoolAssignmentDTO dto = new TeacherSchoolAssignmentDTO();
+        dto.setTeacherId(id);
+        dto.setSchoolId(Long.valueOf(body.get("schoolId").toString()));
+        dto.setSchoolName(body.getOrDefault("schoolName", "").toString());
+        dto.setEffectiveFrom(java.time.LocalDateTime.now());
+        dto.setIsActive(true);
+        dto.setIsPrimarySchool(Boolean.parseBoolean(body.getOrDefault("isPrimary", "false").toString()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(assignmentService.createAssignment(dto));
+    }
+
+    /**
+     * Récupérer les écoles d'un utilisateur
+     */
+    @GetMapping("/{id}/schools")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+    public ResponseEntity<java.util.List<TeacherSchoolAssignmentDTO>> getUserSchools(@PathVariable Long id) {
+        return ResponseEntity.ok(assignmentService.getTeacherSchools(id));
     }
 }

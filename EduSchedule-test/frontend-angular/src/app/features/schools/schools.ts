@@ -17,6 +17,9 @@ export interface School {
   niveaux: string[];
   couleur: string;
   enabled: boolean;
+  salles: number;
+  laboratoires: number;
+  amphi: number;
 }
 
 @Component({
@@ -66,16 +69,12 @@ export class SchoolsComponent implements OnInit {
 
   schools: School[] = [];
 
-  private demoSchools: School[] = [
-    { id: 1, sigle: 'SJI', nom: 'Saint Jean Ingénieur', directeur: 'Prof. Jean-Baptiste Nguema', email: 'sji@iusj.cm', telephone: '+237 6XX XX XX XX', description: 'École d\'ingénierie formant des ingénieurs dans les domaines du génie informatique, civil, électrique et mécanique.', filieres: ['Génie Informatique', 'Génie Civil', 'Génie Électrique', 'Génie Mécanique', 'Génie Télécom', 'Génie Biomédical'], niveaux: ['L1', 'L2', 'L3', 'M1', 'M2'], couleur: '#1D4ED8', enabled: true },
-    { id: 2, sigle: 'SJM', nom: 'Saint Jean Management', directeur: 'Prof. Marie-Claire Ateba', email: 'sjm@iusj.cm', telephone: '+237 6XX XX XX XX', description: 'École de management formant des cadres en gestion, finance, marketing et commerce international.', filieres: ['Management des Entreprises', 'Finance & Comptabilité', 'Marketing', 'Commerce International', 'Ressources Humaines', 'Logistique'], niveaux: ['L1', 'L2', 'L3', 'M1', 'M2'], couleur: '#15803D', enabled: true },
-    { id: 3, sigle: 'PRÉPAVOGT', nom: 'Prépavogt', directeur: 'Dr. Paul Vogt Essomba', email: 'prepavogt@iusj.cm', telephone: '+237 6XX XX XX XX', description: 'Classes préparatoires aux grandes écoles d\'ingénieurs et de commerce.', filieres: ['Mathématiques', 'Physique', 'Chimie', 'Sciences de la Vie'], niveaux: ['Prépa 1', 'Prépa 2'], couleur: '#DC2626', enabled: true },
-    { id: 4, sigle: 'CPGE', nom: 'Classes Préparatoires aux Grandes Écoles', directeur: 'Dr. Hélène Mbarga', email: 'cpge@iusj.cm', telephone: '+237 6XX XX XX XX', description: 'Formation d\'excellence préparant aux concours des grandes écoles nationales et internationales.', filieres: ['Mathématiques', 'Physique', 'Chimie', 'Lettres & Sciences Humaines', 'Droit des Affaires'], niveaux: ['CPGE 1', 'CPGE 2'], couleur: '#7C3AED', enabled: true }
-  ];
+
 
   emptySchool = (): Omit<School, 'id'> => ({
     sigle: '', nom: '', directeur: '', email: '', telephone: '',
-    description: '', filieres: [], niveaux: [], couleur: '#1D4ED8', enabled: true
+    description: '', filieres: [], niveaux: [], couleur: '#1D4ED8', enabled: true,
+    salles: 0, laboratoires: 0, amphi: 0
   });
 
   newSchool: Omit<School, 'id'> = this.emptySchool();
@@ -91,26 +90,25 @@ export class SchoolsComponent implements OnInit {
     this.isLoading = true;
     this.schoolService.getAll().subscribe({
       next: (data) => {
-        if (data && data.length > 0) {
-          this.schools = data.map(s => ({
-            id: s.id,
-            sigle: s.sigle || s.code || '',
-            nom: s.nom || s.name || '',
-            directeur: s.directeur || '',
-            email: s.email || '',
-            telephone: s.telephone || '',
-            description: s.description || '',
-            filieres: s.filieres || [],
-            niveaux: s.niveaux || [],
-            couleur: s.couleur || '#1D4ED8',
-            enabled: s.enabled ?? s.active ?? true
-          }));
-        } else {
-          this.schools = this.demoSchools;
-        }
+        this.schools = (data ?? []).map(s => ({
+          id: s.id,
+          sigle: s.sigle || s.code || '',
+          nom: s.nom || s.name || '',
+          directeur: s.directeur || '',
+          email: s.email || '',
+          telephone: s.telephone || '',
+          description: s.description || '',
+          filieres: s.filieres || [],
+          niveaux: s.niveaux || [],
+          couleur: s.couleur || '#1D4ED8',
+          enabled: s.enabled ?? s.active ?? true,
+          salles: (s as any).salles || 0,
+          laboratoires: (s as any).laboratoires || 0,
+          amphi: (s as any).amphi || 0
+        }));
         this.isLoading = false;
       },
-      error: () => { this.schools = this.demoSchools; this.isLoading = false; }
+      error: () => { this.schools = []; this.isLoading = false; }
     });
   }
 
@@ -165,8 +163,15 @@ export class SchoolsComponent implements OnInit {
   closeAddModal(): void { this.isAddModalOpen = false; }
   handleAddSchool(): void {
     this.schoolService.create(this.newSchool).subscribe({
-      next: (created) => { this.schools = [...this.schools, { id: created.id, ...this.newSchool }]; this.closeAddModal(); this.toast('École ajoutée avec succès !'); },
-      error: () => { const id = this.schools.length ? Math.max(...this.schools.map(s => s.id)) + 1 : 1; this.schools = [...this.schools, { id, ...this.newSchool }]; this.closeAddModal(); this.toast('École ajoutée avec succès !'); }
+      next: (created) => {
+        this.schools = [...this.schools, { id: created.id, ...this.newSchool }];
+        this.closeAddModal();
+        this.toast('École ajoutée avec succès !');
+      },
+      error: (err) => {
+        console.error('Erreur création école:', err);
+        alert('Erreur lors de la création de l\'école : ' + (err?.error?.message || 'vérifiez les données saisies.'));
+      }
     });
   }
 
@@ -180,8 +185,15 @@ export class SchoolsComponent implements OnInit {
   handleEditSchool(): void {
     if (!this.editingSchool) return;
     this.schoolService.update(this.editingSchool.id, this.editSchoolData).subscribe({
-      next: () => { this.schools = this.schools.map(s => s.id === this.editingSchool!.id ? { id: s.id, ...this.editSchoolData } : s); this.closeEditModal(); this.toast('École modifiée avec succès !'); },
-      error: () => { this.schools = this.schools.map(s => s.id === this.editingSchool!.id ? { id: s.id, ...this.editSchoolData } : s); this.closeEditModal(); this.toast('École modifiée avec succès !'); }
+      next: () => {
+        this.schools = this.schools.map(s => s.id === this.editingSchool!.id ? { id: s.id, ...this.editSchoolData } : s);
+        this.closeEditModal();
+        this.toast('École modifiée avec succès !');
+      },
+      error: (err) => {
+        console.error('Erreur modification école:', err);
+        alert('Erreur lors de la modification de l\'école : ' + (err?.error?.message || 'vérifiez les données saisies.'));
+      }
     });
   }
 
@@ -190,9 +202,14 @@ export class SchoolsComponent implements OnInit {
   closeDeleteModal(): void         { this.isDeleteModalOpen = false; this.schoolToDelete = null; }
   confirmDelete(): void {
     if (!this.schoolToDelete) return;
-    this.schoolService.delete(this.schoolToDelete.id).subscribe({
-      next: () => { this.schools = this.schools.filter(s => s.id !== this.schoolToDelete!.id); this.closeDeleteModal(); this.toast('École supprimée.'); },
-      error: () => { this.schools = this.schools.filter(s => s.id !== this.schoolToDelete!.id); this.closeDeleteModal(); this.toast('École supprimée.'); }
+    const id = this.schoolToDelete.id;
+    this.schoolService.delete(id).subscribe({
+      next: () => { this.schools = this.schools.filter(s => s.id !== id); this.closeDeleteModal(); this.toast('École supprimée.'); },
+      error: (err: any) => {
+        console.error('Erreur suppression école:', err);
+        this.closeDeleteModal();
+        alert('Erreur lors de la suppression : ' + (err?.error?.message || 'une erreur est survenue.'));
+      }
     });
   }
 }

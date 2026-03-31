@@ -9,6 +9,7 @@ public enum EventType {
     DEFENSE("Soutenance"),
     CEREMONY("Cérémonie"),
     TRAINING("Formation"),
+    COMPETITION("Compétition"),
     OTHER("Autre");
     
     private final String displayName;

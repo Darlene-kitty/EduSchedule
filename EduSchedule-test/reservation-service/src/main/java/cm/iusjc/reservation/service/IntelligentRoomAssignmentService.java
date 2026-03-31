@@ -1,11 +1,11 @@
 package cm.iusjc.reservation.service;
 
 import cm.iusjc.reservation.dto.*;
+import cm.iusjc.reservation.entity.ReservationStatus;
+import cm.iusjc.reservation.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.time.DayOfWeek;
@@ -17,14 +17,14 @@ import java.util.stream.Collectors;
 @Slf4j
 public class IntelligentRoomAssignmentService {
     
-    private final RestTemplate restTemplate;
+    private final ReservationRepository reservationRepository;
     private final ConflictDetectionService conflictDetectionService;
     private final RoomOptimizationService roomOptimizationService;
+    private final org.springframework.web.client.RestTemplate restTemplate;
     
     /**
      * Algorithme d'assignation intelligente des salles avec machine learning
      */
-    @Cacheable(value = "intelligentAssignment", key = "#request.hashCode()")
     public IntelligentAssignmentResult findIntelligentAssignment(IntelligentAssignmentRequest request) {
         log.info("Starting intelligent room assignment for: {}", request);
         
@@ -235,10 +235,33 @@ public class IntelligentRoomAssignmentService {
     }
     
     private UsageHistory getUsageHistory(IntelligentAssignmentRequest request) {
-        // Implémentation simplifiée
+        // Calcul réel depuis l'historique global des réservations du type demandé
+        var history = reservationRepository.findAll().stream()
+                .filter(r -> request.getType() == null
+                        || (r.getType() != null && r.getType().toString().equalsIgnoreCase(request.getType())))
+                .toList();
+
+        int total     = history.size();
+        int confirmed = (int) history.stream().filter(r -> r.getStatus() == ReservationStatus.CONFIRMED).count();
+        int cancelled = (int) history.stream().filter(r -> r.getStatus() == ReservationStatus.CANCELLED).count();
+
+        double cancellationRate = total > 0 ? (double) cancelled / total : 0.0;
+        double reliabilityScore = total > 0 ? (double) confirmed / total : 1.0;
+
+        double avgDuration = history.stream()
+                .filter(r -> r.getStartTime() != null && r.getEndTime() != null)
+                .mapToLong(r -> java.time.Duration.between(r.getStartTime(), r.getEndTime()).toMinutes())
+                .average().orElse(0.0);
+
         return UsageHistory.builder()
-                .satisfactionRate(0.85)
-                .problemCount(2)
+                .satisfactionRate(reliabilityScore)
+                .problemCount(cancelled)
+                .totalReservations(total)
+                .confirmedReservations(confirmed)
+                .cancelledReservations(cancelled)
+                .cancellationRate(cancellationRate)
+                .avgDurationMinutes(avgDuration)
+                .reliabilityScore(reliabilityScore)
                 .build();
     }
     

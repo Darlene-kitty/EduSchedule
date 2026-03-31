@@ -24,13 +24,19 @@
       <!-- Title -->
       <div class="page-title-row">
         <div>
-          <h1 class="page-title">Disponibilités Enseignants</h1>
-          <p class="page-sub">Gérez les créneaux de disponibilité des enseignants</p>
+          <h1 class="page-title">
+            {{ isTeacher ? 'Mes disponibilités' : 'Disponibilités des enseignants' }}
+          </h1>
+          <p class="page-sub">
+            {{ isTeacher
+              ? 'Gérez vos créneaux de disponibilité hebdomadaires'
+              : 'Supervisez et gérez les disponibilités de tous les enseignants' }}
+          </p>
         </div>
         <div class="title-actions">
-          <button class="btn-outline"><mat-icon>settings</mat-icon> Défaut</button>
-          <button class="btn-outline"><mat-icon>calendar_month</mat-icon> En masse</button>
-          <button class="btn-green" (click)="openAdd()"><mat-icon>add</mat-icon> Ajouter</button>
+          <button class="btn-green" (click)="openAdd()"><mat-icon>add</mat-icon>
+            {{ isTeacher ? 'Ajouter un créneau' : 'Ajouter une disponibilité' }}
+          </button>
         </div>
       </div>
 
@@ -51,9 +57,16 @@
       <div class="toolbar">
         <div class="search-wrapper">
           <mat-icon class="search-icon">search</mat-icon>
-          <input type="text" class="search-input" placeholder="Rechercher une disponibilité..." [(ngModel)]="searchQuery" />
+          <input type="text" class="search-input"
+            [placeholder]="isTeacher ? 'Rechercher un créneau...' : 'Rechercher un enseignant...'"
+            [(ngModel)]="searchQuery" />
         </div>
         <div class="toolbar-right">
+          <!-- Filtre enseignant — admin uniquement -->
+          <select *ngIf="!isTeacher" class="day-select" [(ngModel)]="selectedTeacher">
+            <option value="all">Tous les enseignants</option>
+            <option *ngFor="let t of teacherNames" [value]="t">{{ t }}</option>
+          </select>
           <select class="day-select" [(ngModel)]="selectedDay">
             <option value="all">Tous les jours</option>
             <option *ngFor="let d of days" [value]="d.key">{{ d.label }}</option>
@@ -152,7 +165,9 @@
       <div class="form-row">
         <div class="form-group">
           <label>Enseignant</label>
-          <input type="text" [(ngModel)]="newForm.teacherName" placeholder="Nom de l'enseignant" />
+          <!-- Admin : champ libre. Enseignant : pré-rempli et verrouillé -->
+          <input *ngIf="!isTeacher" type="text" [(ngModel)]="newForm.teacherName" placeholder="Nom de l'enseignant" />
+          <input *ngIf="isTeacher"  type="text" [(ngModel)]="newForm.teacherName" [disabled]="true" class="input-locked" />
         </div>
         <div class="form-group">
           <label>Date effective</label>

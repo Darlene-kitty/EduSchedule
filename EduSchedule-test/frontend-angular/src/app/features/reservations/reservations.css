@@ -571,3 +571,63 @@
 .btn-import-confirm { display: flex; align-items: center; gap: 6px; background: #15803D; color: white; border: none; padding: 9px 18px; border-radius: 9px; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
 .btn-import-confirm:hover { background: #166534; }
 .btn-import-confirm mat-icon { font-size: 16px !important; width: 16px !important; height: 16px !important; }
+
+/* ── Tabs ── */
+.tabs-row { display: flex; gap: 4px; border-bottom: 2px solid #E5E7EB; margin-bottom: 16px; }
+.tab-btn { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border: none; background: transparent; font-size: 0.85rem; color: #6B7280; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; border-radius: 6px 6px 0 0; transition: all .15s; }
+.tab-btn.active { color: #1D4ED8; border-bottom-color: #1D4ED8; font-weight: 600; }
+.tab-btn:hover:not(.active) { background: #F3F4F6; }
+.badge { background: #EF4444; color: white; font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 10px; }
+
+/* ── Suggestion ── */
+.btn-suggest { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; border: 2px dashed #1D4ED8; background: #EFF6FF; color: #1D4ED8; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; margin: 8px 0; transition: all .15s; }
+.btn-suggest:hover:not(:disabled) { background: #DBEAFE; }
+.btn-suggest:disabled { opacity: .6; cursor: not-allowed; }
+.suggestions-panel { border: 1px solid #E5E7EB; border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+.suggestions-title { font-size: 0.78rem; font-weight: 700; color: #6B7280; padding: 8px 12px; background: #F9FAFB; margin: 0; border-bottom: 1px solid #E5E7EB; }
+.suggestion-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #F3F4F6; transition: background .1s; }
+.suggestion-item:last-child { border-bottom: none; }
+.suggestion-item:hover, .suggestion-item.selected { background: #EFF6FF; }
+.suggestion-name { font-size: 0.85rem; font-weight: 700; color: #111827; display: block; }
+.suggestion-meta { font-size: 0.75rem; color: #6B7280; display: block; }
+.suggestion-reason { font-size: 0.72rem; color: #15803D; display: block; }
+.suggestion-score { font-size: 1.1rem; font-weight: 800; }
+.no-suggestions { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: #6B7280; padding: 10px; background: #FEF9C3; border-radius: 8px; margin-bottom: 8px; }
+.label-hint { font-size: 0.72rem; color: #9CA3AF; font-weight: 400; }
+
+/* ── Pending cards ── */
+.reservations-list { display: flex; flex-direction: column; gap: 10px; }
+.reservation-card { background: white; border-radius: 10px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.pending-card { border-left: 4px solid #F59E0B; }
+.res-info { flex: 1; }
+.res-title { font-size: 0.9rem; font-weight: 700; color: #111827; margin-bottom: 4px; }
+.res-meta { display: flex; gap: 14px; flex-wrap: wrap; }
+.res-meta span { display: flex; align-items: center; gap: 4px; font-size: 0.78rem; color: #6B7280; }
+.res-meta mat-icon { font-size: 14px !important; width: 14px !important; height: 14px !important; }
+.res-actions { display: flex; gap: 8px; }
+.btn-approve { display: flex; align-items: center; gap: 4px; background: #15803D; color: white; border: none; padding: 7px 14px; border-radius: 7px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+.btn-reject  { display: flex; align-items: center; gap: 4px; background: #DC2626; color: white; border: none; padding: 7px 14px; border-radius: 7px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+
+/* ── Status badges ── */
+.status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+.status-confirmed { background: #DCFCE7; color: #15803D; }
+.status-pending   { background: #FEF9C3; color: #92400E; }
+.status-rejected  { background: #FEE2E2; color: #DC2626; }
+
+/* ── Confirm modals ── */
+.modal-sm { max-width: 440px; }
+.confirm-details { background: #F9FAFB; border-radius: 8px; padding: 12px; margin: 10px 0; font-size: 0.85rem; line-height: 1.6; }
+.confirm-note { font-size: 0.78rem; color: #6B7280; margin-top: 8px; }
+.btn-approve-confirm { display: flex; align-items: center; gap: 6px; background: #15803D; color: white; border: none; padding: 9px 18px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.btn-reject-confirm  { display: flex; align-items: center; gap: 6px; background: #DC2626; color: white; border: none; padding: 9px 18px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.btn-approve-confirm:disabled, .btn-reject-confirm:disabled { opacity: .6; cursor: not-allowed; }
+textarea { width: 100%; padding: 10px; border: 1px solid #E5E7EB; border-radius: 8px; font-size: 0.85rem; resize: vertical; outline: none; }
+
+/* ── Toast ── */
+.toast-success { position: fixed; bottom: 24px; right: 24px; background: #15803D; color: white; padding: 10px 18px; border-radius: 10px; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; opacity: 0; pointer-events: none; transition: opacity .3s; z-index: 9999; }
+.toast-success.visible { opacity: 1; pointer-events: auto; }
+.toast-success.toast-error { background: #DC2626; }
+
+/* ── Empty state ── */
+.empty-state { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 40px; color: #9CA3AF; }
+.empty-state mat-icon { font-size: 48px !important; width: 48px !important; height: 48px !important; }

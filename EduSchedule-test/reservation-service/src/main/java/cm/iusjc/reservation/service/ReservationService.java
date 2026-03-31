@@ -1,22 +1,26 @@
 package cm.iusjc.reservation.service;
 
+import cm.iusjc.reservation.exception.ConflictException;
+import cm.iusjc.reservation.exception.ResourceNotFoundException;
 import cm.iusjc.reservation.dto.ReservationDTO;
 import cm.iusjc.reservation.entity.Reservation;
 import cm.iusjc.reservation.entity.ReservationStatus;
 import cm.iusjc.reservation.entity.ReservationType;
+import cm.iusjc.reservation.messaging.ReservationEventPublisher;
 import cm.iusjc.reservation.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -26,12 +30,16 @@ import java.util.stream.Collectors;
 public class ReservationService {
     
     private final ReservationRepository reservationRepository;
+    private final RestTemplate restTemplate;
+    private final ReservationEventPublisher eventPublisher;
+
+    @Value("${resource.service.url:http://resource-service:8086}")
+    private String resourceServiceUrl;
     
     /**
      * Crée une nouvelle réservation
      */
     @Transactional
-    @CacheEvict(value = "reservations", allEntries = true)
     public ReservationDTO createReservation(ReservationDTO reservationDTO) {
         log.info("Creating new reservation: {}", reservationDTO.getTitle());
         
@@ -65,13 +73,15 @@ public class ReservationService {
         Reservation savedReservation = reservationRepository.save(reservation);
         log.info("Reservation created successfully with ID: {}", savedReservation.getId());
         
+        // Publier l'événement de création vers RabbitMQ
+        eventPublisher.publishCreated(savedReservation);
+        
         return convertToDTO(savedReservation);
     }
     
     /**
      * Récupère toutes les réservations
      */
-    @Cacheable(value = "reservations")
     public List<ReservationDTO> getAllReservations() {
         log.debug("Fetching all reservations");
         return reservationRepository.findAll().stream()
@@ -91,7 +101,6 @@ public class ReservationService {
     /**
      * Récupère une réservation par ID
      */
-    @Cacheable(value = "reservations", key = "#id")
     public Optional<ReservationDTO> getReservationById(Long id) {
         log.debug("Fetching reservation by ID: {}", id);
         return reservationRepository.findById(id)
@@ -160,7 +169,6 @@ public class ReservationService {
     /**
      * Récupère les réservations en attente
      */
-    @Cacheable(value = "pendingReservations")
     public List<ReservationDTO> getPendingReservations() {
         log.debug("Fetching pending reservations");
         return reservationRepository.findPendingReservations().stream()
@@ -171,7 +179,6 @@ public class ReservationService {
     /**
      * Récupère les réservations à venir
      */
-    @Cacheable(value = "upcomingReservations")
     public List<ReservationDTO> getUpcomingReservations() {
         log.debug("Fetching upcoming reservations");
         return reservationRepository.findUpcomingReservations(LocalDateTime.now()).stream()
@@ -203,12 +210,11 @@ public class ReservationService {
      * Met à jour une réservation
      */
     @Transactional
-    @CacheEvict(value = {"reservations", "pendingReservations", "upcomingReservations"}, allEntries = true)
     public ReservationDTO updateReservation(Long id, ReservationDTO reservationDTO) {
         log.info("Updating reservation with ID: {}", id);
         
         Reservation reservation = reservationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Reservation not found with ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with ID: " + id));
         
         // Validation des dates
         validateReservationTimes(reservationDTO.getStartTime(), reservationDTO.getEndTime());
@@ -242,15 +248,14 @@ public class ReservationService {
      * Approuve une réservation
      */
     @Transactional
-    @CacheEvict(value = {"reservations", "pendingReservations", "upcomingReservations"}, allEntries = true)
     public ReservationDTO approveReservation(Long id, Long approvedBy) {
         log.info("Approving reservation with ID: {} by user: {}", id, approvedBy);
         
         Reservation reservation = reservationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Reservation not found with ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with ID: " + id));
         
         if (reservation.getStatus() != ReservationStatus.PENDING) {
-            throw new RuntimeException("Only pending reservations can be approved");
+            throw new IllegalArgumentException("Only pending reservations can be approved");
         }
         
         reservation.setStatus(ReservationStatus.CONFIRMED);
@@ -260,6 +265,11 @@ public class ReservationService {
         
         Reservation approvedReservation = reservationRepository.save(reservation);
         log.info("Reservation approved: {}", approvedReservation.getId());
+
+        // Publier l'événement d'approbation
+        eventPublisher.publishApproved(approvedReservation);
+        // Enregistrer l'usage dans le resource-service pour le suivi d'usure
+        notifyEquipmentUsage(approvedReservation);
         
         return convertToDTO(approvedReservation);
     }
@@ -268,15 +278,14 @@ public class ReservationService {
      * Rejette une réservation
      */
     @Transactional
-    @CacheEvict(value = {"reservations", "pendingReservations", "upcomingReservations"}, allEntries = true)
     public ReservationDTO rejectReservation(Long id, Long rejectedBy, String reason) {
         log.info("Rejecting reservation with ID: {} by user: {}", id, rejectedBy);
         
         Reservation reservation = reservationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Reservation not found with ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with ID: " + id));
         
         if (reservation.getStatus() != ReservationStatus.PENDING) {
-            throw new RuntimeException("Only pending reservations can be rejected");
+            throw new IllegalArgumentException("Only pending reservations can be rejected");
         }
         
         reservation.setStatus(ReservationStatus.REJECTED);
@@ -288,6 +297,9 @@ public class ReservationService {
         Reservation rejectedReservation = reservationRepository.save(reservation);
         log.info("Reservation rejected: {}", rejectedReservation.getId());
         
+        // Publier l'événement de rejet
+        eventPublisher.publishRejected(rejectedReservation, reason);
+        
         return convertToDTO(rejectedReservation);
     }
     
@@ -295,15 +307,14 @@ public class ReservationService {
      * Annule une réservation
      */
     @Transactional
-    @CacheEvict(value = {"reservations", "pendingReservations", "upcomingReservations"}, allEntries = true)
     public ReservationDTO cancelReservation(Long id, Long cancelledBy, String reason) {
         log.info("Cancelling reservation with ID: {} by user: {}", id, cancelledBy);
         
         Reservation reservation = reservationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Reservation not found with ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with ID: " + id));
         
         if (reservation.getStatus() == ReservationStatus.CANCELLED) {
-            throw new RuntimeException("Reservation is already cancelled");
+            throw new IllegalArgumentException("Reservation is already cancelled");
         }
         
         reservation.setStatus(ReservationStatus.CANCELLED);
@@ -315,6 +326,9 @@ public class ReservationService {
         Reservation cancelledReservation = reservationRepository.save(reservation);
         log.info("Reservation cancelled: {}", cancelledReservation.getId());
         
+        // Publier l'événement d'annulation
+        eventPublisher.publishCancelled(cancelledReservation, reason);
+        
         return convertToDTO(cancelledReservation);
     }
     
@@ -322,12 +336,11 @@ public class ReservationService {
      * Supprime une réservation
      */
     @Transactional
-    @CacheEvict(value = {"reservations", "pendingReservations", "upcomingReservations"}, allEntries = true)
     public void deleteReservation(Long id) {
         log.info("Deleting reservation with ID: {}", id);
         
         if (!reservationRepository.existsById(id)) {
-            throw new RuntimeException("Reservation not found with ID: " + id);
+            throw new ResourceNotFoundException("Reservation not found with ID: " + id);
         }
         
         reservationRepository.deleteById(id);
@@ -447,6 +460,31 @@ public class ReservationService {
     }
     
     /**
+     * Notifie le resource-service pour enregistrer l'usage de l'équipement
+     * et alimenter le suivi d'usure/maintenance préventive.
+     */
+    private void notifyEquipmentUsage(Reservation reservation) {
+        try {
+            Map<String, Object> body = Map.of(
+                "reservationId", reservation.getId(),
+                "materielId",    reservation.getResourceId(),
+                "typeCours",     reservation.getType() != null ? reservation.getType().toString() : "COURS",
+                "dateDebut",     reservation.getStartTime().toString(),
+                "dateFin",       reservation.getEndTime().toString()
+            );
+            restTemplate.postForObject(
+                resourceServiceUrl + "/api/v1/equipment-usage/enregistrer",
+                body, Map.class
+            );
+            log.info("Equipment usage recorded for reservation {} / resource {}",
+                    reservation.getId(), reservation.getResourceId());
+        } catch (Exception e) {
+            log.warn("Could not record equipment usage for reservation {}: {}",
+                    reservation.getId(), e.getMessage());
+        }
+    }
+
+    /**
      * Validation des heures de réservation
      */
     private void validateReservationTimes(LocalDateTime startTime, LocalDateTime endTime) {
@@ -484,7 +522,7 @@ public class ReservationService {
             excludeId
         );
         if (!resourceConflicts.isEmpty()) {
-            throw new RuntimeException("Resource conflict detected: Resource " + reservationDTO.getResourceId() + 
+            throw new ConflictException("Resource conflict detected: Resource " + reservationDTO.getResourceId() + 
                 " is already reserved during this time");
         }
         

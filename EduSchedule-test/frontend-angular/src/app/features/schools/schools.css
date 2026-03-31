@@ -496,3 +496,22 @@
 .status-badge { padding: 4px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
 .status-badge.active   { background: #DCFCE7; color: #15803D; }
 .status-badge.inactive { background: #F3F4F6; color: #6B7280; }
+
+/* Infrastructures dans les cartes */
+.card-infra { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid #F3F4F6; }
+.infra-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; color: #6B7280; background: #F9FAFB; border: 1px solid #E5E7EB; padding: 3px 8px; border-radius: 6px; }
+.infra-badge mat-icon { font-size: 13px !important; width: 13px !important; height: 13px !important; }
+
+/* Infrastructures dans le formulaire */
+.infra-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.infra-item { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; text-align: center; }
+.infra-item mat-icon { color: #6B7280; font-size: 22px !important; width: 22px !important; height: 22px !important; }
+.infra-item label { font-size: 0.75rem; color: #6B7280; font-weight: 500; }
+.infra-item input { width: 60px; text-align: center; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px 8px; font-size: 0.875rem; font-weight: 600; color: #111827; }
+
+/* Infrastructures dans la vue détail */
+.view-infra-row { display: flex; gap: 12px; margin: 16px 0; }
+.view-infra-item { flex: 1; display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 10px; }
+.view-infra-item mat-icon { color: #6B7280; font-size: 22px !important; width: 22px !important; height: 22px !important; }
+.infra-count { font-size: 1.25rem; font-weight: 700; color: #111827; margin: 0; }
+.infra-label { font-size: 0.75rem; color: #6B7280; margin: 0; }

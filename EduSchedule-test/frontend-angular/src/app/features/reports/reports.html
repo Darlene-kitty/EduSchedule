@@ -78,6 +78,93 @@
         </div>
       </div>
 
+      <!-- ══ GÉNÉRATION DE RAPPORT ══ -->
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <h3 class="section-title"><mat-icon>summarize</mat-icon> Générer un rapport</h3>
+            <p class="section-sub">Générez un rapport côté serveur et téléchargez-le</p>
+          </div>
+        </div>
+        <div class="gen-form">
+          <div class="gen-row">
+            <div class="form-group">
+              <label>Type de rapport</label>
+              <select [(ngModel)]="reportForm.type">
+                <option *ngFor="let t of reportTypes" [value]="t.value">{{ t.label }}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Format</label>
+              <div class="format-btns">
+                <button *ngFor="let f of reportFormats" class="format-btn"
+                        [class.active]="reportForm.format === f.value"
+                        (click)="reportForm.format = f.value">
+                  <mat-icon>{{ f.icon }}</mat-icon> {{ f.label }}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="gen-row">
+            <div class="form-group">
+              <label>Titre (optionnel)</label>
+              <input type="text" [(ngModel)]="reportForm.title" placeholder="Titre du rapport" />
+            </div>
+            <div class="form-group">
+              <label>Période</label>
+              <div class="date-row">
+                <input type="date" [(ngModel)]="reportForm.startDate" />
+                <span class="date-sep">→</span>
+                <input type="date" [(ngModel)]="reportForm.endDate" />
+              </div>
+            </div>
+          </div>
+          <button class="btn-generate" (click)="generateReport()" [disabled]="isGenerating">
+            <mat-icon [class.spinning]="isGenerating">{{ isGenerating ? 'refresh' : 'play_arrow' }}</mat-icon>
+            {{ isGenerating ? 'Génération en cours...' : 'Générer et télécharger' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- ══ HISTORIQUE DES RAPPORTS ══ -->
+      <div class="section-card">
+        <div class="section-header">
+          <h3 class="section-title"><mat-icon>history</mat-icon> Rapports récents</h3>
+          <button class="btn-refresh" (click)="loadReportHistory()"><mat-icon>refresh</mat-icon></button>
+        </div>
+        <div *ngIf="isLoadingHistory" class="loading-row">
+          <mat-icon class="spinning">refresh</mat-icon> Chargement...
+        </div>
+        <div *ngIf="!isLoadingHistory && recentReports.length === 0" class="empty-history">
+          <mat-icon>description</mat-icon>
+          <p>Aucun rapport généré pour le moment.</p>
+        </div>
+        <div *ngIf="!isLoadingHistory && recentReports.length > 0" class="history-list">
+          <div *ngFor="let r of recentReports" class="history-item">
+            <mat-icon class="report-icon">{{ formatIcon(r.format) }}</mat-icon>
+            <div class="report-info">
+              <span class="report-title">{{ r.title || typeLabel(r.type) }}</span>
+              <span class="report-meta">{{ typeLabel(r.type) }} · {{ r.format }} · {{ r.generatedAt | date:'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+            <span class="status-badge" [ngClass]="statusClass(r.status ?? '')">{{ statusLabel(r.status ?? '') }}</span>
+            <div class="report-actions">
+              <button class="btn-dl" (click)="downloadReport(r)" [disabled]="r.status !== 'COMPLETED'" title="Télécharger">
+                <mat-icon>download</mat-icon>
+              </button>
+              <button class="btn-del" (click)="deleteReport(r)" title="Supprimer">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </main>
   </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-notif" [class.visible]="showToast" [class.toast-error]="toastError">
+  <mat-icon>{{ toastError ? 'error' : 'check_circle' }}</mat-icon>
+  <span>{{ toastMsg }}</span>
 </div>

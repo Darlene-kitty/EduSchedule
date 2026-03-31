@@ -66,9 +66,30 @@ public class GeneratedSchedule {
     @Column(name = "calendar_event_id", length = 100)
     private String calendarEventId; // ID retourné par le calendar-service après sync
 
+    /**
+     * ACTIVE  = créneau valide
+     * CONFLICT = créneau en conflit avec une nouvelle contrainte de disponibilité
+     * RELAXED  = créneau maintenu par relaxation (contrainte assouplie)
+     */
+    @Column(name = "status", nullable = false, length = 20)
+    private String status = "ACTIVE";
+
+    @Column(name = "conflict_reason", length = 255)
+    private String conflictReason;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
-    protected void onCreate() { this.createdAt = LocalDateTime.now(); }
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+        if (this.status == null) this.status = "ACTIVE";
+    }
+
+    @PreUpdate
+    protected void onUpdate() { this.updatedAt = LocalDateTime.now(); }
 }

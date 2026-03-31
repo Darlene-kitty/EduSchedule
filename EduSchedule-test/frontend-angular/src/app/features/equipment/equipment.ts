@@ -194,13 +194,15 @@ export class EquipmentComponent implements OnInit {
   openAddModal(): void  { this.newMat = this.emptyMat(); this.isAddModalOpen = true; }
   closeAddModal(): void { this.isAddModalOpen = false; }
   handleAdd(): void {
+    const typeId = this.resolveTypeId(this.newMat.typeCode);
     const payload = {
       code: this.newMat.code, nom: this.newMat.nom,
       marque: this.newMat.marque, modele: this.newMat.modele,
       numeroSerie: this.newMat.numeroSerie, ecole: this.newMat.ecole,
       salle: this.newMat.salle, etat: this.reverseMapEtat(this.newMat.etat),
       dateAcquisition: this.newMat.dateAcquisition, valeur: this.newMat.valeur,
-      description: this.newMat.description, active: this.newMat.enabled
+      description: this.newMat.description, active: this.newMat.enabled,
+      ...(typeId ? { typeMaterielId: typeId } : {})
     };
     this.equipmentService.createMateriel(payload).subscribe({
       next: (created) => {

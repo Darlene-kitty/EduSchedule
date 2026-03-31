@@ -2,12 +2,15 @@ package cm.iusjc.userservice.service;
 
 import cm.iusjc.userservice.entity.TeacherAvailability;
 import cm.iusjc.userservice.entity.AvailabilityType;
+import cm.iusjc.userservice.event.AvailabilityChangedEvent;
 import cm.iusjc.userservice.repository.TeacherAvailabilityRepository;
 import cm.iusjc.userservice.dto.TeacherAvailabilityDTO;
 import cm.iusjc.userservice.dto.TeacherAvailabilityRequest;
 import cm.iusjc.userservice.dto.TimeSlotDTO;
+import cm.iusjc.userservice.config.RabbitMQConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
@@ -25,6 +28,7 @@ import java.util.stream.Collectors;
 public class TeacherAvailabilityService {
     
     private final TeacherAvailabilityRepository availabilityRepository;
+    private final RabbitTemplate rabbitTemplate;
     
     @Transactional
     @CacheEvict(value = {"teacherAvailability", "availableSlots"}, key = "#request.teacherId")
@@ -58,7 +62,8 @@ public class TeacherAvailabilityService {
         
         TeacherAvailability saved = availabilityRepository.save(availability);
         log.info("Availability created successfully: {}", saved.getId());
-        
+
+        publishAvailabilityEvent("CREATED", saved);
         return mapToDTO(saved);
     }
     
@@ -138,7 +143,8 @@ public class TeacherAvailabilityService {
         
         TeacherAvailability updated = availabilityRepository.save(availability);
         log.info("Availability updated successfully: {}", updated.getId());
-        
+
+        publishAvailabilityEvent("UPDATED", updated);
         return mapToDTO(updated);
     }
     
@@ -152,7 +158,8 @@ public class TeacherAvailabilityService {
         
         availability.setActive(false);
         availabilityRepository.save(availability);
-        
+
+        publishAvailabilityEvent("DELETED", availability);
         log.info("Availability deleted successfully: {}", id);
     }
     
@@ -209,7 +216,27 @@ public class TeacherAvailabilityService {
         dto.setActive(availability.getActive());
         dto.setCreatedAt(availability.getCreatedAt());
         dto.setUpdatedAt(availability.getUpdatedAt());
-        
         return dto;
+    }
+
+    private void publishAvailabilityEvent(String changeType, TeacherAvailability a) {
+        try {
+            AvailabilityChangedEvent event = AvailabilityChangedEvent.builder()
+                    .changeType(changeType)
+                    .teacherId(a.getTeacherId())
+                    .schoolId(a.getSchoolId())
+                    .dayOfWeek(a.getDayOfWeek() != null ? a.getDayOfWeek().name() : null)
+                    .startTime(a.getStartTime() != null ? a.getStartTime().toString() : null)
+                    .endTime(a.getEndTime() != null ? a.getEndTime().toString() : null)
+                    .changedAt(LocalDateTime.now())
+                    .build();
+            rabbitTemplate.convertAndSend(
+                    RabbitMQConfig.USER_EXCHANGE,
+                    RabbitMQConfig.AVAILABILITY_CHANGED_ROUTING_KEY,
+                    event);
+            log.info("Published AvailabilityChangedEvent: type={} teacher={}", changeType, a.getTeacherId());
+        } catch (Exception e) {
+            log.warn("Failed to publish AvailabilityChangedEvent for teacher {}: {}", a.getTeacherId(), e.getMessage());
+        }
     }
 }

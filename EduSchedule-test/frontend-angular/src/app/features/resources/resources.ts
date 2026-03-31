@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
-import { RoomsManagementService, Room } from '../../core/services/rooms-management.service';
+import { ResourcesManagementService, EquipmentDashboard, EquipmentAlerte, MaintenanceRecord } from '../../core/services/resources-management.service';
 
 export interface Assignment { room: string; course: string; }
 export interface Resource {
@@ -20,7 +20,7 @@ export interface ImportedResource { name: string; category: string; location: st
   styleUrl: './resources.css'
 })
 export class ResourcesComponent implements OnInit {
-  private roomsService = inject(RoomsManagementService);
+  private resourcesService = inject(ResourcesManagementService);
   searchQuery = ''; activeTab: 'inventaire' | 'equipement' = 'inventaire';
   currentDate = ''; currentTime = '';
   isModalOpen = false;
@@ -37,14 +37,12 @@ export class ResourcesComponent implements OnInit {
   importPreviewFilter: 'all' | 'valid' | 'invalid' = 'all';
   importColumns = ['Nom ressource', 'Catégorie', 'Emplacement', 'Quantité totale'];
 
-  resources: Resource[] = [
-    { id: 1, name: 'Projecteur HD',       category: 'Projecteur',   icon: 'monitor',  available: 5, total: 8,  location: 'Bâtiment A - Réserve', assignments: [{ room: 'A101', course: 'Mathématiques' }, { room: 'A102', course: 'Physique' }, { room: 'B203', course: 'Chimie' }] },
-    { id: 2, name: 'Ordinateur portable', category: 'Informatique', icon: 'laptop',   available: 8, total: 12, location: 'Lab C - Stockage',      assignments: [{ room: 'Lab C305', course: 'TP Informatique' }, { room: 'Amphi A', course: 'Conférence' }] },
-    { id: 3, name: 'Microphone sans fil', category: 'Audio',        icon: 'mic',      available: 4, total: 6,  location: 'Amphi - Régie',         assignments: [{ room: 'Amphi A', course: 'Séminaire' }, { room: 'Amphi B', course: 'Conférence' }] },
-    { id: 4, name: 'Tableau interactif',  category: 'Affichage',    icon: 'tv',       available: 3, total: 5,  location: 'Bâtiment B - Réserve', assignments: [{ room: 'B101', course: 'TD Maths' }, { room: 'B102', course: 'TD Physique' }] },
-    { id: 5, name: 'Caméra de cours',     category: 'Vidéo',        icon: 'videocam', available: 2, total: 4,  location: 'Réunion - Stockage',    assignments: [{ room: 'Amphi A', course: 'Cours en ligne' }] },
-    { id: 6, name: 'Enceinte Bluetooth',  category: 'Audio',        icon: 'speaker',  available: 6, total: 8,  location: 'Bâtiment C - Réserve', assignments: [{ room: 'C201', course: 'Événement' }, { room: 'C202', course: 'Réunion' }] },
-  ];
+  resources: Resource[] = [];
+
+  // Données tableau de bord équipements
+  equipmentDashboard: EquipmentDashboard | null = null;
+  equipmentAlertes: EquipmentAlerte[] = [];
+  isLoadingDashboard = false;
 
   newResource = { name: '', category: '', location: '', total: 1 };
 
@@ -55,22 +53,22 @@ export class ResourcesComponent implements OnInit {
   }
 
   private loadResources(): void {
-    this.roomsService.getRooms().subscribe({
-      next: (rooms) => {
-        if (rooms && rooms.length > 0) {
-          this.resources = rooms.map(r => ({
-            id: r.id,
-            name: r.name,
-            category: r.type || 'Salle',
-            icon: 'meeting_room',
-            available: r.status === 'available' ? 1 : 0,
-            total: 1,
-            location: r.building || '',
-            assignments: []
-          }));
-        }
+    this.resourcesService.getResources().subscribe({
+      next: (data) => {
+        this.resources = data.map(r => ({
+          id: r.id,
+          name: r.name,
+          category: r.type || 'Ressource',
+          icon: 'devices',
+          available: r.available ?? (r.status === 'available' ? (r.quantity ?? 1) : 0),
+          total: r.quantity ?? 1,
+          location: r.location || '',
+          assignments: []
+        }));
       },
-      error: () => { /* garde les données démo */ }
+      error: (err) => {
+        console.error('Erreur chargement ressources:', err?.error?.message || err);
+      }
     });
   }
   updateDateTime(): void {
@@ -84,12 +82,39 @@ export class ResourcesComponent implements OnInit {
     const q = this.searchQuery.toLowerCase();
     return this.resources.filter(r => r.name.toLowerCase().includes(q) || r.category.toLowerCase().includes(q) || r.location.toLowerCase().includes(q));
   }
-  setTab(tab: 'inventaire' | 'equipement'): void { this.activeTab = tab; }
+  setTab(tab: 'inventaire' | 'equipement'): void {
+    this.activeTab = tab;
+    if (tab === 'equipement') this.loadEquipmentDashboard();
+  }
+
+  loadEquipmentDashboard(): void {
+    if (this.equipmentDashboard) return;
+    this.isLoadingDashboard = true;
+    this.resourcesService.getEquipmentDashboard().subscribe({
+      next: (data) => { this.equipmentDashboard = data; this.isLoadingDashboard = false; },
+      error: () => { this.isLoadingDashboard = false; }
+    });
+    this.resourcesService.getEquipmentAlertes().subscribe({
+      next: (data) => { this.equipmentAlertes = data; }
+    });
+  }
+
+  getAlerteClass(type: string): string {
+    return type === 'PANNE_SANS_INTERVENTION' ? 'alerte-danger' : 'alerte-warning';
+  }
   openModal(): void { this.newResource = { name: '', category: '', location: '', total: 1 }; this.isModalOpen = true; }
   closeModal(): void { this.isModalOpen = false; }
   handleAdd(): void {
-    this.resources = [...this.resources, { id: Date.now(), name: this.newResource.name, category: this.newResource.category, icon: 'devices', available: this.newResource.total, total: this.newResource.total, location: this.newResource.location, assignments: [] }];
-    this.closeModal();
+    this.resourcesService.addResource({
+      name: this.newResource.name,
+      type: this.newResource.category,
+      quantity: this.newResource.total,
+      available: this.newResource.total,
+      location: this.newResource.location
+    }).subscribe({
+      next: () => { this.closeModal(); this.loadResources(); },
+      error: (err) => alert(err?.error?.message || 'Erreur lors de la création')
+    });
   }
   openImportModal(): void {
     this.importStep = 1; this.importFile = null; this.isDragging = false;
@@ -134,10 +159,22 @@ export class ResourcesComponent implements OnInit {
     return this.importPreviewRows;
   }
   confirmImport(): void {
-    this.validImportRows.forEach(r => { this.resources.push({ id: Date.now() + Math.random(), name: r.name, category: r.category, icon: 'devices', available: r.total, total: r.total, location: r.location || 'À définir', assignments: [] }); });
-    this.importedCount = this.validImportRows.length;
-    this.closeImportModal(); this.showImportToast = true;
-    setTimeout(() => this.showImportToast = false, 4000);
+    const calls = this.validImportRows.map(r =>
+      this.resourcesService.addResource({
+        name: r.name,
+        type: r.category,
+        quantity: r.total,
+        available: r.total,
+        location: r.location || 'À définir'
+      })
+    );
+    let done = 0;
+    this.importedCount = calls.length;
+    calls.forEach(obs => obs.subscribe({
+      next: () => { done++; if (done === calls.length) { this.closeImportModal(); this.showImportToast = true; setTimeout(() => this.showImportToast = false, 4000); this.loadResources(); } },
+      error: (err) => alert(err?.error?.message || 'Erreur lors de l\'import')
+    }));
+    if (!calls.length) { this.closeImportModal(); }
   }
   downloadTemplate(): void {
     const csv = '\uFEFF' + '"Nom ressource";"Catégorie";"Emplacement";"Quantité totale"\n"Projecteur HD";"Projecteur";"Bâtiment A - Réserve";"8"\n"Laptop Dell";"Informatique";"Lab C - Stockage";"12"';

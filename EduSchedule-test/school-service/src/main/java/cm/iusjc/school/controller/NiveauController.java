@@ -21,14 +21,16 @@ public class NiveauController {
 
     @GetMapping
     public ResponseEntity<Map<String, Object>> getAll(
-            @RequestParam(required = false) Long filiereId) {
+            @RequestParam(name = "filiereId", required = false) Long filiereId) {
         try {
             var list = filiereId != null
                     ? niveauService.getByFiliere(filiereId)
                     : niveauService.getAll();
             return ResponseEntity.ok(Map.of("success", true, "data", list, "total", list.size()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+            log.error("Error fetching niveaux: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("success", false, "message",
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 
@@ -47,7 +49,8 @@ public class NiveauController {
                     .body(Map.of("success", true, "data", created));
         } catch (Exception e) {
             log.error("Error creating niveau: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message",
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 
@@ -58,7 +61,8 @@ public class NiveauController {
             return ResponseEntity.ok(Map.of("success", true, "data", updated));
         } catch (Exception e) {
             log.error("Error updating niveau {}: {}", id, e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message",
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 
@@ -69,7 +73,8 @@ public class NiveauController {
             return ResponseEntity.ok(Map.of("success", true, "message", "Niveau deleted"));
         } catch (Exception e) {
             log.error("Error deleting niveau {}: {}", id, e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message",
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 }

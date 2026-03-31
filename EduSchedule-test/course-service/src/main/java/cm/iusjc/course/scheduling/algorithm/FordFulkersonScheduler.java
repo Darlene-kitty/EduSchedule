@@ -13,36 +13,30 @@ import java.util.List;
  * Complexité : O(V * E²)
  *
  * Utilisé pour maximiser l'affectation cours → créneaux → salles.
+ * Supporte aussi le mode DFS (Ford-Fulkerson standard) via maxFlowDfs().
  */
 public class FordFulkersonScheduler {
 
-    /**
-     * Calcule le flot maximum entre source et sink dans le réseau donné.
-     * Modifie le flot des arêtes du réseau en place.
-     *
-     * @return valeur du flot maximum
-     */
+    /** Edmonds-Karp : BFS pour trouver les chemins augmentants (défaut recommandé) */
     public int maxFlow(FlowNetwork graph, int source, int sink) {
         int totalFlow = 0;
         int[] path;
-
-        // Tant qu'un chemin augmentant existe (BFS)
         while ((path = bfs(graph, source, sink)) != null) {
-            int bottleneck = findBottleneck(graph, path, source, sink);
-            augment(graph, path, source, sink, bottleneck);
+            int bottleneck = findBottleneck(graph, path);
+            augment(graph, path, bottleneck);
             totalFlow += bottleneck;
         }
-
         return totalFlow;
     }
 
     /**
      * BFS pour trouver un chemin augmentant de source à sink.
-     * Retourne le tableau parent[] ou null si aucun chemin.
+     * Retourne un tableau plat [node0, edgeIdx0, node1, edgeIdx1, ..., sink]
+     * ou null si aucun chemin n'existe.
      */
     private int[] bfs(FlowNetwork graph, int source, int sink) {
         int n = graph.getSize();
-        int[] parent    = new int[n];
+        int[] parent     = new int[n];
         int[] parentEdge = new int[n];
         Arrays.fill(parent, -1);
         parent[source] = source;
@@ -53,31 +47,27 @@ public class FordFulkersonScheduler {
         while (!queue.isEmpty()) {
             int node = queue.poll();
             List<FlowEdge> edges = graph.getEdges(node);
-
             for (int i = 0; i < edges.size(); i++) {
                 FlowEdge edge = edges.get(i);
                 int next = edge.getTo();
-
                 if (parent[next] == -1 && edge.getResidualCapacity() > 0) {
                     parent[next]     = node;
                     parentEdge[next] = i;
                     if (next == sink) {
-                        // Reconstruit le chemin via parentEdge
-                        return buildPath(parent, parentEdge, source, sink, n);
+                        return buildPath(parent, parentEdge, source, sink);
                     }
                     queue.add(next);
                 }
             }
         }
-        return null; // pas de chemin augmentant
+        return null;
     }
 
     /**
      * Reconstruit le chemin sous forme de tableau plat :
      * [node0, edgeIdx0, node1, edgeIdx1, ..., sink]
      */
-    private int[] buildPath(int[] parent, int[] parentEdge, int source, int sink, int n) {
-        // Compte la longueur du chemin
+    private int[] buildPath(int[] parent, int[] parentEdge, int source, int sink) {
         int len = 0;
         int cur = sink;
         while (cur != source) { cur = parent[cur]; len++; }
@@ -86,37 +76,72 @@ public class FordFulkersonScheduler {
         cur = sink;
         int pos = path.length - 1;
         path[pos--] = sink;
-
         while (cur != source) {
             int prev = parent[cur];
-            path[pos--] = parentEdge[cur]; // index de l'arête dans prev
+            path[pos--] = parentEdge[cur];
             path[pos--] = prev;
             cur = prev;
         }
         return path;
     }
 
-    /** Trouve le goulot d'étranglement (capacité résiduelle minimale) sur le chemin */
-    private int findBottleneck(FlowNetwork graph, int[] path, int source, int sink) {
+    private int findBottleneck(FlowNetwork graph, int[] path) {
         int bottleneck = Integer.MAX_VALUE;
         for (int i = 0; i < path.length - 2; i += 2) {
-            int node    = path[i];
-            int edgeIdx = path[i + 1];
-            FlowEdge edge = graph.getEdges(node).get(edgeIdx);
+            FlowEdge edge = graph.getEdges(path[i]).get(path[i + 1]);
             bottleneck = Math.min(bottleneck, edge.getResidualCapacity());
         }
         return bottleneck;
     }
 
-    /** Augmente le flot sur le chemin de la valeur bottleneck */
-    private void augment(FlowNetwork graph, int[] path, int source, int sink, int bottleneck) {
+    private void augment(FlowNetwork graph, int[] path, int bottleneck) {
         for (int i = 0; i < path.length - 2; i += 2) {
-            int node    = path[i];
-            int edgeIdx = path[i + 1];
-            FlowEdge forward  = graph.getEdges(node).get(edgeIdx);
-            FlowEdge backward = graph.getResidual(node, edgeIdx);
+            FlowEdge forward = graph.getEdges(path[i]).get(path[i + 1]);
             forward.addFlow(bottleneck);
-            backward.addFlow(-bottleneck);
+            forward.getResidual().addFlow(-bottleneck);
         }
+    }
+
+    // ── Ford-Fulkerson DFS ──────────────────────────────────────────────────
+
+    /** Ford-Fulkerson standard : DFS pour trouver les chemins augmentants */
+    public int maxFlowDfs(FlowNetwork graph, int source, int sink) {
+        int totalFlow = 0;
+        int[] path;
+        while ((path = dfs(graph, source, sink)) != null) {
+            int bottleneck = findBottleneck(graph, path);
+            augment(graph, path, bottleneck);
+            totalFlow += bottleneck;
+        }
+        return totalFlow;
+    }
+
+    private int[] dfs(FlowNetwork graph, int source, int sink) {
+        int n = graph.getSize();
+        int[] parent     = new int[n];
+        int[] parentEdge = new int[n];
+        Arrays.fill(parent, -1);
+        parent[source] = source;
+
+        Deque<Integer> stack = new ArrayDeque<>();
+        stack.push(source);
+
+        while (!stack.isEmpty()) {
+            int node = stack.pop();
+            List<FlowEdge> edges = graph.getEdges(node);
+            for (int i = 0; i < edges.size(); i++) {
+                FlowEdge edge = edges.get(i);
+                int next = edge.getTo();
+                if (parent[next] == -1 && edge.getResidualCapacity() > 0) {
+                    parent[next]     = node;
+                    parentEdge[next] = i;
+                    if (next == sink) {
+                        return buildPath(parent, parentEdge, source, sink);
+                    }
+                    stack.push(next);
+                }
+            }
+        }
+        return null;
     }
 }

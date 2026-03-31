@@ -22,16 +22,19 @@ public class FiliereService {
     private final FiliereRepository filiereRepository;
     private final SchoolRepository schoolRepository;
 
+    @Transactional(readOnly = true)
     public List<FiliereDTO> getAll() {
         return filiereRepository.findAll().stream().map(this::toDTO).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<FiliereDTO> getBySchool(Long schoolId) {
         return filiereRepository.findAll().stream()
                 .filter(f -> f.getSchool().getId().equals(schoolId))
                 .map(this::toDTO).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public Optional<FiliereDTO> getById(Long id) {
         return filiereRepository.findById(id).map(this::toDTO);
     }

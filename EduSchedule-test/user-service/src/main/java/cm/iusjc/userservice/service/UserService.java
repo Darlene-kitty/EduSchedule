@@ -1,5 +1,7 @@
 package cm.iusjc.userservice.service;
 
+import cm.iusjc.userservice.exception.DuplicateResourceException;
+import cm.iusjc.userservice.exception.ResourceNotFoundException;
 import cm.iusjc.userservice.dto.RegisterRequest;
 import cm.iusjc.userservice.dto.UserDTO;
 import cm.iusjc.userservice.dto.ProfileUpdateRequest;
@@ -38,12 +40,12 @@ public class UserService {
         
         if (userRepository.existsByUsername(request.getUsername())) {
             log.warn("Username already exists: {}", request.getUsername());
-            throw new RuntimeException("Le nom d'utilisateur '" + request.getUsername() + "' est déjà utilisé");
+            throw new DuplicateResourceException("Le nom d'utilisateur '" + request.getUsername() + "' est déjà utilisé");
         }
         
         if (userRepository.existsByEmail(request.getEmail())) {
             log.warn("Email already exists: {}", request.getEmail());
-            throw new RuntimeException("L'adresse email '" + request.getEmail() + "' est déjà utilisée");
+            throw new DuplicateResourceException("L'adresse email '" + request.getEmail() + "' est déjà utilisée");
         }
         
         User user = new User();
@@ -104,14 +106,14 @@ public class UserService {
     public UserDTO getUserById(Long id) {
         log.debug("Fetching user by id: {}", id);
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Utilisateur avec l'ID " + id + " introuvable"));
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur avec l'ID " + id + " introuvable"));
         return convertToDTO(user);
     }
     
     public UserDTO getUserByUsername(String username) {
         log.debug("Fetching user by username: {}", username);
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("Utilisateur '" + username + "' introuvable"));
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur '" + username + "' introuvable"));
         return convertToDTO(user);
     }
     
@@ -124,7 +126,7 @@ public class UserService {
     @Transactional
     public UserDTO updateUser(Long id, UserUpdateRequest request) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur avec l'ID " + id + " introuvable"));
 
         if (request.getEmail() != null) user.setEmail(request.getEmail());
         if (request.getFirstName() != null) user.setFirstName(request.getFirstName());
@@ -133,8 +135,9 @@ public class UserService {
         if (request.getEnabled() != null) user.setEnabled(request.getEnabled());
         if (request.getRole() != null) {
             user.setRole(roleRepository.findByName(request.getRole().toUpperCase())
-                    .orElseThrow(() -> new RuntimeException("Role '" + request.getRole().toUpperCase() + "' not found")));
+                    .orElseThrow(() -> new ResourceNotFoundException("Role '" + request.getRole().toUpperCase() + "' not found")));
         }
+        user.setUpdatedAt(java.time.LocalDateTime.now());
 
         User updatedUser = userRepository.save(user);
         return convertToDTO(updatedUser);
@@ -145,7 +148,7 @@ public class UserService {
         log.info("Deleting user with id: {}", id);
         if (!userRepository.existsById(id)) {
             log.warn("User not found for deletion: {}", id);
-            throw new RuntimeException("Utilisateur avec l'ID " + id + " introuvable");
+            throw new ResourceNotFoundException("Utilisateur avec l'ID " + id + " introuvable");
         }
         userRepository.deleteById(id);
         log.info("User deleted successfully: {}", id);
@@ -161,7 +164,10 @@ public class UserService {
                 user.getRole() != null ? user.getRole().getName() : null,
                 user.getEnabled(),
                 user.getCreatedAt(),
-                user.getUpdatedAt()
+                user.getUpdatedAt(),
+                null,
+                null,
+                null
         );
     }
     
@@ -170,18 +176,18 @@ public class UserService {
         log.info("Updating profile for user: {}", currentUsername);
         
         User user = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable"));
         
         // Vérifier si le nouveau username est déjà pris (sauf si c'est le même)
         if (!user.getUsername().equals(request.getUsername()) && 
             userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Le nom d'utilisateur '" + request.getUsername() + "' est déjà utilisé");
+            throw new DuplicateResourceException("Le nom d'utilisateur '" + request.getUsername() + "' est déjà utilisé");
         }
         
         // Vérifier si le nouvel email est déjà pris (sauf si c'est le même)
         if (!user.getEmail().equals(request.getEmail()) && 
             userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("L'adresse email '" + request.getEmail() + "' est déjà utilisée");
+            throw new DuplicateResourceException("L'adresse email '" + request.getEmail() + "' est déjà utilisée");
         }
         
         user.setUsername(request.getUsername());

@@ -22,16 +22,19 @@ public class NiveauService {
     private final NiveauRepository niveauRepository;
     private final FiliereRepository filiereRepository;
 
+    @Transactional(readOnly = true)
     public List<NiveauDTO> getAll() {
         return niveauRepository.findAll().stream().map(this::toDTO).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<NiveauDTO> getByFiliere(Long filiereId) {
         return niveauRepository.findAll().stream()
                 .filter(n -> n.getFiliere().getId().equals(filiereId))
                 .map(this::toDTO).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public Optional<NiveauDTO> getById(Long id) {
         return niveauRepository.findById(id).map(this::toDTO);
     }

@@ -49,9 +49,9 @@ export class ConflictsComponent implements OnInit {
         this.updateStats();
         this.isLoading = false;
       },
-      error: () => {
-        // fallback démo
-        this.conflicts = this.getDemoConflicts();
+      error: (err) => {
+        console.error('Erreur chargement conflits:', err?.error?.message || err);
+        this.conflicts = [];
         this.updateStats();
         this.isLoading = false;
       }
@@ -95,36 +95,6 @@ export class ConflictsComponent implements OnInit {
     const urgent = this.conflicts.filter(c => c.priority === 'urgent' && !c.resolved).length;
     this.stats[0].value = String(active);
     this.stats[2].value = String(urgent);
-  }
-
-  private getDemoConflicts(): Conflict[] {
-    return [
-      {
-        id: 1, title: 'Double réservation de la salle B203',
-        description: 'Deux cours planifiés au même horaire',
-        priority: 'urgent', date: 'Lundi 21 Oct 2025', time: '14:00 - 16:00',
-        items: [
-          { name: 'Physique Quantique', professor: 'Prof. Bernard', students: 30 },
-          { name: 'TD Mathématiques',   professor: 'Dr. Dupont',    students: 25 },
-        ],
-        solutions: [
-          { room: 'Salle A102', available: true },
-          { room: 'Salle B104', available: true },
-        ],
-        resolved: false
-      },
-      {
-        id: 2, title: 'Conflit de ressource - Projecteur HD',
-        description: 'Même équipement demandé par deux salles',
-        priority: 'normal', date: 'Mercredi 23 Oct 2025', time: '10:00 - 12:00',
-        items: [
-          { name: 'Chimie Organique',    professor: 'Prof. Laurent', students: 35 },
-          { name: 'Biologie Cellulaire', professor: 'Dr. Martin',    students: 28 },
-        ],
-        solutions: [{ room: 'Projecteur B disponible', available: true }],
-        resolved: false
-      },
-    ];
   }
 
   updateDateTime(): void {
