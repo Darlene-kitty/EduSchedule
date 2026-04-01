@@ -146,7 +146,7 @@
               <span class="report-title">{{ r.title || typeLabel(r.type) }}</span>
               <span class="report-meta">{{ typeLabel(r.type) }} · {{ r.format }} · {{ r.generatedAt | date:'dd/MM/yyyy HH:mm' }}</span>
             </div>
-            <span class="status-badge" [ngClass]="statusClass(r.status ?? '')">{{ statusLabel(r.status ?? '') }}</span>
+            <span class="status-badge" [ngClass]="statusClass(r.status)">{{ statusLabel(r.status) }}</span>
             <div class="report-actions">
               <button class="btn-dl" (click)="downloadReport(r)" [disabled]="r.status !== 'COMPLETED'" title="Télécharger">
                 <mat-icon>download</mat-icon>

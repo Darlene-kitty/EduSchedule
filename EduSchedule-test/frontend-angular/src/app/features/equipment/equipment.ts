@@ -75,6 +75,16 @@ export class EquipmentComponent implements OnInit {
 
   ecoles = ['SJI','SJM','PRÉPAVOGT','CPGE','Commun'];
 
+  readonly salles: Record<string, string[]> = {
+    'SJI':       ['Salle Info 1', 'Salle 101', 'Salle 102', 'TP Électrique', 'Amphi A'],
+    'SJM':       ['Salle 201', 'Salle 202', 'Secrétariat', 'Amphi B'],
+    'PRÉPAVOGT': ['Labo Chimie', 'Salle CPGE 1', 'Salle CPGE 2'],
+    'CPGE':      ['Salle CPGE 1', 'Salle CPGE 2', 'Salle CPGE 3'],
+    'Commun':    ['Amphi A', 'Amphi B', 'Salle Conf.'],
+  };
+
+  getSalles(ecole: string): string[] { return this.salles[ecole] ?? []; }
+
   materiels: Materiel[] = [
     { id:1,  code:'MAT-001', nom:'Ordinateur Dell OptiPlex',    typeMateriel:'Informatique',         typeCode:'INFO',  typeCouleur:'#1D4ED8', typeIcone:'computer',            marque:'Dell',       modele:'OptiPlex 7090',    numeroSerie:'DL-7090-001', ecole:'SJI',       salle:'Salle Info 1', etat:'Bon état',       dateAcquisition:'2023-01-15', valeur:450000, description:'Ordinateur de bureau pour salle informatique.', enabled:true },
     { id:2,  code:'MAT-002', nom:'Ordinateur Dell OptiPlex',    typeMateriel:'Informatique',         typeCode:'INFO',  typeCouleur:'#1D4ED8', typeIcone:'computer',            marque:'Dell',       modele:'OptiPlex 7090',    numeroSerie:'DL-7090-002', ecole:'SJI',       salle:'Salle Info 1', etat:'Bon état',       dateAcquisition:'2023-01-15', valeur:450000, description:'Ordinateur de bureau pour salle informatique.', enabled:true },
@@ -181,6 +191,11 @@ export class EquipmentComponent implements OnInit {
   onTypeChange(data: Omit<Materiel, 'id'>): void {
     const found = this.typesMateriel.find(t => t.code === data.typeCode);
     if (found) { data.typeMateriel = found.nom; data.typeCouleur = found.couleur; data.typeIcone = found.icone; }
+  }
+
+  private resolveTypeId(typeCode: string): number | null {
+    const idx = this.typesMateriel.findIndex(t => t.code === typeCode);
+    return idx >= 0 ? idx + 1 : null;
   }
 
   toast(msg: string): void {

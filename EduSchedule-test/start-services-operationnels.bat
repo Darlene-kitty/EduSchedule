@@ -28,19 +28,31 @@ set MVN_RUN=mvn spring-boot:run -Dspring-boot.run.jvmArguments="%JVM_OPTS%"
 
 REM ── 1. CONFIG SERVER ───────────────────────────────────────────────────────
 echo [1/16] Config Server (port 8888)...
-cd config-server
-start "Config Server :8888" cmd /k "set SPRING_PROFILES_ACTIVE=native && %MVN_RUN%"
-cd ..
-echo Attente 20s pour Config Server...
-timeout /t 20 /nobreak > nul
+netstat -ano | findstr ":8888" > nul 2>&1
+if %errorlevel%==0 (
+    echo [SKIP] Config Server deja en cours sur le port 8888.
+    timeout /t 5 /nobreak > nul
+) else (
+    cd config-server
+    start "Config Server :8888" cmd /k "set SPRING_PROFILES_ACTIVE=native && %MVN_RUN%"
+    cd ..
+    echo Attente 20s pour Config Server...
+    timeout /t 20 /nobreak > nul
+)
 
 REM ── 2. EUREKA ──────────────────────────────────────────────────────────────
 echo [2/16] Eureka Server (port 8761)...
-cd eureka-server
-start "Eureka Server :8761" cmd /k "%MVN_RUN%"
-cd ..
-echo Attente 30s pour Eureka...
-timeout /t 30 /nobreak > nul
+netstat -ano | findstr ":8761" > nul 2>&1
+if %errorlevel%==0 (
+    echo [SKIP] Eureka deja en cours sur le port 8761.
+    timeout /t 5 /nobreak > nul
+) else (
+    cd eureka-server
+    start "Eureka Server :8761" cmd /k "%MVN_RUN%"
+    cd ..
+    echo Attente 30s pour Eureka...
+    timeout /t 30 /nobreak > nul
+)
 set EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://localhost:8761/eureka/
 set SPRING_PROFILES_ACTIVE=dev
 

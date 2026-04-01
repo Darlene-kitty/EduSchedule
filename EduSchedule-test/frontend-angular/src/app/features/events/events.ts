@@ -54,6 +54,9 @@ export class EventsComponent implements OnInit {
 
   events: AppEvent[] = [];
 
+  readonly rooms = ['Amphi A', 'Amphi B', 'Salle 101', 'Salle 102', 'Salle 201', 'Salle 202', 'Salle Conf.', 'Labo Chimie', 'TP Électrique', 'Salle Info 1', 'Salle CPGE 1'];
+  readonly organizers = ['Dr. Dupont', 'Dr. Martin', 'Prof. Nguyen', 'Prof. Kamga', 'Dr. Mbarga', 'Prof. Talla', 'Dr. Foko'];
+
   newEvent      = { title: '', description: '', type: 'CONFERENCE' as EventType, status: 'CONFIRMED' as EventStatus, date: '', startTime: '', endTime: '', room: '', organizer: '', maxAttendees: 50, resourceId: 0, organizerId: 0 };
   editEventData = { title: '', description: '', type: 'CONFERENCE' as EventType, status: 'CONFIRMED' as EventStatus, date: '', startTime: '', endTime: '', room: '', organizer: '', maxAttendees: 50, resourceId: 0, organizerId: 0 };
 

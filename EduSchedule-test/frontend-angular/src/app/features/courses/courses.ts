@@ -60,10 +60,24 @@ export class CoursesComponent implements OnInit {
   newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral' as Course['type'], professor: '', hours: 30, students: 0 };
   newGroup  = { name: '', level: 'L1', promotion: 'Licence 1', capacity: 30, responsible: '' };
 
+  professors: string[] = [];
+  semesters = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10'];
+
   ngOnInit(): void { 
     this.updateDateTime(); 
     setInterval(() => this.updateDateTime(), 1000);
     this.loadCourses();
+    this.loadProfessors();
+  }
+
+  private loadProfessors(): void {
+    this.coursesManagementService.getCourses().subscribe({
+      next: (courses) => {
+        const names = courses.map(c => c.teacher ?? '').filter(n => n.length > 0);
+        this.professors = [...new Set(names)].sort();
+      },
+      error: () => {}
+    });
   }
 
   private loadCourses(): void {
@@ -75,10 +89,10 @@ export class CoursesComponent implements OnInit {
           code: c.code,
           level: c.level,
           type: 'Cours magistral' as Course['type'],
-          professor: c.teacher,
-          hours: c.hours,
+          professor: c.teacher ?? '',
+          hours: c.hours ?? 0,
           students: 0,
-          groups: [c.group]
+          groups: [c.group ?? '']
         }));
       },
       error: (err) => {
@@ -134,10 +148,8 @@ export class CoursesComponent implements OnInit {
       this.coursesManagementService.updateCourse(this.editingCourse.id, {
         name: this.newCourse.name,
         code: this.newCourse.code,
-        teacher: this.newCourse.professor,
         level: this.newCourse.level,
-        group: 'G1',
-        hours: this.newCourse.hours,
+        hoursPerWeek: this.newCourse.hours,
         semester: 'S1'
       }).subscribe({
         next: () => { this.closeCourseModal(); this.loadCourses(); },
@@ -147,11 +159,12 @@ export class CoursesComponent implements OnInit {
       this.coursesManagementService.addCourse({
         name: this.newCourse.name,
         code: this.newCourse.code,
-        teacher: this.newCourse.professor,
         level: this.newCourse.level,
-        group: 'G1',
-        hours: this.newCourse.hours,
-        semester: 'S1'
+        hoursPerWeek: this.newCourse.hours,
+        semester: 'S1',
+        credits: 0,
+        duration: this.newCourse.hours * 60,
+        department: ''
       }).subscribe({
         next: () => { this.closeCourseModal(); this.loadCourses(); },
         error: (err) => alert(err?.error?.message || 'Erreur lors de la création')
