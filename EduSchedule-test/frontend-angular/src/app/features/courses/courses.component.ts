@@ -71,27 +71,7 @@ export class CoursesComponent implements OnInit {
   viewingCourse: Course | null = null;
 
   courses: Course[] = [];
-
-  // données démo si backend vide
-  private demoCourses: Course[] = [
-    { id: 1, name: 'Mathématiques Avancées',  code: 'MATH301', level: 'L3', type: 'Cours magistral', professor: 'Dr. Martin Dupont',    hours: 48, students: 85, groups: ['L3-G1', 'L3-G2'] },
-    { id: 2, name: 'Physique Quantique',       code: 'PHYS402', level: 'M1', type: 'Cours magistral', professor: 'Prof. Sophie Bernard',  hours: 36, students: 42, groups: ['M1-G1'] },
-    { id: 3, name: 'TP Chimie Organique',      code: 'CHEM205', level: 'L2', type: 'TP',             professor: 'Dr. Claire Dubois',    hours: 24, students: 30, groups: ['L2-G1', 'L2-G2'] },
-    { id: 4, name: 'Programmation Python',     code: 'INFO101', level: 'L1', type: 'TD',             professor: 'Prof. Jean Moreau',    hours: 32, students: 60, groups: ['L1-G1', 'L1-G2', 'L1-G3'] },
-    { id: 5, name: 'Analyse Numérique',        code: 'MATH402', level: 'M1', type: 'Cours magistral', professor: 'Dr. Martin Dupont',    hours: 40, students: 38, groups: ['M1-G1', 'M1-G2'] },
-    { id: 6, name: 'Statistiques Appliquées',  code: 'STAT301', level: 'L3', type: 'TD',             professor: 'Dr. Marie Blanc',      hours: 28, students: 55, groups: ['L3-G1'] },
-  ];
-
-  groups: StudentGroup[] = [
-    { id: 1, name: 'L1-G1', level: 'L1', promotion: 'Licence 1', capacity: 30, enrolled: 28, courses: ['INFO101', 'MATH101', 'PHYS101'], responsible: 'Dr. Martin Dupont' },
-    { id: 2, name: 'L1-G2', level: 'L1', promotion: 'Licence 1', capacity: 30, enrolled: 30, courses: ['INFO101', 'MATH101'], responsible: 'Prof. Jean Moreau' },
-    { id: 3, name: 'L2-G1', level: 'L2', promotion: 'Licence 2', capacity: 28, enrolled: 25, courses: ['CHEM205', 'MATH201', 'PHYS201'], responsible: 'Dr. Claire Dubois' },
-    { id: 4, name: 'L2-G2', level: 'L2', promotion: 'Licence 2', capacity: 28, enrolled: 22, courses: ['CHEM205'], responsible: 'Dr. Claire Dubois' },
-    { id: 5, name: 'L3-G1', level: 'L3', promotion: 'Licence 3', capacity: 30, enrolled: 27, courses: ['MATH301', 'STAT301', 'INFO301'], responsible: 'Dr. Martin Dupont' },
-    { id: 6, name: 'L3-G2', level: 'L3', promotion: 'Licence 3', capacity: 30, enrolled: 26, courses: ['MATH301', 'STAT301'], responsible: 'Dr. Marie Blanc' },
-    { id: 7, name: 'M1-G1', level: 'M1', promotion: 'Master 1',  capacity: 25, enrolled: 20, courses: ['PHYS402', 'MATH402'], responsible: 'Prof. Sophie Bernard' },
-    { id: 8, name: 'M1-G2', level: 'M1', promotion: 'Master 1',  capacity: 25, enrolled: 18, courses: ['MATH402'], responsible: 'Dr. Martin Dupont' },
-  ];
+  groups: StudentGroup[] = [];
 
   newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral' as Course['type'], professor: '', hours: 30, students: 0, credits: 3, duration: 90, department: 'Informatique', semester: 'S1', description: '' };
   newGroup  = { name: '', level: 'L1', promotion: 'Licence 1', capacity: 30, responsible: '' };
@@ -134,28 +114,28 @@ export class CoursesComponent implements OnInit {
     this.isLoading = true;
     this.coursesService.getCourses().subscribe({
       next: (data) => {
-        if (data && data.length > 0) {
-          // mapper les champs API vers l'interface locale
-          this.courses = data.map(c => ({
-            id: c.id,
-            name: c.name,
-            code: c.code,
-            level: c.level || '',
-            type: (c as any).type || 'Cours magistral',
-            professor: c.teacher || '',
-            hours: c.hoursPerWeek || c.hours || 0,
-            students: (c as any).students || 0,
-            groups: c.group ? [c.group] : [],
-            schoolId: (c as any).schoolId,
-            teacherId: (c as any).teacherId
-          }));
-        } else {
-          this.courses = this.demoCourses;
-        }
+        this.courses = (data || []).map(c => ({
+          id: c.id,
+          name: c.name,
+          code: c.code,
+          level: c.level || '',
+          type: (c as any).type || 'Cours magistral',
+          professor: c.teacher || c.teacherName || '',
+          hours: c.hoursPerWeek || c.hours || 0,
+          students: (c as any).maxStudents || 0,
+          groups: c.group ? [c.group] : [],
+          schoolId: c.schoolId,
+          teacherId: c.teacherId,
+          credits: c.credits,
+          duration: c.duration,
+          department: c.department,
+          semester: c.semester,
+          description: c.description,
+        }));
         this.isLoading = false;
       },
       error: () => {
-        this.courses = this.demoCourses;
+        this.courses = [];
         this.isLoading = false;
       }
     });

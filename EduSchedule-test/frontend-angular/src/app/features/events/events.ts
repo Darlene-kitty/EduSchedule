@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { EventsManagementService, Event as ApiEvent, EventType, EventStatus } from '../../core/services/events-management.service';
+import { RoomsManagementService } from '../../core/services/rooms-management.service';
+import { UsersManagementService } from '../../core/services/users-management.service';
 
 export interface AppEvent {
   id: number; title: string; description: string;
@@ -28,6 +30,25 @@ export interface AppEvent {
 })
 export class EventsComponent implements OnInit {
   private eventsService = inject(EventsManagementService);
+  private roomsSvc      = inject(RoomsManagementService);
+  private usersSvc      = inject(UsersManagementService);
+
+  // Listes pour les selects
+  availableRooms: { id: number; name: string; building: string }[] = [];
+  availableOrganizers: { id: number; name: string }[] = [];
+
+  readonly eventTypes: { value: EventType; label: string }[] = [
+    { value: 'CONFERENCE',  label: 'Conférence'  },
+    { value: 'SEMINAR',     label: 'Séminaire'   },
+    { value: 'WORKSHOP',    label: 'Atelier'     },
+    { value: 'MEETING',     label: 'Réunion'     },
+    { value: 'EXAM',        label: 'Examen'      },
+    { value: 'DEFENSE',     label: 'Soutenance'  },
+    { value: 'CEREMONY',    label: 'Cérémonie'   },
+    { value: 'TRAINING',    label: 'Formation'   },
+    { value: 'COMPETITION', label: 'Compétition' },
+    { value: 'OTHER',       label: 'Autre'       },
+  ];
 
   currentDate = ''; currentTime = '';
   searchQuery = '';
@@ -61,6 +82,27 @@ export class EventsComponent implements OnInit {
     this.updateDateTime(); 
     setInterval(() => this.updateDateTime(), 1000);
     this.loadEvents();
+    this.loadRooms();
+    this.loadOrganizers();
+  }
+
+  private loadRooms(): void {
+    this.roomsSvc.getRooms().subscribe({
+      next: rooms => { this.availableRooms = rooms.map(r => ({ id: r.id, name: r.name, building: r.building ?? '' })); },
+      error: () => {}
+    });
+  }
+
+  private loadOrganizers(): void {
+    this.usersSvc.getUsers().subscribe({
+      next: users => {
+        this.availableOrganizers = users
+          .filter(u => ['ADMIN','TEACHER'].some(r => (u.role || '').toUpperCase().includes(r)))
+          .map(u => ({ id: u.id, name: u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || '' }))
+          .filter(u => u.name);
+      },
+      error: () => {}
+    });
   }
 
   private loadEvents(): void {
@@ -245,4 +287,14 @@ export class EventsComponent implements OnInit {
   getTypeClass(t:  string): string  { return t === 'Conférence' ? 'type-conference' : t === 'Séminaire' ? 'type-seminaire' : t === 'Examen' ? 'type-examen' : t === 'Compétition' ? 'type-competition' : 'type-event'; }
   getStatusIcon(s: string): string  { return s === 'Confirmé' ? 'check_circle' : s === 'En attente' ? 'hourglass_empty' : 'cancel'; }
   getFillPercent(att: number, max: number): number { return max > 0 ? Math.round((att / max) * 100) : 0; }
+
+  onRoomChange(form: typeof this.newEvent): void {
+    const room = this.availableRooms.find(r => r.id === form.resourceId);
+    form.room = room ? `${room.name} — ${room.building}` : '';
+  }
+
+  onOrganizerChange(form: typeof this.newEvent): void {
+    const org = this.availableOrganizers.find(u => u.id === form.organizerId);
+    form.organizer = org?.name ?? '';
+  }
 }

@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
-import { CoursesManagementService, Course as ManagedCourse } from '../../core/services/courses-management.service';
+import { CoursesManagementService } from '../../core/services/courses-management.service';
+import { UsersManagementService } from '../../core/services/users-management.service';
 
 export interface Course {
   id: number;
@@ -37,6 +38,13 @@ export interface StudentGroup {
 })
 export class CoursesComponent implements OnInit {
   private coursesManagementService = inject(CoursesManagementService);
+  private usersSvc                 = inject(UsersManagementService);
+
+  // Listes pour les selects
+  teachers: { id: number; name: string }[] = [];
+  readonly departments = ['Informatique','Mathématiques','Physique','Chimie','Biologie','Économie','Droit','Lettres','Sciences Humaines','Génie Civil','Génie Électrique'];
+  readonly durations   = [30, 45, 60, 90, 120, 150, 180, 240];
+  readonly creditsList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
   activeTab: 'courses' | 'groups' = 'courses';
   searchQuery = '';
@@ -57,13 +65,38 @@ export class CoursesComponent implements OnInit {
 
   groups: StudentGroup[] = [];
 
-  newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral' as Course['type'], professor: '', hours: 30, students: 0 };
+  newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral' as Course['type'], professor: '', hours: 30, students: 0, credits: 3, duration: 90, department: 'Informatique', semester: 'S1' };
   newGroup  = { name: '', level: 'L1', promotion: 'Licence 1', capacity: 30, responsible: '' };
+  professors: string[] = [];
+  semesters = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10'];
 
-  ngOnInit(): void { 
+   ngOnInit(): void { 
     this.updateDateTime(); 
     setInterval(() => this.updateDateTime(), 1000);
     this.loadCourses();
+    this.loadTeachers();
+  }
+
+  private loadTeachers(): void {
+    this.usersSvc.getUsers().subscribe({
+      next: users => {
+        this.teachers = users
+          .filter(u => (u.role || '').toUpperCase().includes('TEACHER'))
+          .map(u => ({ id: u.id, name: u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || '' }))
+          .filter(t => t.name);
+        // Fallback: extraire depuis les cours existants
+        if (!this.teachers.length) {
+          this.coursesManagementService.getCourses().subscribe({
+            next: courses => {
+              const names = courses.map(c => c.teacher ?? '').filter(n => n.length > 0);
+              this.professors = [...new Set(names)].sort();
+            },
+            error: () => {}
+          });
+        }
+      },
+      error: () => {}
+    });
   }
 
   private loadCourses(): void {
@@ -75,10 +108,10 @@ export class CoursesComponent implements OnInit {
           code: c.code,
           level: c.level,
           type: 'Cours magistral' as Course['type'],
-          professor: c.teacher,
-          hours: c.hours,
+          professor: c.teacher ?? '',
+          hours: c.hours ?? 0,
           students: 0,
-          groups: [c.group]
+          groups: [c.group ?? '']
         }));
       },
       error: (err) => {
@@ -120,9 +153,9 @@ export class CoursesComponent implements OnInit {
   openCourseModal(course?: Course): void {
     this.editingCourse = course || null;
     if (course) {
-      this.newCourse = { name: course.name, code: course.code, level: course.level, type: course.type, professor: course.professor, hours: course.hours, students: course.students };
+      this.newCourse = { name: course.name, code: course.code, level: course.level, type: course.type, professor: course.professor, hours: course.hours, students: course.students, credits: 3, duration: 90, department: 'Informatique', semester: 'S1' };
     } else {
-      this.newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral', professor: '', hours: 30, students: 0 };
+      this.newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral', professor: '', hours: 30, students: 0, credits: 3, duration: 90, department: 'Informatique', semester: 'S1' };
     }
     this.isCourseModalOpen = true;
   }
@@ -134,10 +167,8 @@ export class CoursesComponent implements OnInit {
       this.coursesManagementService.updateCourse(this.editingCourse.id, {
         name: this.newCourse.name,
         code: this.newCourse.code,
-        teacher: this.newCourse.professor,
         level: this.newCourse.level,
-        group: 'G1',
-        hours: this.newCourse.hours,
+        hoursPerWeek: this.newCourse.hours,
         semester: 'S1'
       }).subscribe({
         next: () => { this.closeCourseModal(); this.loadCourses(); },
@@ -147,11 +178,12 @@ export class CoursesComponent implements OnInit {
       this.coursesManagementService.addCourse({
         name: this.newCourse.name,
         code: this.newCourse.code,
-        teacher: this.newCourse.professor,
         level: this.newCourse.level,
-        group: 'G1',
-        hours: this.newCourse.hours,
-        semester: 'S1'
+        hoursPerWeek: this.newCourse.hours,
+        semester: this.newCourse.semester || 'S1',
+        credits: this.newCourse.credits || 3,
+        duration: this.newCourse.duration || 90,
+        department: this.newCourse.department || 'Informatique'
       }).subscribe({
         next: () => { this.closeCourseModal(); this.loadCourses(); },
         error: (err) => alert(err?.error?.message || 'Erreur lors de la création')

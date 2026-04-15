@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { TeacherAvailabilityManagementService, TeacherAvailabilityEntry } from '../../core/services/teacher-availability-management.service';
 import { AuthService } from '../../core/services/auth.service';
+import { UsersManagementService } from '../../core/services/users-management.service';
 
 export type TimeSlot = import('../../core/services/teacher-availability-management.service').TimeSlot;
 export type TeacherAvailability = TeacherAvailabilityEntry;
@@ -19,6 +20,10 @@ export type TeacherAvailability = TeacherAvailabilityEntry;
 export class TeacherAvailabilityComponent implements OnInit {
   private availabilityService = inject(TeacherAvailabilityManagementService);
   private authService         = inject(AuthService);
+  private usersSvc            = inject(UsersManagementService);
+
+  // Liste des enseignants pour le select admin
+  teacherList: { id: number; name: string }[] = [];
 
   isTeacher = false;
   currentTeacherName = '';
@@ -56,6 +61,19 @@ export class TeacherAvailabilityComponent implements OnInit {
     this.currentTeacherName = user?.name || user?.username || '';
 
     this.loadAvailabilities();
+
+    // Charger la liste des enseignants pour le select (admin uniquement)
+    if (!this.isTeacher) {
+      this.usersSvc.getUsers().subscribe({
+        next: users => {
+          this.teacherList = users
+            .filter(u => (u.role || '').toUpperCase().includes('TEACHER'))
+            .map(u => ({ id: u.id, name: u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || '' }))
+            .filter(t => t.name);
+        },
+        error: () => {}
+      });
+    }
   }
 
   loadAvailabilities(): void {

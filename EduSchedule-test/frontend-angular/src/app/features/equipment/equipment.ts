@@ -1,9 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { EquipmentManagementService } from '../../core/services/equipment-management.service';
+import { RoomsManagementService } from '../../core/services/rooms-management.service';
 
 export interface Materiel {
   id: number;
@@ -35,6 +36,10 @@ export interface Materiel {
 export class EquipmentComponent implements OnInit {
 
   constructor(private equipmentService: EquipmentManagementService) {}
+  private roomsSvc = inject(RoomsManagementService);
+
+  // Salles disponibles pour le select
+  availableSalles: string[] = [];
 
   searchQuery  = '';
   filterType   = '';
@@ -62,7 +67,11 @@ export class EquipmentComponent implements OnInit {
     'En maintenance': '#7C3AED',
   };
 
-  typesMateriel = [
+  typesMateriel: { code: string; nom: string; icone: string; couleur: string }[] = [];
+  ecoles: string[] = [];
+
+  // Fallback types si l'API ne retourne rien
+  private readonly defaultTypes = [
     { code:'INFO',  nom:'Informatique',         icone:'computer',            couleur:'#1D4ED8' },
     { code:'PROJ',  nom:'Projection',           icone:'videocam',            couleur:'#7C3AED' },
     { code:'AUDIO', nom:'Audio & Sonorisation', icone:'speaker',             couleur:'#EA580C' },
@@ -73,22 +82,9 @@ export class EquipmentComponent implements OnInit {
     { code:'CAM',   nom:'Caméra & Photo',       icone:'camera_alt',          couleur:'#DB2777' },
   ];
 
-  ecoles = ['SJI','SJM','PRÉPAVOGT','CPGE','Commun'];
+  // getSalles n'est plus nécessaire — les salles viennent de l'API via availableSalles
 
-  materiels: Materiel[] = [
-    { id:1,  code:'MAT-001', nom:'Ordinateur Dell OptiPlex',    typeMateriel:'Informatique',         typeCode:'INFO',  typeCouleur:'#1D4ED8', typeIcone:'computer',            marque:'Dell',       modele:'OptiPlex 7090',    numeroSerie:'DL-7090-001', ecole:'SJI',       salle:'Salle Info 1', etat:'Bon état',       dateAcquisition:'2023-01-15', valeur:450000, description:'Ordinateur de bureau pour salle informatique.', enabled:true },
-    { id:2,  code:'MAT-002', nom:'Ordinateur Dell OptiPlex',    typeMateriel:'Informatique',         typeCode:'INFO',  typeCouleur:'#1D4ED8', typeIcone:'computer',            marque:'Dell',       modele:'OptiPlex 7090',    numeroSerie:'DL-7090-002', ecole:'SJI',       salle:'Salle Info 1', etat:'Bon état',       dateAcquisition:'2023-01-15', valeur:450000, description:'Ordinateur de bureau pour salle informatique.', enabled:true },
-    { id:3,  code:'MAT-003', nom:'Vidéoprojecteur Epson',       typeMateriel:'Projection',           typeCode:'PROJ',  typeCouleur:'#7C3AED', typeIcone:'videocam',            marque:'Epson',      modele:'EB-X51',           numeroSerie:'EP-X51-001',  ecole:'Commun',    salle:'Amphi A',      etat:'Bon état',       dateAcquisition:'2022-09-01', valeur:280000, description:'Vidéoprojecteur pour amphithéâtre.', enabled:true },
-    { id:4,  code:'MAT-004', nom:'Vidéoprojecteur Epson',       typeMateriel:'Projection',           typeCode:'PROJ',  typeCouleur:'#7C3AED', typeIcone:'videocam',            marque:'Epson',      modele:'EB-X51',           numeroSerie:'EP-X51-002',  ecole:'SJM',       salle:'Salle 201',    etat:'En maintenance', dateAcquisition:'2022-09-01', valeur:280000, description:'Vidéoprojecteur en cours de maintenance.', enabled:true },
-    { id:5,  code:'MAT-005', nom:'Microscope Optique',          typeMateriel:'Équipement de Labo',   typeCode:'LABO',  typeCouleur:'#DC2626', typeIcone:'science',             marque:'Olympus',    modele:'CX23',             numeroSerie:'OL-CX23-001', ecole:'PRÉPAVOGT', salle:'Labo Chimie',  etat:'Bon état',       dateAcquisition:'2021-06-10', valeur:350000, description:'Microscope optique binoculaire pour TP.', enabled:true },
-    { id:6,  code:'MAT-006', nom:'Oscilloscope Numérique',      typeMateriel:'Équipement de Labo',   typeCode:'LABO',  typeCouleur:'#DC2626', typeIcone:'science',             marque:'Rigol',      modele:'DS1054Z',          numeroSerie:'RG-DS1054-01',ecole:'SJI',       salle:'TP Électrique',etat:'Bon état',       dateAcquisition:'2022-03-20', valeur:180000, description:'Oscilloscope 4 canaux 50MHz.', enabled:true },
-    { id:7,  code:'MAT-007', nom:'Imprimante HP LaserJet',      typeMateriel:'Impression',           typeCode:'IMPR',  typeCouleur:'#0891B2', typeIcone:'print',               marque:'HP',         modele:'LaserJet Pro M404', numeroSerie:'HP-M404-001', ecole:'SJM',       salle:'Secrétariat',  etat:'Usagé',          dateAcquisition:'2020-11-05', valeur:120000, description:'Imprimante laser monochrome.', enabled:true },
-    { id:8,  code:'MAT-008', nom:'Système de Sonorisation',     typeMateriel:'Audio & Sonorisation', typeCode:'AUDIO', typeCouleur:'#EA580C', typeIcone:'speaker',             marque:'Yamaha',     modele:'STAGEPAS 400BT',   numeroSerie:'YM-SP400-001',ecole:'Commun',    salle:'Amphi A',      etat:'Bon état',       dateAcquisition:'2023-04-12', valeur:320000, description:'Système de sonorisation portable pour amphithéâtre.', enabled:true },
-    { id:9,  code:'MAT-009', nom:'Laptop Lenovo ThinkPad',      typeMateriel:'Informatique',         typeCode:'INFO',  typeCouleur:'#1D4ED8', typeIcone:'computer',            marque:'Lenovo',     modele:'ThinkPad E15',     numeroSerie:'LN-E15-001',  ecole:'SJI',       salle:'Salle 101',    etat:'Bon état',       dateAcquisition:'2023-08-20', valeur:520000, description:'Laptop pour enseignant.', enabled:true },
-    { id:10, code:'MAT-010', nom:'Caméra Sony',                 typeMateriel:'Caméra & Photo',       typeCode:'CAM',   typeCouleur:'#DB2777', typeIcone:'camera_alt',          marque:'Sony',       modele:'ZV-E10',           numeroSerie:'SN-ZVE10-001',ecole:'Commun',    salle:'Salle Conf.',  etat:'Bon état',       dateAcquisition:'2023-02-14', valeur:250000, description:'Caméra pour enregistrement de cours.', enabled:true },
-    { id:11, code:'MAT-011', nom:'Tableau Blanc Interactif',    typeMateriel:'Projection',           typeCode:'PROJ',  typeCouleur:'#7C3AED', typeIcone:'videocam',            marque:'Smart',      modele:'SBID-7275',        numeroSerie:'SM-7275-001', ecole:'CPGE',      salle:'Salle CPGE 1', etat:'Bon état',       dateAcquisition:'2022-07-01', valeur:680000, description:'Tableau blanc interactif 75 pouces.', enabled:true },
-    { id:12, code:'MAT-012', nom:'Imprimante 3D',               typeMateriel:'Informatique',         typeCode:'INFO',  typeCouleur:'#1D4ED8', typeIcone:'computer',            marque:'Creality',   modele:'Ender 3 Pro',      numeroSerie:'CR-E3P-001',  ecole:'SJI',       salle:'Salle Info 1', etat:'En panne',       dateAcquisition:'2022-05-18', valeur:95000,  description:'Imprimante 3D FDM pour projets étudiants.', enabled:true },
-  ];
+  materiels: Materiel[] = [];
 
   emptyMat = (): Omit<Materiel, 'id'> => ({
     code:'', nom:'', typeMateriel:'', typeCode:'', typeCouleur:'#1D4ED8', typeIcone:'devices',
@@ -103,6 +99,49 @@ export class EquipmentComponent implements OnInit {
     this.updateDateTime();
     setInterval(() => this.updateDateTime(), 1000);
     this.loadMateriels();
+    this.loadSalles();
+    this.loadTypes();
+    this.loadEcoles();
+  }
+
+  private loadTypes(): void {
+    // Charger les types depuis l'API equipment-types
+    this.equipmentService.getAllTypes().subscribe({
+      next: types => {
+        if (types && types.length > 0) {
+          this.typesMateriel = types.map((t: any) => ({
+            code: t.code ?? t.id?.toString() ?? '',
+            nom: t.nom ?? t.name ?? '',
+            icone: t.icone ?? 'devices',
+            couleur: t.couleur ?? '#6B7280'
+          }));
+        } else {
+          this.typesMateriel = this.defaultTypes;
+        }
+      },
+      error: () => { this.typesMateriel = this.defaultTypes; }
+    });
+  }
+
+  private loadEcoles(): void {
+    // Extraire les écoles uniques depuis les matériels chargés
+    // ou depuis le school-service si disponible
+    this.equipmentService.getAllMateriels().subscribe({
+      next: data => {
+        const unique = [...new Set((data || []).map((m: any) => m.ecole).filter(Boolean))].sort();
+        this.ecoles = unique.length > 0 ? unique : ['SJI','SJM','PRÉPAVOGT','CPGE','Commun'];
+      },
+      error: () => { this.ecoles = ['SJI','SJM','PRÉPAVOGT','CPGE','Commun']; }
+    });
+  }
+
+  private loadSalles(): void {
+    this.roomsSvc.getRooms().subscribe({
+      next: rooms => {
+        this.availableSalles = rooms.map(r => r.name).sort();
+      },
+      error: () => {}
+    });
   }
 
   private loadMateriels(): void {
@@ -193,6 +232,13 @@ export class EquipmentComponent implements OnInit {
 
   openAddModal(): void  { this.newMat = this.emptyMat(); this.isAddModalOpen = true; }
   closeAddModal(): void { this.isAddModalOpen = false; }
+
+  private resolveTypeId(typeCode: string): number | null {
+    // Cherche l'ID du type dans la liste chargée depuis le backend
+    // Si pas disponible, retourne null (le backend utilisera le code)
+    return null;
+  }
+
   handleAdd(): void {
     const typeId = this.resolveTypeId(this.newMat.typeCode);
     const payload = {

@@ -109,9 +109,18 @@
       <div class="form-group"><label>Description</label><textarea [(ngModel)]="newEvent.description" rows="2" placeholder="Description..."></textarea></div>
       <div class="form-row">
         <div class="form-group"><label>Type</label>
-          <select [(ngModel)]="newEvent.type"><option>Conférence</option><option>Séminaire</option><option>Examen</option><option>Compétition</option><option>Événement</option></select></div>
+          <select [(ngModel)]="newEvent.type">
+            <option *ngFor="let t of eventTypes" [value]="t.value">{{ t.label }}</option>
+          </select>
+        </div>
         <div class="form-group"><label>Statut</label>
-          <select [(ngModel)]="newEvent.status"><option>Confirmé</option><option>En attente</option><option>Annulé</option></select></div>
+          <select [(ngModel)]="newEvent.status">
+            <option value="CONFIRMED">Confirmé</option>
+            <option value="PLANNED">Planifié</option>
+            <option value="POSTPONED">Reporté</option>
+            <option value="CANCELLED">Annulé</option>
+          </select>
+        </div>
       </div>
       <div class="form-row">
         <div class="form-group"><label>Date</label><input type="date" [(ngModel)]="newEvent.date" /></div>
@@ -122,8 +131,20 @@
         <div class="form-group"><label>Heure fin</label><input type="time" [(ngModel)]="newEvent.endTime" /></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Salle</label><input type="text" [(ngModel)]="newEvent.room" placeholder="Ex: Amphithéâtre A" /></div>
-        <div class="form-group"><label>Organisateur</label><input type="text" [(ngModel)]="newEvent.organizer" placeholder="Ex: Prof. Martin" /></div>
+        <div class="form-group">
+          <label>Salle</label>
+          <select [(ngModel)]="newEvent.resourceId" (ngModelChange)="onRoomChange(newEvent)">
+            <option [ngValue]="0">— Sélectionner une salle —</option>
+            <option *ngFor="let r of availableRooms" [ngValue]="r.id">{{ r.name }} — {{ r.building }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Organisateur</label>
+          <select [(ngModel)]="newEvent.organizerId" (ngModelChange)="onOrganizerChange(newEvent)">
+            <option [ngValue]="0">— Sélectionner —</option>
+            <option *ngFor="let u of availableOrganizers" [ngValue]="u.id">{{ u.name }}</option>
+          </select>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -210,9 +231,18 @@
       <div class="form-group"><label>Description</label><textarea [(ngModel)]="editEventData.description" rows="2"></textarea></div>
       <div class="form-row">
         <div class="form-group"><label>Type</label>
-          <select [(ngModel)]="editEventData.type"><option>Conférence</option><option>Séminaire</option><option>Examen</option><option>Compétition</option><option>Événement</option></select></div>
+          <select [(ngModel)]="editEventData.type">
+            <option *ngFor="let t of eventTypes" [value]="t.value">{{ t.label }}</option>
+          </select>
+        </div>
         <div class="form-group"><label>Statut</label>
-          <select [(ngModel)]="editEventData.status"><option>Confirmé</option><option>En attente</option><option>Annulé</option></select></div>
+          <select [(ngModel)]="editEventData.status">
+            <option value="CONFIRMED">Confirmé</option>
+            <option value="PLANNED">Planifié</option>
+            <option value="POSTPONED">Reporté</option>
+            <option value="CANCELLED">Annulé</option>
+          </select>
+        </div>
       </div>
       <div class="form-row">
         <div class="form-group"><label>Nouvelle date (optionnel)</label><input type="date" [(ngModel)]="editEventData.date" /></div>
@@ -223,8 +253,20 @@
         <div class="form-group"><label>Heure fin</label><input type="time" [(ngModel)]="editEventData.endTime" /></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Salle</label><input type="text" [(ngModel)]="editEventData.room" /></div>
-        <div class="form-group"><label>Organisateur</label><input type="text" [(ngModel)]="editEventData.organizer" /></div>
+        <div class="form-group">
+          <label>Salle</label>
+          <select [(ngModel)]="editEventData.resourceId" (ngModelChange)="onRoomChange(editEventData)">
+            <option [ngValue]="0">— Sélectionner une salle —</option>
+            <option *ngFor="let r of availableRooms" [ngValue]="r.id">{{ r.name }} — {{ r.building }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Organisateur</label>
+          <select [(ngModel)]="editEventData.organizerId" (ngModelChange)="onOrganizerChange(editEventData)">
+            <option [ngValue]="0">— Sélectionner —</option>
+            <option *ngFor="let u of availableOrganizers" [ngValue]="u.id">{{ u.name }}</option>
+          </select>
+        </div>
       </div>
     </div>
     <div class="modal-footer">

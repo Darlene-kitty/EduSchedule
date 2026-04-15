@@ -237,16 +237,50 @@
       </div>
       <div class="form-group">
         <label>Enseignant</label>
-        <input type="text" [(ngModel)]="newCourse.professor" placeholder="Ex: Dr. Martin Dupont" />
+        <select [(ngModel)]="newCourse.professor">
+          <option value="">— Sélectionner —</option>
+          <option *ngFor="let t of teachers" [value]="t.name">{{ t.name }}</option>
+          <option *ngFor="let p of professors" [value]="p">{{ p }}</option>
+        </select>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Volume horaire (h)</label>
-          <input type="number" [(ngModel)]="newCourse.hours" min="1" />
+          <label>Volume horaire (h/semaine)</label>
+          <input type="number" [(ngModel)]="newCourse.hours" min="1" max="20" />
         </div>
         <div class="form-group">
-          <label>Nombre d'étudiants</label>
-          <input type="number" [(ngModel)]="newCourse.students" min="0" />
+          <label>Nombre d'étudiants max</label>
+          <input type="number" [(ngModel)]="newCourse.students" min="0" max="500" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Crédits <span class="req">*</span></label>
+          <select [(ngModel)]="newCourse.credits">
+            <option *ngFor="let c of creditsList" [value]="c">{{ c }} crédit{{ c > 1 ? 's' : '' }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Durée séance <span class="req">*</span></label>
+          <select [(ngModel)]="newCourse.duration">
+            <option *ngFor="let d of durations" [value]="d">{{ d }} min</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Département <span class="req">*</span></label>
+          <select [(ngModel)]="newCourse.department">
+            <option value="">— Choisir —</option>
+            <option *ngFor="let d of departments" [value]="d">{{ d }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Semestre <span class="req">*</span></label>
+          <select [(ngModel)]="newCourse.semester">
+            <option value="S1">Semestre 1</option>
+            <option value="S2">Semestre 2</option>
+          </select>
         </div>
       </div>
     </div>
@@ -297,7 +331,11 @@
       </div>
       <div class="form-group">
         <label>Responsable</label>
-        <input type="text" [(ngModel)]="newGroup.responsible" placeholder="Ex: Dr. Martin Dupont" />
+        <select [(ngModel)]="newGroup.responsible">
+          <option value="">— Sélectionner —</option>
+          <option *ngFor="let t of teachers" [value]="t.name">{{ t.name }}</option>
+          <option *ngFor="let p of professors" [value]="p">{{ p }}</option>
+        </select>
       </div>
     </div>
     <div class="modal-footer">

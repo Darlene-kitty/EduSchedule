@@ -260,12 +260,7 @@ export class SchedulesComponent implements OnInit {
     'CM': '#1D4ED8', 'TD': '#15803D', 'TP': '#7C3AED', 'Séminaire': '#EA580C'
   };
 
-  ecoles = [
-    { sigle:'SJI',       nom:'Saint Jean Ingénieur',                    couleur:'#1D4ED8' },
-    { sigle:'SJM',       nom:'Saint Jean Management',                   couleur:'#15803D' },
-    { sigle:'PRÉPAVOGT', nom:'Prépavogt',                                couleur:'#DC2626' },
-    { sigle:'CPGE',      nom:'Classes Préparatoires aux Grandes Écoles', couleur:'#7C3AED' },
-  ];
+  ecoles: { sigle: string; nom: string; couleur: string }[] = [];
 
   // Chargées depuis l'API
   enseignants: { id: number; nom: string; ecoles: string[]; specialite: string }[] = [];
