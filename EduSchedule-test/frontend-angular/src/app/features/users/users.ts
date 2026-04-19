@@ -78,6 +78,13 @@ export class UsersComponent implements OnInit {
 
   expectedColumns = ['Nom complet', 'Email', 'Rôle', 'Département', 'Téléphone', 'Actif (oui/non)'];
 
+  readonly departments = [
+    'Mathématiques', 'Informatique', 'Physique', 'Chimie', 'Biologie',
+    'Économie', 'Gestion', 'Droit', 'Lettres', 'Langues',
+    'Sciences de l\'ingénieur', 'Génie civil', 'Génie électrique',
+    'Administration', 'Ressources humaines', 'Finance', 'Marketing'
+  ];
+
   users: User[] = [];
 
   newUser = {

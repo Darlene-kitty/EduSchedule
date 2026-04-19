@@ -38,6 +38,20 @@
             <mat-icon>warning</mat-icon>
             {{ conflits.length }} conflit(s)
           </button>
+          <!-- Onglets vue -->
+          <div class="view-tabs">
+            <button class="view-tab" [class.active]="activeView === 'grid'" (click)="activeView = 'grid'">
+              <mat-icon>grid_view</mat-icon> Grille
+            </button>
+            <button class="view-tab" [class.active]="activeView === 'multi-ecoles'" (click)="activeView = 'multi-ecoles'">
+              <mat-icon>account_balance</mat-icon> Multi-écoles
+              <span class="conflict-count-badge" *ngIf="totalConflitsInterEcoles > 0">{{ totalConflitsInterEcoles }}</span>
+            </button>
+          </div>
+          <!-- Export iCal -->
+          <button class="btn-ical" (click)="exportIcal()" title="Exporter en iCal (.ics)">
+            <mat-icon>event</mat-icon> Export iCal
+          </button>
           <button class="btn-generate" (click)="showGenPanel = !showGenPanel" [class.active]="showGenPanel">
             <mat-icon>auto_awesome</mat-icon> Générer
           </button>
@@ -185,8 +199,78 @@
         </button>
       </div>
 
+      <!-- Vue multi-écoles -->
+      <div class="multi-ecoles-wrapper" *ngIf="activeView === 'multi-ecoles'">
+        <div class="multi-ecoles-hint" *ngIf="!filterEnseignant">
+          <mat-icon>info</mat-icon>
+          <span>Sélectionnez un enseignant dans les filtres pour voir sa vue consolidée multi-écoles.</span>
+        </div>
+
+        <div *ngIf="filterEnseignant">
+          <!-- Alerte conflits inter-écoles -->
+          <div class="inter-conflict-banner" *ngIf="totalConflitsInterEcoles > 0">
+            <mat-icon>warning</mat-icon>
+            <span>{{ totalConflitsInterEcoles }} conflit(s) inter-écoles détecté(s) pour cet enseignant</span>
+          </div>
+          <div class="no-conflict-banner" *ngIf="totalConflitsInterEcoles === 0">
+            <mat-icon>check_circle</mat-icon>
+            <span>Aucun conflit inter-écoles — emploi du temps cohérent</span>
+          </div>
+
+          <!-- Carte par école -->
+          <div class="ecole-card" *ngFor="let ecole of seancesParEcole">
+            <div class="ecole-card-header" [style.border-left-color]="ecole.couleur">
+              <div class="ecole-badge" [style.background]="ecole.couleur">{{ ecole.sigle }}</div>
+              <div>
+                <div class="ecole-nom">{{ ecole.nom }}</div>
+                <div class="ecole-count">{{ ecole.seances.length }} séance(s) cette semaine</div>
+              </div>
+              <div class="ecole-conflict-tag" *ngIf="ecole.conflits.length > 0">
+                <mat-icon>warning</mat-icon> {{ ecole.conflits.length }} conflit(s)
+              </div>
+            </div>
+
+            <!-- Conflits de cette école -->
+            <div class="ecole-conflits" *ngIf="ecole.conflits.length > 0">
+              <div class="ecole-conflit-item" *ngFor="let c of ecole.conflits">
+                <mat-icon>error_outline</mat-icon>
+                <span>{{ c.message }}</span>
+              </div>
+            </div>
+
+            <!-- Liste des séances -->
+            <div class="ecole-seances">
+              <div class="ecole-seance-row" *ngFor="let s of ecole.seances"
+                [class.conflict-row]="isConflict(s.id)">
+                <div class="seance-color-dot" [style.background]="s.couleur"></div>
+                <div class="seance-row-type" [style.background]="s.couleur">{{ s.type }}</div>
+                <div class="seance-row-main">
+                  <span class="seance-row-matiere">{{ s.matiere }}</span>
+                  <span class="seance-row-classe">{{ s.classe }}</span>
+                </div>
+                <div class="seance-row-time">
+                  <mat-icon>schedule</mat-icon>
+                  {{ s.jour }} {{ s.heureDebut }}–{{ s.heureFin }}
+                </div>
+                <div class="seance-row-salle">
+                  <mat-icon>meeting_room</mat-icon> {{ s.salle }}
+                </div>
+                <div class="conflict-row-badge" *ngIf="isConflict(s.id)">
+                  <mat-icon>warning</mat-icon> Conflit
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="no-seances-msg" *ngIf="seancesParEcole.length === 0">
+            <mat-icon>event_busy</mat-icon>
+            <span>Aucune séance planifiée pour cet enseignant cette semaine.</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Grille emploi du temps -->
-      <div class="schedule-wrapper">
+      <div class="schedule-wrapper" *ngIf="activeView === 'grid'">
         <div class="schedule-grid">
 
           <!-- En-tête jours -->
@@ -208,6 +292,7 @@
               <div *ngFor="let s of getSeancesCreneau(jour, heure)"
                 class="seance-card"
                 [style.background]="s.couleur"
+                [style.height]="getSeanceHeight(s)"
                 [class.conflict]="isConflict(s.id)"
                 draggable="true"
                 (dragstart)="onDragStart($event, s)"
@@ -235,7 +320,8 @@
               </div>
               <!-- Aperçu créneaux générés (avant validation) -->
               <div *ngFor="let gs of getGeneratedSlotsCreneau(jour, heure)"
-                class="seance-card seance-card--preview">
+                class="seance-card seance-card--preview"
+                [style.height]="getGeneratedSlotHeight(gs)">
                 <div class="seance-top">
                 </div>
                 <div class="seance-matiere">{{ gs.courseName }}</div>
@@ -357,26 +443,35 @@
       </div>
       <div class="form-group">
         <label>Matière *</label>
-        <select [(ngModel)]="newSeance.codeMatiere" (ngModelChange)="onMatiereChange(newSeance)">
+        <select *ngIf="matieres.length > 0; else matiereInput" [(ngModel)]="newSeance.codeMatiere" (ngModelChange)="onMatiereChange(newSeance)">
           <option value="">-- Choisir --</option>
           <option *ngFor="let m of matieres" [value]="m.code">{{ m.nom }}</option>
         </select>
+        <ng-template #matiereInput>
+          <input type="text" [(ngModel)]="newSeance.matiere" placeholder="Nom de la matière" (ngModelChange)="newSeance.codeMatiere = newSeance.matiere" />
+        </ng-template>
       </div>
       <div class="form-group">
         <label>Enseignant *</label>
-        <select [(ngModel)]="newSeance.enseignantId" (ngModelChange)="onEnseignantChange(newSeance)">
+        <select *ngIf="enseignants.length > 0; else enseignantInput" [(ngModel)]="newSeance.enseignantId" (ngModelChange)="onEnseignantChange(newSeance)">
           <option value="0">-- Choisir --</option>
-          <option *ngFor="let e of getEnseignantsFiltres(newSeance.sigleEcole)" [value]="e.id">
-            {{ e.nom }} — {{ e.specialite }}
+          <option *ngFor="let e of enseignants" [value]="e.id">
+            {{ e.nom }}{{ e.specialite ? ' — ' + e.specialite : '' }}
           </option>
         </select>
+        <ng-template #enseignantInput>
+          <input type="text" [(ngModel)]="newSeance.enseignant" placeholder="Nom de l'enseignant" />
+        </ng-template>
       </div>
       <div class="form-group">
         <label>Classe *</label>
-        <select [(ngModel)]="newSeance.classe" (ngModelChange)="onClasseChange(newSeance)">
+        <select *ngIf="classes.length > 0; else classeInput" [(ngModel)]="newSeance.classe" (ngModelChange)="onClasseChange(newSeance)">
           <option value="">-- Choisir --</option>
           <option *ngFor="let c of getClassesFiltrees(newSeance.sigleEcole)" [value]="c.code">{{ c.nom }}</option>
         </select>
+        <ng-template #classeInput>
+          <input type="text" [(ngModel)]="newSeance.classe" placeholder="Ex: L1-INFO-G1" />
+        </ng-template>
       </div>
       <div class="form-group">
         <label>Salle *</label>
@@ -417,7 +512,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" (click)="closeAddModal()">Annuler</button>
-      <button class="btn-save" (click)="handleAdd()" [disabled]="!newSeance.codeMatiere || !newSeance.sigleEcole || !newSeance.classe">
+      <button class="btn-save" (click)="handleAdd()" [disabled]="!newSeance.matiere && !newSeance.codeMatiere">
         <mat-icon>save</mat-icon> Planifier
       </button>
     </div>

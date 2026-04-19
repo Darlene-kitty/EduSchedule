@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { EventsManagementService, Event as ApiEvent, EventType, EventStatus } from '../../core/services/events-management.service';
+import { RoomsManagementService } from '../../core/services/rooms-management.service';
+import { UsersManagementService } from '../../core/services/users-management.service';
 
 export interface AppEvent {
   id: number; title: string; description: string;
@@ -28,9 +30,14 @@ export interface AppEvent {
 })
 export class EventsComponent implements OnInit {
   private eventsService = inject(EventsManagementService);
+  private roomsSvc      = inject(RoomsManagementService);
+  private usersSvc      = inject(UsersManagementService);
 
   currentDate = ''; currentTime = '';
   searchQuery = '';
+
+  availableRooms: string[] = [];
+  availableOrganizers: string[] = [];
 
   isCreateModalOpen = false;
   isEditModalOpen   = false;
@@ -61,6 +68,28 @@ export class EventsComponent implements OnInit {
     this.updateDateTime(); 
     setInterval(() => this.updateDateTime(), 1000);
     this.loadEvents();
+    this.loadRooms();
+    this.loadOrganizers();
+  }
+
+  private loadRooms(): void {
+    this.roomsSvc.getRooms().subscribe({
+      next: (rooms: import('../../core/services/rooms-management.service').Room[]) => {
+        this.availableRooms = rooms.map(r => r.name);
+      },
+      error: () => {}
+    });
+  }
+
+  private loadOrganizers(): void {
+    this.usersSvc.getUsers().subscribe({
+      next: (users: import('../../core/services/users-management.service').UserManagement[]) => {
+        this.availableOrganizers = users
+          .map(u => u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || '')
+          .filter((n): n is string => !!n).sort();
+      },
+      error: () => {}
+    });
   }
 
   private loadEvents(): void {
@@ -117,10 +146,17 @@ export class EventsComponent implements OnInit {
   closeCreateModal(): void { this.isCreateModalOpen = false; }
   handleAdd(): void {
     if (!this.newEvent.title.trim()) return;
+    const typeMap: Record<string, EventType> = {
+      'Conférence': 'CONFERENCE', 'Séminaire': 'SEMINAR', 'Examen': 'EXAM',
+      'Compétition': 'COMPETITION', 'Événement': 'OTHER'
+    };
+    const statusMap: Record<string, EventStatus> = {
+      'Confirmé': 'CONFIRMED', 'En attente': 'PLANNED', 'Annulé': 'CANCELLED'
+    };
     this.eventsService.addEvent({
       title: this.newEvent.title,
       description: this.newEvent.description,
-      type: this.newEvent.type,
+      type: typeMap[this.newEvent.type as string] ?? this.newEvent.type,
       startDateTime: EventsManagementService.toISO(this.newEvent.date, this.newEvent.startTime),
       endDateTime:   EventsManagementService.toISO(this.newEvent.date, this.newEvent.endTime),
       resourceId:  this.newEvent.resourceId || 1,
@@ -158,10 +194,17 @@ export class EventsComponent implements OnInit {
   saveEdit(): void {
     if (!this.editingEvent) return;
     const id = this.editingEvent.id;
+    const typeMap: Record<string, EventType> = {
+      'Conférence': 'CONFERENCE', 'Séminaire': 'SEMINAR', 'Examen': 'EXAM',
+      'Compétition': 'COMPETITION', 'Événement': 'OTHER'
+    };
+    const statusMap: Record<string, EventStatus> = {
+      'Confirmé': 'CONFIRMED', 'En attente': 'PLANNED', 'Annulé': 'CANCELLED'
+    };
     this.eventsService.updateEvent(id, {
       title: this.editEventData.title,
       description: this.editEventData.description,
-      type: this.editEventData.type,
+      type: typeMap[this.editEventData.type as string] ?? this.editEventData.type,
       startDateTime: EventsManagementService.toISO(this.editEventData.date, this.editEventData.startTime),
       endDateTime:   EventsManagementService.toISO(this.editEventData.date, this.editEventData.endTime),
       resourceId:  this.editEventData.resourceId || this.editingEvent.resourceId || 1,

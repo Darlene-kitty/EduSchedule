@@ -54,8 +54,9 @@ export class CoursesComponent implements OnInit {
   viewingCourse: Course | null = null;
 
   courses: Course[] = [];
-
   groups: StudentGroup[] = [];
+
+  professors: string[] = [];
 
   newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral' as Course['type'], professor: '', hours: 30, students: 0 };
   newGroup  = { name: '', level: 'L1', promotion: 'Licence 1', capacity: 30, responsible: '' };
@@ -75,11 +76,15 @@ export class CoursesComponent implements OnInit {
           code: c.code,
           level: c.level,
           type: 'Cours magistral' as Course['type'],
-          professor: c.teacher,
-          hours: c.hours,
+          professor: c.teacher ?? c.teacherName ?? '',
+          hours: c.hours ?? c.hoursPerWeek ?? 0,
           students: 0,
-          groups: [c.group]
+          groups: [c.group ?? ''].filter(Boolean)
         }));
+        // Extraire la liste unique des enseignants
+        this.professors = [...new Set(
+          managedCourses.map(c => c.teacher ?? c.teacherName ?? '').filter((t): t is string => !!t)
+        )].sort();
       },
       error: (err) => {
         console.error('Erreur chargement cours:', err?.error?.message || err);
@@ -129,30 +134,33 @@ export class CoursesComponent implements OnInit {
 
   closeCourseModal(): void { this.isCourseModalOpen = false; this.editingCourse = null; }
 
+  private buildPayload(): import('../../core/services/courses-management.service').CoursePayload {
+    const matchedCourse = this.courses.find(c => c.professor === this.newCourse.professor);
+    const teacherId = (matchedCourse as any)?.teacherId ?? undefined;
+    const deptMap: Record<string, string> = {
+      L1: 'Licence 1', L2: 'Licence 2', L3: 'Licence 3', M1: 'Master 1', M2: 'Master 2'
+    };
+    return {
+      name: this.newCourse.name,
+      code: this.newCourse.code,
+      level: this.newCourse.level,
+      semester: 'S1',
+      credits: 3,
+      duration: this.newCourse.hours * 60,
+      department: deptMap[this.newCourse.level] || 'Général',
+      hoursPerWeek: this.newCourse.hours,
+      teacherId
+    };
+  }
+
   saveCourse(): void {
     if (this.editingCourse) {
-      this.coursesManagementService.updateCourse(this.editingCourse.id, {
-        name: this.newCourse.name,
-        code: this.newCourse.code,
-        teacher: this.newCourse.professor,
-        level: this.newCourse.level,
-        group: 'G1',
-        hours: this.newCourse.hours,
-        semester: 'S1'
-      }).subscribe({
+      this.coursesManagementService.updateCourse(this.editingCourse.id, this.buildPayload()).subscribe({
         next: () => { this.closeCourseModal(); this.loadCourses(); },
         error: (err) => alert(err?.error?.message || 'Erreur lors de la mise à jour')
       });
     } else {
-      this.coursesManagementService.addCourse({
-        name: this.newCourse.name,
-        code: this.newCourse.code,
-        teacher: this.newCourse.professor,
-        level: this.newCourse.level,
-        group: 'G1',
-        hours: this.newCourse.hours,
-        semester: 'S1'
-      }).subscribe({
+      this.coursesManagementService.addCourse(this.buildPayload()).subscribe({
         next: () => { this.closeCourseModal(); this.loadCourses(); },
         error: (err) => alert(err?.error?.message || 'Erreur lors de la création')
       });

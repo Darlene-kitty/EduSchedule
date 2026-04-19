@@ -40,7 +40,6 @@ export class SidebarComponent implements OnInit {
     // Pédagogie — ADMIN uniquement
     { section: 'Pédagogie',      icon: 'category',           label: 'Catégories UE',     href: '/categories-ue',        key: 'categories-ue',       roles: ['ADMIN'] },
     {                             icon: 'menu_book',          label: 'Cours',             href: '/courses',              key: 'courses',             roles: ['ADMIN', 'TEACHER'] },
-    {                             icon: 'psychology',         label: 'Compétences',       href: '/competences',          key: 'competences',         roles: ['ADMIN'] },
 
     // Ressources — ADMIN + TEACHER pour salles et ressources
     { section: 'Ressources',     icon: 'meeting_room',       label: 'Salles',            href: '/rooms',                key: 'rooms',               roles: ['ADMIN', 'TEACHER'] },
@@ -64,6 +63,8 @@ export class SidebarComponent implements OnInit {
 
     // Compte
     { section: 'Compte',         icon: 'person',             label: 'Profil',            href: '/profile',              key: 'profile' },
+    // ENT Étudiant
+    {                             icon: 'calendar_view_week', label: 'Mon emploi du temps', href: '/student-schedule',   key: 'student-schedule', roles: ['STUDENT'] },
   ];
 
   menuItems: MenuItem[] = [];

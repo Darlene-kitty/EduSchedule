@@ -122,8 +122,18 @@
         <div class="form-group"><label>Heure fin</label><input type="time" [(ngModel)]="newEvent.endTime" /></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Salle</label><input type="text" [(ngModel)]="newEvent.room" placeholder="Ex: Amphithéâtre A" /></div>
-        <div class="form-group"><label>Organisateur</label><input type="text" [(ngModel)]="newEvent.organizer" placeholder="Ex: Prof. Martin" /></div>
+        <div class="form-group"><label>Salle</label>
+          <select [(ngModel)]="newEvent.room">
+            <option value="">-- Choisir une salle --</option>
+            <option *ngFor="let r of availableRooms" [value]="r">{{ r }}</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Organisateur</label>
+          <select [(ngModel)]="newEvent.organizer">
+            <option value="">-- Choisir un organisateur --</option>
+            <option *ngFor="let o of availableOrganizers" [value]="o">{{ o }}</option>
+          </select>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -223,8 +233,18 @@
         <div class="form-group"><label>Heure fin</label><input type="time" [(ngModel)]="editEventData.endTime" /></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Salle</label><input type="text" [(ngModel)]="editEventData.room" /></div>
-        <div class="form-group"><label>Organisateur</label><input type="text" [(ngModel)]="editEventData.organizer" /></div>
+        <div class="form-group"><label>Salle</label>
+          <select [(ngModel)]="editEventData.room">
+            <option value="">-- Choisir une salle --</option>
+            <option *ngFor="let r of availableRooms" [value]="r">{{ r }}</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Organisateur</label>
+          <select [(ngModel)]="editEventData.organizer">
+            <option value="">-- Choisir un organisateur --</option>
+            <option *ngFor="let o of availableOrganizers" [value]="o">{{ o }}</option>
+          </select>
+        </div>
       </div>
     </div>
     <div class="modal-footer">

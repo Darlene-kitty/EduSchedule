@@ -8,6 +8,7 @@ import { CoursesManagementService } from '../../core/services/courses-management
 import { RoomsManagementService, Room } from '../../core/services/rooms-management.service';
 import { UsersManagementService } from '../../core/services/users-management.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ICalExportService } from '../../core/services/ical-export.service';
 import {
   TimetableGenerationService,
   SchedulingRequest,
@@ -56,9 +57,13 @@ export class SchedulesComponent implements OnInit {
   private coursesSvc        = inject(CoursesManagementService);
   private usersSvc          = inject(UsersManagementService);
   private authService       = inject(AuthService);
+  private icalSvc           = inject(ICalExportService);
 
   isTeacher = false;
   currentTeacherName = '';
+
+  // ── Vue active ──
+  activeView: 'grid' | 'multi-ecoles' = 'grid';
 
   // ── Génération automatique ──
   showGenPanel   = false;
@@ -480,6 +485,17 @@ export class SchedulesComponent implements OnInit {
     return (fh * 60 + fm) - (dh * 60 + dm);
   }
 
+  // Hauteur de la carte = durée en minutes * (60px / 60min) - 8px de padding
+  getSeanceHeight(s: Seance): string {
+    const mins = this.dureeMinutes(s.heureDebut, s.heureFin);
+    return `${Math.max(mins - 8, 40)}px`;
+  }
+
+  getGeneratedSlotHeight(gs: { startTime: string; endTime: string }): string {
+    const mins = this.dureeMinutes(gs.startTime, gs.endTime);
+    return `${Math.max(mins - 8, 40)}px`;
+  }
+
   toast(msg: string): void {
     this.successMessage = msg; this.showSuccess = true;
     setTimeout(() => this.showSuccess = false, 3500);
@@ -492,8 +508,9 @@ export class SchedulesComponent implements OnInit {
   openAddModal(): void  { this.newSeance = this.emptySeance(); this.isAddModalOpen = true; }
   closeAddModal(): void { this.isAddModalOpen = false; }
   handleAdd(): void {
+    const matiere = this.newSeance.matiere || this.matieres.find(m => m.code === this.newSeance.codeMatiere)?.nom || this.newSeance.codeMatiere || 'Séance';
     this.scheduleService.addScheduleEntry({
-      courseName: this.newSeance.matiere,
+      courseName: matiere,
       courseId: this.newSeance.codeMatiere ? +this.newSeance.codeMatiere : undefined,
       teacher: this.newSeance.enseignant,
       room: this.newSeance.salle,
@@ -543,5 +560,88 @@ export class SchedulesComponent implements OnInit {
       next: () => { this.closeDeleteModal(); this.loadSchedule(); this.toast('Séance supprimée.'); },
       error: (err) => alert(err?.error?.message || 'Erreur lors de la suppression')
     });
+  }
+
+  // ── Vue multi-écoles ──
+
+  /** Séances groupées par école pour la vue consolidée d'un enseignant */
+  get seancesParEcole(): { sigle: string; nom: string; couleur: string; seances: Seance[]; conflits: Conflit[] }[] {
+    const ensId = this.filterEnseignant ? +this.filterEnseignant : null;
+    const seancesFiltrees = this.seances.filter(s =>
+      s.semaine === this.semaineActive &&
+      (ensId === null || s.enseignantId === ensId)
+    );
+
+    return this.ecoles.map(ecole => {
+      const seancesEcole = seancesFiltrees.filter(s => s.sigleEcole === ecole.sigle);
+      const conflitsEcole = this.getConflitsInterEcoles(seancesFiltrees, ecole.sigle);
+      return { sigle: ecole.sigle, nom: ecole.nom, couleur: ecole.couleur, seances: seancesEcole, conflits: conflitsEcole };
+    }).filter(e => e.seances.length > 0);
+  }
+
+  /** Détecte les conflits inter-écoles pour un enseignant sur une école donnée */
+  getConflitsInterEcoles(toutesSeances: Seance[], sigleEcole: string): Conflit[] {
+    const result: Conflit[] = [];
+    const seancesEcole = toutesSeances.filter(s => s.sigleEcole === sigleEcole);
+    const autresSeances = toutesSeances.filter(s => s.sigleEcole !== sigleEcole);
+
+    for (const a of seancesEcole) {
+      for (const b of autresSeances) {
+        if (a.enseignantId !== b.enseignantId || a.enseignantId === 0) continue;
+        if (a.jour !== b.jour) continue;
+        if (!this.chevauchement(a.heureDebut, a.heureFin, b.heureDebut, b.heureFin)) continue;
+        result.push({
+          type: 'enseignant',
+          message: `${a.enseignant} : conflit entre ${sigleEcole} (${a.matiere}) et ${b.sigleEcole} (${b.matiere}) — ${a.jour} ${a.heureDebut}`,
+          seances: [a.id, b.id]
+        });
+      }
+    }
+    return result;
+  }
+
+  get totalConflitsInterEcoles(): number {
+    if (!this.filterEnseignant) return 0;
+    const ensId = +this.filterEnseignant;
+    const seances = this.seances.filter(s => s.semaine === this.semaineActive && s.enseignantId === ensId);
+    let count = 0;
+    for (let i = 0; i < seances.length; i++) {
+      for (let j = i + 1; j < seances.length; j++) {
+        const a = seances[i], b = seances[j];
+        if (a.sigleEcole !== b.sigleEcole && a.jour === b.jour &&
+            this.chevauchement(a.heureDebut, a.heureFin, b.heureDebut, b.heureFin)) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  // ── Export iCal ──
+
+  exportIcal(): void {
+    const seancesAExporter = this.isTeacher
+      ? this.seances.filter(s => s.enseignant === this.currentTeacherName)
+      : this.filterEnseignant
+        ? this.seances.filter(s => s.enseignantId === +this.filterEnseignant)
+        : this.seances;
+
+    if (seancesAExporter.length === 0) {
+      this.toast('Aucune séance à exporter.');
+      return;
+    }
+
+    const events = seancesAExporter.map(s => ({
+      uid: `seance-${s.id}@iusjc.cm`,
+      summary: `[${s.type}] ${s.matiere} — ${s.sigleEcole}`,
+      description: `Enseignant: ${s.enseignant}\\nClasse: ${s.classe}\\nFilière: ${s.filiere}`,
+      location: s.salle,
+      dtstart: this.icalSvc.seanceToICalDate(s.jour, s.heureDebut, s.semaine - 1),
+      dtend:   this.icalSvc.seanceToICalDate(s.jour, s.heureFin,   s.semaine - 1),
+    }));
+
+    const nom = this.isTeacher ? this.currentTeacherName.replace(/\s+/g, '-') : 'planning';
+    this.icalSvc.exportToIcal(events, `edt-${nom}.ics`);
+    this.toast(`${events.length} séance(s) exportée(s) en iCal`);
   }
 }

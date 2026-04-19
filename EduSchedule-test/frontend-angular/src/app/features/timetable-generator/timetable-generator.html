@@ -363,19 +363,34 @@
           <div class="calendar-grid">
             <div class="cal-corner"></div>
             <div class="cal-day-header" *ngFor="let d of days">{{ d }}</div>
-            <ng-container *ngFor="let time of timeSlots">
+            <ng-container *ngFor="let time of timeSlots; let ti = index">
               <div class="cal-time">{{ time }}</div>
-              <div class="cal-cell" *ngFor="let day of days">
-                <div class="cal-slot" *ngFor="let slot of getSlotsForCell(day, time)"
-                     [style.background]="getSlotColor(slot) + '22'"
-                     [style.border-left]="'3px solid ' + getSlotColor(slot)">
-                  <span class="slot-code">{{ slot.courseCode }}</span>
-                  <span class="slot-name">{{ slot.courseName }}</span>
-                  <span class="slot-room">
-                    <mat-icon>meeting_room</mat-icon>{{ slot.roomName }}
-                  </span>
-                  <span class="slot-time">{{ slot.startTime }} – {{ slot.endTime }}</span>
-                </div>
+              <div class="cal-cell"
+                   *ngFor="let day of days"
+                   [class.drag-over]="isDragOver(day, time)"
+                   (dragover)="onDragOver($event, day, time)"
+                   (dragleave)="onDragLeave()"
+                   (drop)="onDrop($event, day, time)">
+                <ng-container *ngFor="let slot of getSlotsForCell(day, time)">
+                  <div class="cal-slot"
+                       [style.background]="getSlotColor(slot) + '22'"
+                       [style.border-left]="'3px solid ' + getSlotColor(slot)"
+                       [style.height.px]="getSlotHeight(slot)"
+                       draggable="true"
+                       (dragstart)="onDragStart($event, slot)"
+                       (dragend)="onDragEnd()">
+                    <div class="slot-drag-handle"><mat-icon>drag_indicator</mat-icon></div>
+                    <span class="slot-code">{{ slot.courseCode }}</span>
+                    <span class="slot-name">{{ slot.courseName }}</span>
+                    <span class="slot-room">
+                      <mat-icon>meeting_room</mat-icon>{{ slot.roomName }}
+                    </span>
+                    <span class="slot-teacher" *ngIf="slot.teacherName">
+                      <mat-icon>person</mat-icon>{{ slot.teacherName }}
+                    </span>
+                    <span class="slot-time">{{ slot.startTime }} – {{ slot.endTime }}</span>
+                  </div>
+                </ng-container>
               </div>
             </ng-container>
           </div>

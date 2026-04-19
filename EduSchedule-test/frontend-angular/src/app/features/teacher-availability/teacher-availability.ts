@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { TeacherAvailabilityManagementService, TeacherAvailabilityEntry } from '../../core/services/teacher-availability-management.service';
 import { AuthService } from '../../core/services/auth.service';
+import { UsersManagementService } from '../../core/services/users-management.service';
 
 export type TimeSlot = import('../../core/services/teacher-availability-management.service').TimeSlot;
 export type TeacherAvailability = TeacherAvailabilityEntry;
@@ -19,9 +20,13 @@ export type TeacherAvailability = TeacherAvailabilityEntry;
 export class TeacherAvailabilityComponent implements OnInit {
   private availabilityService = inject(TeacherAvailabilityManagementService);
   private authService         = inject(AuthService);
+  private usersSvc            = inject(UsersManagementService);
 
   isTeacher = false;
   currentTeacherName = '';
+  allTeacherNames: string[] = [];
+  allTeachers: { id: number; name: string }[] = [];
+  newTeacherId = 0;
 
   currentDate = ''; currentTime = '';
   searchQuery = '';
@@ -56,6 +61,23 @@ export class TeacherAvailabilityComponent implements OnInit {
     this.currentTeacherName = user?.name || user?.username || '';
 
     this.loadAvailabilities();
+    if (!this.isTeacher) this.loadAllTeachers();
+  }
+
+  loadAllTeachers(): void {
+    this.usersSvc.getUsers().subscribe({
+      next: users => {
+        this.allTeachers = users
+          .filter(u => (u.role || '').toUpperCase().includes('TEACHER'))
+          .map(u => ({
+            id: u.id,
+            name: u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || ''
+          }))
+          .filter(t => t.name);
+        this.allTeacherNames = this.allTeachers.map(t => t.name).sort();
+      },
+      error: () => {}
+    });
   }
 
   loadAvailabilities(): void {
@@ -129,10 +151,12 @@ export class TeacherAvailabilityComponent implements OnInit {
   openAdd(): void {
     this.editingAvailability = null;
     this.newSlots = [{ day: 'MONDAY', dayLabel: 'Lundi', startTime: '08:00', endTime: '12:00' }];
+    const user = this.authService.getUser();
     this.newForm = {
       teacherName: this.isTeacher ? this.currentTeacherName : '',
       effectiveDate: '', maxHoursPerDay: 8, maxHoursPerWeek: 40, status: 'active', notes: ''
     };
+    this.newTeacherId = this.isTeacher ? (user?.id ?? 0) : 0;
     this.isAddModalOpen = true;
   }
 
@@ -140,6 +164,7 @@ export class TeacherAvailabilityComponent implements OnInit {
     this.editingAvailability = a;
     this.newSlots = [...a.slots.map(s => ({ ...s }))];
     this.newForm = { teacherName: a.teacherName, effectiveDate: a.effectiveDate, maxHoursPerDay: a.maxHoursPerDay, maxHoursPerWeek: a.maxHoursPerWeek, status: a.status, notes: a.notes || '' };
+    this.newTeacherId = a.teacherId ?? 0;
     this.isAddModalOpen = true;
   }
 
@@ -157,9 +182,12 @@ export class TeacherAvailabilityComponent implements OnInit {
   }
 
   handleSave(): void {
+    const teacherId = this.newTeacherId || this.allTeachers.find(t => t.name === this.newForm.teacherName)?.id || 0;
+    const payload = { ...this.newForm, teacherId, slots: this.newSlots, status: this.newForm.status as any };
+
     if (this.editingAvailability) {
       const id = this.editingAvailability.id;
-      this.availabilityService.update(id, { ...this.newForm, slots: this.newSlots, status: this.newForm.status as any }).subscribe({
+      this.availabilityService.update(id, payload).subscribe({
         next: (updated) => {
           const idx = this.availabilities.findIndex(a => a.id === id);
           if (idx >= 0) this.availabilities[idx] = updated;
@@ -168,7 +196,7 @@ export class TeacherAvailabilityComponent implements OnInit {
         error: (err) => alert(err?.error?.message || 'Erreur lors de la modification')
       });
     } else {
-      this.availabilityService.create({ ...this.newForm, slots: this.newSlots, status: this.newForm.status as any }).subscribe({
+      this.availabilityService.create(payload).subscribe({
         next: (created) => { this.availabilities.push(created); this.closeModal(); },
         error: (err) => alert(err?.error?.message || 'Erreur lors de la création')
       });

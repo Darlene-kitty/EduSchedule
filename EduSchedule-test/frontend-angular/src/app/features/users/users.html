@@ -114,7 +114,12 @@
         </div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Département</label><input type="text" [(ngModel)]="newUser.department" /></div>
+        <div class="form-group"><label>Département</label>
+          <select [(ngModel)]="newUser.department">
+            <option value="">-- Choisir --</option>
+            <option *ngFor="let d of departments" [value]="d">{{ d }}</option>
+          </select>
+        </div>
         <div class="form-group"><label>Téléphone</label><input type="tel" [(ngModel)]="newUser.phone" /></div>
       </div>
       <div class="form-group">
@@ -152,7 +157,12 @@
         </div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Département</label><input type="text" [(ngModel)]="editUserData.department" /></div>
+        <div class="form-group"><label>Département</label>
+          <select [(ngModel)]="editUserData.department">
+            <option value="">-- Choisir --</option>
+            <option *ngFor="let d of departments" [value]="d">{{ d }}</option>
+          </select>
+        </div>
         <div class="form-group"><label>Téléphone</label><input type="tel" [(ngModel)]="editUserData.phone" /></div>
       </div>
       <div class="form-group toggle-group">

@@ -46,6 +46,21 @@ export class ResourcesComponent implements OnInit {
 
   newResource = { name: '', category: '', location: '', total: 1 };
 
+  readonly equipmentNames = [
+    'Projecteur HD', 'Projecteur 4K', 'Écran de projection',
+    'Tableau blanc interactif', 'Ordinateur portable', 'Ordinateur fixe',
+    'Imprimante', 'Scanner', 'Webcam HD', 'Microphone', 'Enceinte',
+    'Amplificateur', 'Câble HDMI', 'Câble VGA', 'Multiprise',
+    'Climatiseur', 'Ventilateur', 'Tableau noir', 'Tableau blanc'
+  ];
+
+  readonly availableLocations = [
+    'Bâtiment A - Réserve', 'Bâtiment A - Salle 101', 'Bâtiment A - Salle 102',
+    'Bâtiment B - Réserve', 'Bâtiment B - Salle 201', 'Bâtiment B - Salle 202',
+    'Bâtiment C - Lab informatique', 'Bâtiment C - Réserve',
+    'Amphithéâtre A', 'Amphithéâtre B', 'Salle des professeurs', 'Administration'
+  ];
+
   ngOnInit(): void { 
     this.updateDateTime(); 
     setInterval(() => this.updateDateTime(), 1000);

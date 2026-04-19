@@ -85,6 +85,9 @@ export class AuthService {
     return this.http.post<AuthResponse>(`${this.baseUrl}/auth/login`, credentials).pipe(
       tap(response => {
         this.storageService.setToken(response.token);
+        if (response.refreshToken) {
+          this.storageService.setItem('refreshToken', response.refreshToken);
+        }
         const user = response.user ?? {
           id: response.userId,
           username: response.username,
@@ -110,6 +113,7 @@ export class AuthService {
   logout(): void {
     this.storageService.removeToken();
     this.storageService.removeUser();
+    this.storageService.removeItem('refreshToken');
     this.userSubject.next(null);
     this.router.navigate(['/login']);
   }

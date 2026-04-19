@@ -187,7 +187,10 @@ export class EquipmentComponent implements OnInit {
     this.successMessage = msg; this.showSuccess = true;
     setTimeout(() => this.showSuccess = false, 3500);
   }
-
+  resolveTypeId(typeCode: string): number | null {
+  const index = this.typesMateriel.findIndex(t => t.code === typeCode);
+  return index >= 0 ? index + 1 : null;
+  }
   openViewModal(m: Materiel): void { this.viewingMat = m; this.isViewModalOpen = true; }
   closeViewModal(): void           { this.isViewModalOpen = false; this.viewingMat = null; }
 

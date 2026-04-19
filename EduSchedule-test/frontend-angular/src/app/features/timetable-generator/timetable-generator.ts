@@ -57,11 +57,11 @@ export class TimetableGeneratorComponent implements OnInit {
   showAdvancedGraph = false;
 
   constraints: Constraint[] = [
-    { key: 'teacher_avail',  label: 'Respecter les disponibilités des enseignants', enabled: true },
-    { key: 'room_capacity',  label: 'Respecter la capacité des salles',              enabled: true },
-    { key: 'room_type',      label: 'Adapter la salle au type de cours (CM/TD/TP)',  enabled: true },
-    { key: 'no_gaps',        label: 'Éviter les trous dans l\'emploi du temps',      enabled: false },
-    { key: 'max_consecutive',label: 'Limiter les heures consécutives',               enabled: false },
+    { key: 'teacher_avail',   label: 'Respecter les disponibilités des enseignants', enabled: true },
+    { key: 'room_capacity',   label: 'Respecter la capacité des salles',              enabled: true },
+    { key: 'room_type',       label: 'Adapter la salle au type de cours (CM/TD/TP)',  enabled: true },
+    { key: 'no_gaps',         label: "Éviter les trous dans l'emploi du temps",       enabled: false },
+    { key: 'max_consecutive', label: 'Limiter les heures consécutives',               enabled: false },
   ];
   maxConsecutiveHours = 4;
 
@@ -76,22 +76,28 @@ export class TimetableGeneratorComponent implements OnInit {
   errorMsg     = signal('');
 
   // ── Conflits ──
-  conflicts    = signal<OptimizationConflict[]>([]);
+  conflicts        = signal<OptimizationConflict[]>([]);
   expandedConflict = signal<number | null>(null);
 
   // ── Calendrier ──
   calendarView: 'all' | 'teacher' | 'room' | 'school' = 'all';
-  readonly days    = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
+  readonly days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
   readonly daysMap: Record<string, string> = {
-    LUNDI:'Lundi', MARDI:'Mardi', MERCREDI:'Mercredi', JEUDI:'Jeudi', VENDREDI:'Vendredi', SAMEDI:'Samedi'
+    LUNDI: 'Lundi', MARDI: 'Mardi', MERCREDI: 'Mercredi',
+    JEUDI: 'Jeudi', VENDREDI: 'Vendredi', SAMEDI: 'Samedi'
   };
-  // Créneaux alignés sur les plages backend (tranches de 2h)
   readonly timeSlots = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'];
 
   // ── Toast ──
-  showToast   = false;
-  toastMsg    = '';
+  showToast = false;
+  toastMsg  = '';
   toastType: 'success' | 'error' | 'info' = 'success';
+
+  // ── Drag & Drop ──
+  private draggedSlot: ScheduleSlot | null = null;
+  dragOverDay  = '';
+  dragOverTime = '';
+  readonly PX_PER_HOUR = 60;
 
   // ── Computed ──
   get progressColor(): string {
@@ -102,11 +108,10 @@ export class TimetableGeneratorComponent implements OnInit {
     return '#3b82f6';
   }
 
-  get resolvedCount(): number { return this.conflicts().filter(c => c.resolved).length; }
+  get resolvedCount(): number  { return this.conflicts().filter(c => c.resolved).length; }
   get totalConflicts(): number { return this.conflicts().length; }
-  get canApply(): boolean { return this.totalConflicts === 0 || this.resolvedCount === this.totalConflicts; }
+  get canApply(): boolean      { return this.totalConflicts === 0 || this.resolvedCount === this.totalConflicts; }
 
-  // ── Graphe de flot dynamique ──
   get flowGraphCourses(): string[] {
     const slots = this.job()?.slots ?? [];
     const names = [...new Set(slots.map(s => s.courseCode || s.courseName))];
@@ -115,7 +120,7 @@ export class TimetableGeneratorComponent implements OnInit {
 
   get flowGraphSlots(): string[] {
     const slots = this.job()?.slots ?? [];
-    const labels = [...new Set(slots.map(s => `${s.dayOfWeek?.slice(0,1)} ${s.startTime}`))];
+    const labels = [...new Set(slots.map(s => `${s.dayOfWeek?.slice(0, 1)} ${s.startTime}`))];
     return labels.length ? labels.slice(0, 6) : ['L 8h', 'M 8h', 'M 10h', 'J 14h'];
   }
 
@@ -125,6 +130,7 @@ export class TimetableGeneratorComponent implements OnInit {
     return names.length ? names.slice(0, 4) : ['Amphi A', 'Labo', 'TD2'];
   }
 
+  // ── Lifecycle ──
   ngOnInit(): void {
     this.schoolSvc.getSchools().subscribe({
       next: data => {
@@ -147,7 +153,6 @@ export class TimetableGeneratorComponent implements OnInit {
     this.selectedRooms.set(cur.includes(id) ? cur.filter(r => r !== id) : [...cur, id]);
   }
   isRoomSelected(id: number): boolean { return this.selectedRooms().includes(id); }
-
   toggleConstraint(c: Constraint): void { c.enabled = !c.enabled; }
 
   // ── Lancement ──
@@ -206,14 +211,13 @@ export class TimetableGeneratorComponent implements OnInit {
     const list: OptimizationConflict[] = [];
     const slots = job.slots ?? [];
 
-    // Conflits enseignant (même teacherId, même jour, même heure)
     const teacherMap = new Map<string, ScheduleSlot[]>();
     slots.forEach(s => {
       const key = `${s.teacherId}_${s.dayOfWeek}_${s.startTime}`;
       if (!teacherMap.has(key)) teacherMap.set(key, []);
       teacherMap.get(key)!.push(s);
     });
-    teacherMap.forEach((group, key) => {
+    teacherMap.forEach(group => {
       if (group.length > 1) {
         list.push({
           id: list.length + 1,
@@ -232,17 +236,16 @@ export class TimetableGeneratorComponent implements OnInit {
       }
     });
 
-    // Cours non assignés → conflits de capacité
-    (job.unassignedCourses ?? []).forEach((courseName, i) => {
+    (job.unassignedCourses ?? []).forEach(courseName => {
       list.push({
         id: list.length + 1,
         type: 'capacity',
-        title: `Cours non assigné`,
+        title: 'Cours non assigné',
         course: courseName,
-        problem: `Aucun créneau disponible trouvé pour ce cours`,
+        problem: 'Aucun créneau disponible trouvé pour ce cours',
         suggestions: [
-          { label: `Ajouter une salle supplémentaire et relancer`, score: 90 },
-          { label: `Réduire les contraintes et relancer`, score: 70 },
+          { label: 'Ajouter une salle supplémentaire et relancer', score: 90 },
+          { label: 'Réduire les contraintes et relancer', score: 70 },
         ],
         resolved: false,
         chosenSuggestion: null
@@ -268,7 +271,7 @@ export class TimetableGeneratorComponent implements OnInit {
     const j = this.job();
     if (!j?.jobId) return;
     if (j.status !== 'COMPLETED' && j.status !== 'PARTIAL') {
-      this.toast('Le job n\'est pas encore terminé (status: ' + j.status + ')', 'error');
+      this.toast("Le job n'est pas encore terminé (status: " + j.status + ')', 'error');
       return;
     }
     this.isConfirming.set(true);
@@ -300,13 +303,78 @@ export class TimetableGeneratorComponent implements OnInit {
 
   // ── Calendrier ──
   getSlotsForCell(day: string, time: string): ScheduleSlot[] {
-    const dayKey = Object.entries(this.daysMap).find(([k, v]) => v === day)?.[0] ?? day.toUpperCase();
+    const dayKey = Object.entries(this.daysMap).find(([, v]) => v === day)?.[0] ?? day.toUpperCase();
     return (this.job()?.slots ?? []).filter(s => s.dayOfWeek === dayKey && s.startTime === time);
   }
 
   getSlotColor(slot: ScheduleSlot): string {
-    const colors = ['#1D4ED8','#15803D','#7C3AED','#EA580C','#0891B2'];
+    const colors = ['#1D4ED8', '#15803D', '#7C3AED', '#EA580C', '#0891B2'];
     return colors[slot.courseId % colors.length];
+  }
+
+  // ── Hauteur proportionnelle ──
+  getSlotHeight(slot: ScheduleSlot): number {
+    const mins = this.slotDurationMinutes(slot);
+    return Math.max((mins / 60) * this.PX_PER_HOUR - 6, 40);
+  }
+
+  private slotDurationMinutes(slot: ScheduleSlot): number {
+    const [sh, sm] = (slot.startTime || '08:00').split(':').map(Number);
+    const [eh, em] = (slot.endTime   || '10:00').split(':').map(Number);
+    return (eh * 60 + em) - (sh * 60 + sm);
+  }
+
+  // ── Drag & Drop ──
+  isDragOver(day: string, time: string): boolean {
+    return this.dragOverDay === day && this.dragOverTime === time;
+  }
+
+  onDragStart(event: DragEvent, slot: ScheduleSlot): void {
+    this.draggedSlot = slot;
+    event.dataTransfer?.setData('text/plain', slot.courseCode || '');
+    (event.target as HTMLElement).style.opacity = '0.4';
+  }
+
+  onDragEnd(): void {
+    this.draggedSlot  = null;
+    this.dragOverDay  = '';
+    this.dragOverTime = '';
+  }
+
+  onDragOver(event: DragEvent, day: string, time: string): void {
+    event.preventDefault();
+    this.dragOverDay  = day;
+    this.dragOverTime = time;
+  }
+
+  onDragLeave(): void {
+    this.dragOverDay  = '';
+    this.dragOverTime = '';
+  }
+
+  onDrop(event: DragEvent, day: string, time: string): void {
+    event.preventDefault();
+    this.dragOverDay  = '';
+    this.dragOverTime = '';
+    if (!this.draggedSlot) return;
+
+    const dayKey = Object.entries(this.daysMap).find(([, v]) => v === day)?.[0] ?? day.toUpperCase();
+    const duration = this.slotDurationMinutes(this.draggedSlot);
+    const [h, m] = time.split(':').map(Number);
+    const endMin  = h * 60 + m + duration;
+    const endTime = `${String(Math.floor(endMin / 60)).padStart(2, '0')}:${String(endMin % 60).padStart(2, '0')}`;
+
+    const slots   = this.job()?.slots ?? [];
+    const dragged = this.draggedSlot;
+    const updated = slots.map(s =>
+      s === dragged ? { ...s, dayOfWeek: dayKey, startTime: time, endTime } : s
+    );
+    const currentJob = this.job();
+    if (currentJob) {
+      this.job.set({ ...currentJob, slots: updated });
+    }
+    this.toast(`Cours déplacé → ${day} ${time}`, 'success');
+    this.draggedSlot = null;
   }
 
   // ── Reset ──

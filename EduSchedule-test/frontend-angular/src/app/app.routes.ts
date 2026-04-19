@@ -7,6 +7,10 @@ export const routes: Routes = [
     path: 'forgot-password',
     loadComponent: () => import('./features/forgot-password/forgot-password').then(m => m.ForgotPasswordComponent)
   },
+  {
+    path: 'reset-password',
+    loadComponent: () => import('./features/reset-password/reset-password').then(m => m.ResetPasswordComponent)
+  },
   // Public routes
   {
     path: '',
@@ -127,11 +131,6 @@ export const routes: Routes = [
     canActivate: [authGuard, roleGuard('ADMIN')]
   },
   {
-    path: 'competences',
-    loadComponent: () => import('./features/competences/competences').then(m => m.CompetencesComponent),
-    canActivate: [authGuard, roleGuard('ADMIN')]
-  },
-  {
     path: 'equipment-types',
     loadComponent: () => import('./features/equipment-types/equipment-types').then(m => m.EquipmentTypesComponent),
     canActivate: [authGuard, roleGuard('ADMIN')]
@@ -157,6 +156,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/exam-scheduling/exam-scheduling')
       .then(m => m.ExamSchedulingComponent),
     canActivate: [authGuard, roleGuard('ADMIN')]
+  },
+
+  {
+    path: 'student-schedule',
+    loadComponent: () => import('./features/student-schedule/student-schedule').then(m => m.StudentScheduleComponent),
+    canActivate: [authGuard]
   },
 
   // Fallback

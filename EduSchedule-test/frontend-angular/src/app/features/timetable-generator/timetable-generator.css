@@ -361,21 +361,48 @@
 .cal-time {
   background: #F9FAFB; border-right: 1px solid #E5E7EB; border-bottom: 1px solid #F3F4F6;
   padding: 8px 6px; text-align: center; font-size: 0.72rem; color: #9CA3AF; font-weight: 500;
+  height: 60px; display: flex; align-items: flex-start; justify-content: center; padding-top: 6px;
 }
 .cal-cell {
   border-right: 1px solid #F3F4F6; border-bottom: 1px solid #F3F4F6;
-  padding: 4px; min-height: 52px; display: flex; flex-direction: column; gap: 3px;
+  padding: 2px; height: 60px; position: relative;
+  display: flex; flex-direction: column; gap: 2px;
+  transition: background 0.1s;
+}
+.cal-cell.drag-over {
+  background: #EFF6FF !important;
+  box-shadow: inset 0 0 0 2px #1D4ED8;
+}
+.cal-cell.drag-over::after {
+  content: 'Déposer ici';
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 600; color: #1D4ED8;
+  pointer-events: none;
 }
 .cal-slot {
   border-radius: 6px; padding: 5px 8px;
-  display: flex; flex-direction: column; gap: 2px; cursor: pointer;
-  transition: opacity 0.15s;
+  display: flex; flex-direction: column; gap: 2px;
+  cursor: grab; overflow: hidden;
+  transition: opacity 0.15s, box-shadow 0.15s;
+  position: absolute; left: 2px; right: 2px; top: 2px;
+  z-index: 1;
 }
-.cal-slot:hover { opacity: 0.85; }
+.cal-slot:hover { opacity: 0.9; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.cal-slot:active { cursor: grabbing; }
+.slot-drag-handle {
+  display: flex; align-items: center; margin-bottom: 2px;
+}
+.slot-drag-handle mat-icon {
+  font-size: 13px !important; width: 13px !important; height: 13px !important;
+  color: rgba(0,0,0,0.3);
+}
 .slot-code { font-size: 0.68rem; font-weight: 700; color: #374151; }
 .slot-name { font-size: 0.72rem; font-weight: 600; color: #111827; line-height: 1.2; }
 .slot-room { display: flex; align-items: center; gap: 3px; font-size: 0.68rem; color: #6B7280; }
 .slot-room mat-icon { font-size: 11px !important; width: 11px !important; height: 11px !important; }
+.slot-teacher { display: flex; align-items: center; gap: 3px; font-size: 0.68rem; color: #6B7280; }
+.slot-teacher mat-icon { font-size: 11px !important; width: 11px !important; height: 11px !important; }
 .slot-time { font-size: 0.65rem; color: #9CA3AF; }
 
 .calendar-legend { display: flex; gap: 16px; padding: 12px 20px; border-top: 1px solid #F3F4F6; flex-wrap: wrap; }

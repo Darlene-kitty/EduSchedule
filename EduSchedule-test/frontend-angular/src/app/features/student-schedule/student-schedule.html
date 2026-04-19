@@ -1,0 +1,219 @@
+<div class="ent-layout">
+
+  <!-- ── SIDEBAR ÉTUDIANT ── -->
+  <aside class="ent-sidebar">
+    <div class="ent-sidebar-brand">
+      <div class="ent-logo"><mat-icon>school</mat-icon></div>
+      <div>
+        <p class="ent-title">EduSchedule</p>
+        <p class="ent-sub">ENT — IUSJC</p>
+      </div>
+    </div>
+
+    <div class="ent-sidebar-user">
+      <div class="ent-avatar">{{ getUserInitials() }}</div>
+      <div class="ent-user-info">
+        <p class="ent-user-name">{{ getUserName() }}</p>
+        <p class="ent-user-role">{{ currentUser?.group || currentUser?.classe || 'Étudiant' }}</p>
+      </div>
+    </div>
+
+    <nav class="ent-nav">
+      <button class="ent-nav-item" [class.active]="activeTab === 'edt'" (click)="activeTab = 'edt'">
+        <mat-icon>calendar_view_week</mat-icon>
+        <span>Mon emploi du temps</span>
+      </button>
+      <button class="ent-nav-item" [class.active]="activeTab === 'notifications'" (click)="activeTab = 'notifications'">
+        <mat-icon>notifications</mat-icon>
+        <span>Notifications</span>
+        <span class="notif-badge" *ngIf="unreadCount > 0">{{ unreadCount }}</span>
+      </button>
+      <button class="ent-nav-item" [class.active]="activeTab === 'profil'" (click)="activeTab = 'profil'">
+        <mat-icon>person</mat-icon>
+        <span>Mon profil</span>
+      </button>
+    </nav>
+
+    <button class="ent-logout" (click)="logout()">
+      <mat-icon>logout</mat-icon>
+      <span>Déconnexion</span>
+    </button>
+  </aside>
+
+  <!-- ── CONTENU PRINCIPAL ── -->
+  <div class="ent-content">
+
+    <header class="ent-header">
+      <div class="ent-header-left">
+        <h2 class="ent-page-title">Mon emploi du temps</h2>
+        <p class="ent-page-sub">{{ currentDate }}</p>
+      </div>
+      <div class="ent-header-right">
+        <span class="ent-time-badge">{{ currentTime }}</span>
+      </div>
+    </header>
+
+    <div class="ent-toast" [class.visible]="showToast">
+      <mat-icon>check_circle</mat-icon> {{ toastMsg }}
+    </div>
+
+    <main class="ent-main">
+
+      <!-- ═══ ONGLET EDT ═══ -->
+      <ng-container *ngIf="activeTab === 'edt'">
+
+      <!-- Prochain cours -->
+      <div class="next-course-banner" *ngIf="prochainCours">
+        <div class="next-icon"><mat-icon>schedule</mat-icon></div>
+        <div class="next-info">
+          <p class="next-label">Prochain cours aujourd'hui</p>
+          <p class="next-title">{{ prochainCours.matiere }}</p>
+          <p class="next-meta">
+            {{ prochainCours.heureDebut }} – {{ prochainCours.heureFin }}
+            &nbsp;·&nbsp; Salle {{ prochainCours.salle }}
+            &nbsp;·&nbsp; {{ prochainCours.enseignant }}
+          </p>
+        </div>
+        <div class="next-type" [style.background]="prochainCours.couleur">{{ prochainCours.type }}</div>
+      </div>
+
+      <!-- Stats -->
+      <div class="ent-stats">
+        <div class="ent-stat">
+          <mat-icon>menu_book</mat-icon>
+          <div><p class="stat-val">{{ totalSeancesSemaine }}</p><p class="stat-lbl">Séances cette semaine</p></div>
+        </div>
+        <div class="ent-stat">
+          <mat-icon>calendar_today</mat-icon>
+          <div><p class="stat-val">{{ jours.length }}</p><p class="stat-lbl">Jours de cours</p></div>
+        </div>
+        <div class="ent-stat">
+          <mat-icon>meeting_room</mat-icon>
+          <div><p class="stat-val">{{ sallesUniques }}</p><p class="stat-lbl">Salles différentes</p></div>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="ent-toolbar">
+        <div class="semaine-nav">
+          <button (click)="semaineActive = semaineActive > 1 ? semaineActive - 1 : 1">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <span>Semaine {{ semaineActive }}</span>
+          <button (click)="semaineActive = semaineActive + 1">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
+        <button class="btn-ical" (click)="exportIcal()">
+          <mat-icon>event</mat-icon> Exporter iCal
+        </button>
+      </div>
+
+      <!-- Grille EDT -->
+      <div class="ent-grid-wrapper">
+        <div *ngIf="isLoading" class="ent-loading">
+          <div class="spinner"></div>
+          <span>Chargement de votre emploi du temps…</span>
+        </div>
+
+        <div class="ent-grid" *ngIf="!isLoading">
+          <div class="grid-corner"></div>
+          <div class="grid-day" *ngFor="let jour of jours">
+            <span class="day-name">{{ jour }}</span>
+            <span class="day-count">{{ getSeancesJour(jour).length }} cours</span>
+          </div>
+          <ng-container *ngFor="let heure of creneaux">
+            <div class="grid-time">{{ heure }}</div>
+            <div class="grid-cell" *ngFor="let jour of jours">
+              <div class="seance-card"
+                   *ngFor="let s of getSeancesCreneau(jour, heure)"
+                   [style.background]="s.couleur + '18'"
+                   [style.border-left]="'3px solid ' + s.couleur"
+                   [style.height]="getSeanceHeight(s)">
+                <div class="sc-top">
+                  <span class="sc-type" [style.background]="s.couleur" [style.color]="'white'">{{ s.type }}</span>
+                </div>
+                <p class="sc-matiere">{{ s.matiere }}</p>
+                <p class="sc-info"><mat-icon>person</mat-icon> {{ s.enseignant }}</p>
+                <p class="sc-info"><mat-icon>meeting_room</mat-icon> {{ s.salle }}</p>
+                <p class="sc-time">{{ s.heureDebut }} – {{ s.heureFin }}</p>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+
+        <div class="ent-empty" *ngIf="!isLoading && seances.length === 0">
+          <mat-icon>event_available</mat-icon>
+          <p>Aucun cours planifié pour cette semaine.</p>
+        </div>
+      </div>
+
+      <!-- Légende -->
+      <div class="ent-legend">
+        <span class="legend-item" *ngFor="let entry of typeColors | keyvalue">
+          <span class="legend-dot" [style.background]="entry.value"></span>
+          {{ entry.key }}
+        </span>
+      </div>
+
+      </ng-container>
+      <!-- ═══ FIN ONGLET EDT ═══ -->
+
+      <!-- ═══ ONGLET NOTIFICATIONS ═══ -->
+      <ng-container *ngIf="activeTab === 'notifications'">
+        <div class="notif-header-row">
+          <h3 class="notif-title">Mes notifications</h3>
+          <button class="btn-mark-read" (click)="markAllRead()" *ngIf="unreadCount > 0">
+            <mat-icon>done_all</mat-icon> Tout marquer comme lu
+          </button>
+        </div>
+
+        <div *ngIf="isLoadingNotifs" class="ent-loading">
+          <div class="spinner"></div><span>Chargement…</span>
+        </div>
+
+        <div class="notif-list" *ngIf="!isLoadingNotifs">
+          <div class="notif-item" *ngFor="let n of notifications" [class.unread]="!n.read && n.status !== 'READ'">
+            <div class="notif-icon-wrap" [style.background]="getNotifColor(n.type) + '20'">
+              <mat-icon [style.color]="getNotifColor(n.type)">{{ getNotifIcon(n.type) }}</mat-icon>
+            </div>
+            <div class="notif-body">
+              <p class="notif-subject">{{ n.title || n.subject || 'Notification' }}</p>
+              <p class="notif-msg">{{ n.message }}</p>
+              <p class="notif-time">{{ n.createdAt ? (n.createdAt | date:'dd/MM/yyyy HH:mm') : '' }}</p>
+            </div>
+            <button class="notif-dismiss" (click)="dismissNotif(n.id)">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <div class="ent-empty" *ngIf="notifications.length === 0">
+            <mat-icon>notifications_none</mat-icon>
+            <p>Aucune notification pour le moment.</p>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ═══ ONGLET PROFIL ═══ -->
+      <ng-container *ngIf="activeTab === 'profil'">
+        <div class="profil-card">
+          <div class="profil-avatar">{{ getUserInitials() }}</div>
+          <div class="profil-info">
+            <h3 class="profil-name">{{ getUserName() }}</h3>
+            <p class="profil-role">Étudiant</p>
+            <p class="profil-group" *ngIf="currentUser?.group || currentUser?.classe">
+              <mat-icon>groups</mat-icon>
+              {{ currentUser?.group || currentUser?.classe }}
+            </p>
+            <p class="profil-email" *ngIf="currentUser?.email">
+              <mat-icon>email</mat-icon>
+              {{ currentUser?.email }}
+            </p>
+          </div>
+        </div>
+        <p class="profil-hint">Pour modifier votre profil, contactez l'administration.</p>
+      </ng-container>
+
+    </main>
+  </div>
+</div>

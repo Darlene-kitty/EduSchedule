@@ -165,8 +165,11 @@
       <div class="form-row">
         <div class="form-group">
           <label>Enseignant</label>
-          <!-- Admin : champ libre. Enseignant : pré-rempli et verrouillé -->
-          <input *ngIf="!isTeacher" type="text" [(ngModel)]="newForm.teacherName" placeholder="Nom de l'enseignant" />
+          <!-- Admin : select. Enseignant : pré-rempli et verrouillé -->
+          <select *ngIf="!isTeacher" [(ngModel)]="newForm.teacherName">
+            <option value="">-- Choisir un enseignant --</option>
+            <option *ngFor="let t of allTeacherNames" [value]="t">{{ t }}</option>
+          </select>
           <input *ngIf="isTeacher"  type="text" [(ngModel)]="newForm.teacherName" [disabled]="true" class="input-locked" />
         </div>
         <div class="form-group">

@@ -2,6 +2,7 @@ package cm.iusjc.userservice.dto;
 
 import cm.iusjc.userservice.entity.AvailabilityType;
 import jakarta.validation.constraints.NotNull;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class TeacherAvailabilityRequest {
     
     @NotNull(message = "Teacher ID is required")
