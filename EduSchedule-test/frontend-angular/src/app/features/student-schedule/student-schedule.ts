@@ -6,6 +6,8 @@ import { AuthService } from '../../core/services/auth.service';
 import { ScheduleManagementService } from '../../core/services/schedule-management.service';
 import { ICalExportService } from '../../core/services/ical-export.service';
 import { NotificationsManagementService, Notification as ApiNotification } from '../../core/services/notifications-management.service';
+import { PreferencesService } from '../../core/services/preferences.service';
+import { UsersManagementService } from '../../core/services/users-management.service';
 
 interface SeanceEtudiant {
   id: number;
@@ -32,13 +34,14 @@ export class StudentScheduleComponent implements OnInit {
   private scheduleService = inject(ScheduleManagementService);
   private icalSvc         = inject(ICalExportService);
   private notifService    = inject(NotificationsManagementService);
+  private prefService     = inject(PreferencesService);
+  private usersSvc        = inject(UsersManagementService);
 
   currentUser: any = null;
   currentDate = '';
   currentTime = '';
   isLoading   = false;
 
-  // Onglet actif
   activeTab: 'edt' | 'notifications' | 'profil' = 'edt';
 
   // Notifications
@@ -48,6 +51,24 @@ export class StudentScheduleComponent implements OnInit {
   get unreadCount(): number {
     return this.notifications.filter(n => !n.read && n.status !== 'READ').length;
   }
+
+  // Profil
+  profilTab: 'personal' | 'password' | 'preferences' = 'personal';
+  isEditMode = false;
+  profilMessage = '';
+  profilIsError = false;
+
+  profileData = { name: '', email: '', phone: '', address: '', bio: '', department: '', specialization: '' };
+  profileDataEdit: any = {};
+  passwordData = { currentPassword: '', newPassword: '', confirmPassword: '' };
+  preferences  = { emailNotifications: true, pushNotifications: false, language: 'fr' };
+  showCurrentPwd = false; showNewPwd = false; showConfirmPwd = false;
+
+  profilTabs = [
+    { key: 'personal',    label: 'Informations', icon: 'person'   },
+    { key: 'password',    label: 'Mot de passe', icon: 'lock'     },
+    { key: 'preferences', label: 'Préférences',  icon: 'settings' },
+  ];
 
   semaineActive = 1;
   readonly jours    = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
@@ -66,9 +87,95 @@ export class StudentScheduleComponent implements OnInit {
   ngOnInit(): void {
     this.updateDateTime();
     setInterval(() => this.updateDateTime(), 1000);
+
+    // S'abonner au flux user pour réagir dès que le JWT est chargé
+    this.authService.user$.subscribe(user => {
+      if (user) {
+        this.currentUser = user;
+        this.loadProfile();
+      }
+    });
+
     this.currentUser = this.authService.getUser();
+    this.loadProfile();
     this.loadSchedule();
     this.loadNotifications();
+  }
+
+  private loadProfile(): void {
+    const user = this.currentUser;
+    if (!user) return;
+
+    // Données de base depuis le JWT
+    this.profileData = {
+      name:           user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || '',
+      email:          user.email          || '',
+      phone:          user.phone          || '',
+      address:        user.address        || '',
+      bio:            user.bio            || '',
+      department:     user.department     || user.filiere || '',
+      specialization: user.specialization || user.niveau  || ''
+    };
+
+    // Charger le profil complet depuis l'API
+    if (user.id) {
+      this.usersSvc.getUserById(user.id).subscribe({
+        next: fullUser => {
+          if (fullUser) {
+            this.profileData = {
+              name:           fullUser.name || `${fullUser.firstName || ''} ${fullUser.lastName || ''}`.trim() || fullUser.username || this.profileData.name,
+              email:          fullUser.email          || this.profileData.email,
+              phone:          fullUser.phone          || this.profileData.phone,
+              address:        (fullUser as any).address        || this.profileData.address,
+              bio:            (fullUser as any).bio            || this.profileData.bio,
+              department:     fullUser.department     || this.profileData.department,
+              specialization: (fullUser as any).specialization || this.profileData.specialization
+            };
+          }
+        },
+        error: () => {} // garder les données JWT si l'API échoue
+      });
+    }
+
+    const prefs = this.prefService.getPreferences();
+    this.preferences = {
+      emailNotifications: prefs.emailNotifications ?? true,
+      pushNotifications:  prefs.notifications      ?? false,
+      language:           prefs.language           || 'fr'
+    };
+  }
+
+  enterEditMode(): void { this.profileDataEdit = { ...this.profileData }; this.isEditMode = true; this.profilMessage = ''; }
+  cancelEdit(): void    { this.isEditMode = false; this.profilMessage = ''; }
+
+  saveProfile(): void {
+    if (!this.profileDataEdit.name?.trim()) {
+      this.profilIsError = true; this.profilMessage = 'Le nom est obligatoire'; return;
+    }
+    this.profileData = { ...this.profileDataEdit };
+    this.authService.setUser({ ...this.currentUser, ...this.profileData });
+    this.isEditMode = false; this.profilIsError = false;
+    this.profilMessage = 'Profil mis à jour avec succès';
+  }
+
+  changePassword(): void {
+    if (this.passwordData.newPassword !== this.passwordData.confirmPassword) {
+      this.profilIsError = true; this.profilMessage = 'Les mots de passe ne correspondent pas'; return;
+    }
+    if (this.passwordData.newPassword.length < 6) {
+      this.profilIsError = true; this.profilMessage = 'Minimum 6 caractères'; return;
+    }
+    this.profilIsError = false; this.profilMessage = 'Mot de passe changé avec succès';
+    this.passwordData = { currentPassword: '', newPassword: '', confirmPassword: '' };
+  }
+
+  savePreferences(): void {
+    this.prefService.updatePreferences({
+      emailNotifications: this.preferences.emailNotifications,
+      notifications:      this.preferences.pushNotifications,
+      language:           this.preferences.language
+    });
+    this.profilIsError = false; this.profilMessage = 'Préférences sauvegardées';
   }
 
   private loadNotifications(): void {

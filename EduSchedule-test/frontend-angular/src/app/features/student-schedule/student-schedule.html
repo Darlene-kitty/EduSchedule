@@ -196,22 +196,159 @@
 
       <!-- ═══ ONGLET PROFIL ═══ -->
       <ng-container *ngIf="activeTab === 'profil'">
-        <div class="profil-card">
-          <div class="profil-avatar">{{ getUserInitials() }}</div>
-          <div class="profil-info">
-            <h3 class="profil-name">{{ getUserName() }}</h3>
-            <p class="profil-role">Étudiant</p>
-            <p class="profil-group" *ngIf="currentUser?.group || currentUser?.classe">
-              <mat-icon>groups</mat-icon>
-              {{ currentUser?.group || currentUser?.classe }}
-            </p>
-            <p class="profil-email" *ngIf="currentUser?.email">
-              <mat-icon>email</mat-icon>
-              {{ currentUser?.email }}
-            </p>
+
+        <!-- Carte avatar -->
+        <div class="profile-card">
+          <div class="profile-card-left">
+            <div class="avatar-wrapper">
+              <div class="big-avatar">{{ getUserInitials() }}</div>
+            </div>
+            <div class="profile-main-info">
+              <h2>{{ profileData.name || getUserName() }}</h2>
+              <p>{{ profileData.email }}</p>
+              <p class="profile-dept" *ngIf="profileData.department">
+                <mat-icon>business</mat-icon> {{ profileData.department }}
+              </p>
+            </div>
           </div>
         </div>
-        <p class="profil-hint">Pour modifier votre profil, contactez l'administration.</p>
+
+        <!-- Stats étudiant -->
+        <div class="profil-stats">
+          <div class="profil-stat-card">
+            <div class="psc-icon blue"><mat-icon>menu_book</mat-icon></div>
+            <div><p class="psc-val">{{ totalSeancesSemaine }}</p><p class="psc-lbl">Cours cette semaine</p></div>
+          </div>
+          <div class="profil-stat-card">
+            <div class="psc-icon green"><mat-icon>meeting_room</mat-icon></div>
+            <div><p class="psc-val">{{ sallesUniques }}</p><p class="psc-lbl">Salles fréquentées</p></div>
+          </div>
+          <div class="profil-stat-card">
+            <div class="psc-icon purple"><mat-icon>groups</mat-icon></div>
+            <div><p class="psc-val">{{ currentUser?.group || currentUser?.classe || '—' }}</p><p class="psc-lbl">Mon groupe</p></div>
+          </div>
+        </div>
+
+        <!-- Message -->
+        <div *ngIf="profilMessage" class="profil-alert" [class.success]="!profilIsError" [class.error]="profilIsError">
+          <mat-icon>{{ profilIsError ? 'error' : 'check_circle' }}</mat-icon> {{ profilMessage }}
+        </div>
+
+        <!-- Sous-onglets -->
+        <div class="profil-tabs-card">
+          <div class="profil-tabs-header">
+            <button *ngFor="let t of profilTabs" class="profil-tab-btn"
+        [class.active]="profilTab === t.key"
+        (click)="profilTab = $any(t.key); profilMessage = ''">
+         <mat-icon>{{ t.icon }}</mat-icon> {{ t.label }}
+            </button>
+          </div>
+
+          <!-- Informations personnelles -->
+          <div *ngIf="profilTab === 'personal'" class="profil-tab-content">
+            <div *ngIf="!isEditMode" class="view-mode">
+              <div class="action-bar">
+                <button class="btn-edit" (click)="enterEditMode()">
+                  <mat-icon>edit</mat-icon> Modifier
+                </button>
+              </div>
+              <div class="info-grid">
+                <div class="info-item"><div class="info-label">Nom complet</div><div class="info-value">{{ profileData.name || '—' }}</div></div>
+                <div class="info-item"><div class="info-label">Email</div><div class="info-value">{{ profileData.email || '—' }}</div></div>
+                <div class="info-item"><div class="info-label">Téléphone</div><div class="info-value">{{ profileData.phone || '—' }}</div></div>
+                <div class="info-item"><div class="info-label">Adresse</div><div class="info-value">{{ profileData.address || '—' }}</div></div>
+                <div class="info-item"><div class="info-label">Filière</div><div class="info-value">{{ profileData.department || '—' }}</div></div>
+                <div class="info-item"><div class="info-label">Spécialisation</div><div class="info-value">{{ profileData.specialization || '—' }}</div></div>
+              </div>
+            </div>
+            <div *ngIf="isEditMode" class="edit-mode">
+              <div class="form-row-2">
+                <div class="form-group">
+                  <label>Nom complet *</label>
+                  <div class="input-wrapper"><mat-icon class="input-icon">person</mat-icon>
+                    <input type="text" [(ngModel)]="profileDataEdit.name" /></div>
+                </div>
+                <div class="form-group">
+                  <label>Email</label>
+                  <div class="input-wrapper"><mat-icon class="input-icon">mail</mat-icon>
+                    <input type="email" [(ngModel)]="profileDataEdit.email" /></div>
+                </div>
+              </div>
+              <div class="form-row-2">
+                <div class="form-group">
+                  <label>Téléphone</label>
+                  <div class="input-wrapper"><mat-icon class="input-icon">phone</mat-icon>
+                    <input type="tel" [(ngModel)]="profileDataEdit.phone" /></div>
+                </div>
+                <div class="form-group">
+                  <label>Adresse</label>
+                  <div class="input-wrapper"><mat-icon class="input-icon">place</mat-icon>
+                    <input type="text" [(ngModel)]="profileDataEdit.address" /></div>
+                </div>
+              </div>
+              <div class="form-footer">
+                <button class="btn-cancel" (click)="cancelEdit()"><mat-icon>close</mat-icon> Annuler</button>
+                <button class="btn-save-profil" (click)="saveProfile()"><mat-icon>save</mat-icon> Enregistrer</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mot de passe -->
+          <div *ngIf="profilTab === 'password'" class="profil-tab-content">
+            <div class="form-group">
+              <label>Mot de passe actuel</label>
+              <div class="input-wrapper"><mat-icon class="input-icon">lock</mat-icon>
+                <input [type]="showCurrentPwd ? 'text' : 'password'" [(ngModel)]="passwordData.currentPassword" placeholder="Mot de passe actuel" />
+                <button class="toggle-pwd" (click)="showCurrentPwd = !showCurrentPwd"><mat-icon>{{ showCurrentPwd ? 'visibility_off' : 'visibility' }}</mat-icon></button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Nouveau mot de passe</label>
+              <div class="input-wrapper"><mat-icon class="input-icon">lock_open</mat-icon>
+                <input [type]="showNewPwd ? 'text' : 'password'" [(ngModel)]="passwordData.newPassword" placeholder="Minimum 6 caractères" />
+                <button class="toggle-pwd" (click)="showNewPwd = !showNewPwd"><mat-icon>{{ showNewPwd ? 'visibility_off' : 'visibility' }}</mat-icon></button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Confirmer</label>
+              <div class="input-wrapper"><mat-icon class="input-icon">lock_open</mat-icon>
+                <input [type]="showConfirmPwd ? 'text' : 'password'" [(ngModel)]="passwordData.confirmPassword" placeholder="Répétez le mot de passe" />
+                <button class="toggle-pwd" (click)="showConfirmPwd = !showConfirmPwd"><mat-icon>{{ showConfirmPwd ? 'visibility_off' : 'visibility' }}</mat-icon></button>
+              </div>
+            </div>
+            <div class="form-footer">
+              <button class="btn-save-profil" (click)="changePassword()"><mat-icon>lock_reset</mat-icon> Changer</button>
+            </div>
+          </div>
+
+          <!-- Préférences -->
+          <div *ngIf="profilTab === 'preferences'" class="profil-tab-content">
+            <div class="pref-item">
+              <div class="pref-info"><mat-icon class="pref-icon">mail</mat-icon>
+                <div><p class="pref-label">Notifications email</p><p class="pref-desc">Recevoir les alertes par email</p></div>
+              </div>
+              <label class="toggle"><input type="checkbox" [(ngModel)]="preferences.emailNotifications" /><span class="toggle-slider"></span></label>
+            </div>
+            <div class="pref-item">
+              <div class="pref-info"><mat-icon class="pref-icon">notifications</mat-icon>
+                <div><p class="pref-label">Notifications push</p><p class="pref-desc">Alertes dans le navigateur</p></div>
+              </div>
+              <label class="toggle"><input type="checkbox" [(ngModel)]="preferences.pushNotifications" /><span class="toggle-slider"></span></label>
+            </div>
+            <div class="pref-item">
+              <div class="pref-info"><mat-icon class="pref-icon">language</mat-icon>
+                <div><p class="pref-label">Langue</p><p class="pref-desc">Langue de l'interface</p></div>
+              </div>
+              <select [(ngModel)]="preferences.language" class="lang-select">
+                <option value="fr">Français</option>
+                <option value="en">English</option>
+              </select>
+            </div>
+            <div class="form-footer">
+              <button class="btn-save-profil" (click)="savePreferences()"><mat-icon>save</mat-icon> Sauvegarder</button>
+            </div>
+          </div>
+        </div>
       </ng-container>
 
     </main>
