@@ -1,0 +1,12 @@
+{
+  "resourceId": 1,
+  "userId": 2,
+  "title": "Cours Java Test",
+  "description": "Test reservation",
+  "startTime": "2026-05-10T08:00:00",
+  "endTime": "2026-05-10T10:00:00",
+  "type": "COURSE",
+  "expectedAttendees": 30,
+  "setupTime": 10,
+  "cleanupTime": 10
+}

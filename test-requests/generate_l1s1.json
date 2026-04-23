@@ -1,0 +1,19 @@
+{
+  "schoolId": 1,
+  "semester": "S1",
+  "level": "L1",
+  "availableSlots": [
+    "LUNDI_08:00_10:00", "LUNDI_10:00_12:00",
+    "LUNDI_14:00_16:00", "LUNDI_16:00_18:00",
+    "MARDI_08:00_10:00", "MARDI_10:00_12:00",
+    "MARDI_14:00_16:00", "MARDI_16:00_18:00",
+    "MERCREDI_08:00_10:00", "MERCREDI_10:00_12:00",
+    "MERCREDI_14:00_16:00", "MERCREDI_16:00_18:00",
+    "JEUDI_08:00_10:00", "JEUDI_10:00_12:00",
+    "JEUDI_14:00_16:00", "JEUDI_16:00_18:00",
+    "VENDREDI_08:00_10:00", "VENDREDI_10:00_12:00",
+    "VENDREDI_14:00_16:00", "VENDREDI_16:00_18:00"
+  ],
+  "maxHoursPerDay": 6,
+  "algorithm": "edmonds-karp"
+}

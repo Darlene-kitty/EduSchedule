@@ -1,0 +1,105 @@
+<div class="page-layout">
+  <app-sidebar activePage="conflicts"></app-sidebar>
+  <div class="main-wrapper">
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn"><mat-icon>notifications</mat-icon><span class="notif-dot">2</span></button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <main class="page-content">
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Résolution des conflits</h1>
+          <p class="page-sub">Gérez les conflits d'horaires, de salles et de ressources</p>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div *ngFor="let stat of stats" class="stat-card">
+          <p class="stat-label">{{ stat.label }}</p>
+          <p class="stat-value" [ngClass]="'color-' + stat.color">{{ stat.value }}</p>
+        </div>
+      </div>
+
+      <!-- Active Conflicts -->
+      <h2 class="section-title">Conflits actifs</h2>
+
+      <div *ngFor="let conflict of conflicts" class="conflict-card">
+        <!-- Header -->
+        <div class="conflict-header">
+          <mat-icon class="conflict-icon">warning</mat-icon>
+          <div class="conflict-title-block">
+            <h3>{{ conflict.title }}</h3>
+            <p>{{ conflict.description }}</p>
+            <div class="conflict-meta">
+              <span class="priority-badge" [class.urgent]="conflict.priority === 'urgent'">
+                {{ conflict.priority === 'urgent' ? 'Urgent' : 'Normal' }}
+              </span>
+              <span class="meta-date"><mat-icon>calendar_today</mat-icon>{{ conflict.date }}</span>
+              <span class="meta-time"><mat-icon>schedule</mat-icon>{{ conflict.time }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Items -->
+        <div class="conflict-section">
+          <p class="conflict-section-title">Éléments en conflit:</p>
+          <div *ngFor="let item of conflict.items" class="conflict-item">
+            <span class="item-name">{{ item.name }}</span>
+            <span class="item-dot">•</span>
+            <span class="item-prof">{{ item.professor }}</span>
+            <span class="item-dot">•</span>
+            <mat-icon class="item-icon">group</mat-icon>
+            <span>{{ item.students }} étudiants</span>
+          </div>
+        </div>
+
+        <!-- Solutions -->
+        <div class="conflict-section">
+          <p class="conflict-section-title">Solutions proposées:</p>
+          <div *ngIf="conflict.loadingSuggestions" class="suggestions-loading">
+            <mat-icon class="spin">autorenew</mat-icon> Calcul des alternatives…
+          </div>
+          <div *ngFor="let solution of conflict.solutions" class="solution-row">
+            <div class="solution-left">
+              <mat-icon>meeting_room</mat-icon>
+              <span>{{ solution.room }}</span>
+              <span class="solution-badge" [class.partial]="!solution.available">
+                {{ solution.available ? 'Disponible' : 'Partiel' }}
+              </span>
+              <span *ngIf="solution.score !== undefined" class="solution-score"
+                    [style.color]="solution.score >= 90 ? '#15803d' : solution.score >= 70 ? '#b45309' : '#991b1b'">
+                {{ solution.score }}%
+              </span>
+            </div>
+            <button class="btn-apply" (click)="applySolution(conflict, solution)">
+              Appliquer <mat-icon>arrow_forward</mat-icon>
+            </button>
+          </div>
+          <p *ngIf="!conflict.loadingSuggestions && conflict.solutions.length === 0" class="no-suggestions">
+            <mat-icon>info</mat-icon> Aucune alternative disponible — intervention manuelle requise.
+          </p>
+        </div>
+      </div>
+
+      <div *ngIf="conflicts.length === 0" class="empty-state">
+        <mat-icon>check_circle</mat-icon>
+        <h3>Aucun conflit actif</h3>
+        <p>Tous les conflits ont été résolus.</p>
+      </div>
+
+    </main>
+  </div>
+</div>

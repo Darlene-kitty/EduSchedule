@@ -1,0 +1,368 @@
+<div class="page-layout">
+  <app-sidebar activePage="courses"></app-sidebar>
+  <div class="main-wrapper">
+
+    <!-- Header -->
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn">
+          <mat-icon>notifications</mat-icon>
+          <span class="notif-dot">2</span>
+        </button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <main class="page-content">
+
+      <!-- Titre + bouton -->
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Gestion des cours et groupes</h1>
+          <p class="page-sub">Créez et gérez les cours, assignez des groupes d'étudiants</p>
+        </div>
+        <button class="btn-new" (click)="activeTab === 'courses' ? openCourseModal() : openGroupModal()">
+          <mat-icon>add</mat-icon>
+          {{ activeTab === 'courses' ? 'Nouveau cours' : 'Nouveau groupe' }}
+        </button>
+      </div>
+
+      <!-- Tabs toggle -->
+      <div class="tabs-toggle">
+        <button class="tab-pill" [class.active]="activeTab === 'courses'"  (click)="setTab('courses')">Cours</button>
+        <button class="tab-pill" [class.active]="activeTab === 'groups'"   (click)="setTab('groups')">Groupes d'étudiants</button>
+      </div>
+
+      <!-- Recherche -->
+      <div class="search-bar">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input type="text" class="search-input"
+          [placeholder]="activeTab === 'courses' ? 'Rechercher un cours...' : 'Rechercher un groupe...'"
+          [(ngModel)]="searchQuery" />
+      </div>
+
+      <!-- ═══ ONGLET COURS ═══ -->
+      <div *ngIf="activeTab === 'courses'" class="cards-grid">
+        <div *ngFor="let course of filteredCourses" class="course-card">
+
+          <!-- Card header: titre + badge niveau -->
+          <div class="card-top">
+            <div class="card-title-row">
+              <mat-icon class="book-icon">menu_book</mat-icon>
+              <div>
+                <h3 class="card-name">{{ course.name }}</h3>
+                <p class="card-code">{{ course.code }}</p>
+              </div>
+            </div>
+            <span class="level-badge" [style.background]="getLevelBg(course.level)">{{ course.level }}</span>
+          </div>
+
+          <!-- Infos -->
+          <div class="card-info-list">
+            <div class="info-row">
+              <span class="info-label">Type:</span>
+              <span class="type-badge" [style.background]="getTypeBg(course.type)">{{ course.type }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Enseignant:</span>
+              <span class="info-value">{{ course.professor }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Volume horaire:</span>
+              <span class="info-value">{{ course.hours }}h</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Étudiants:</span>
+              <span class="info-value students-val">
+                <mat-icon class="students-icon">group</mat-icon>{{ course.students }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Groupes assignés -->
+          <div class="groups-section">
+            <p class="groups-label">Groupes assignés:</p>
+            <div class="groups-chips">
+              <span *ngFor="let g of course.groups" class="group-chip">{{ g }}</span>
+              <span *ngIf="course.groups.length === 0" class="no-groups">Aucun groupe</span>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="card-footer">
+            <button class="btn-modifier" (click)="openCourseModal(course)">
+              <mat-icon>edit</mat-icon> Modifier
+            </button>
+            <button class="btn-trash" (click)="openDeleteModal(course.id, course.name, 'course')">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Empty -->
+        <div *ngIf="filteredCourses.length === 0" class="empty-state">
+          <mat-icon>menu_book</mat-icon>
+          <h3>Aucun cours trouvé</h3>
+          <p>{{ searchQuery ? 'Essayez un autre terme de recherche.' : 'Commencez par créer votre premier cours.' }}</p>
+          <button class="btn-new" (click)="openCourseModal()"><mat-icon>add</mat-icon> Nouveau cours</button>
+        </div>
+      </div>
+
+      <!-- ═══ ONGLET GROUPES ═══ -->
+      <div *ngIf="activeTab === 'groups'" class="cards-grid">
+        <div *ngFor="let group of filteredGroups" class="course-card">
+
+          <!-- Card header -->
+          <div class="card-top">
+            <div class="card-title-row">
+              <mat-icon class="book-icon">group</mat-icon>
+              <div>
+                <h3 class="card-name">{{ group.name }}</h3>
+                <p class="card-code">{{ group.promotion }}</p>
+              </div>
+            </div>
+            <span class="level-badge" [style.background]="getLevelBg(group.level)">{{ group.level }}</span>
+          </div>
+
+          <!-- Jauge remplissage -->
+          <div class="fill-bar-wrapper">
+            <div class="fill-bar-header">
+              <span class="fill-label">Remplissage</span>
+              <span class="fill-value" [style.color]="getFillColor(getFillRate(group.enrolled, group.capacity))">
+                {{ group.enrolled }}/{{ group.capacity }} ({{ getFillRate(group.enrolled, group.capacity) }}%)
+              </span>
+            </div>
+            <div class="fill-bar-track">
+              <div class="fill-bar-fill"
+                [style.width.%]="getFillRate(group.enrolled, group.capacity)"
+                [style.background]="getFillColor(getFillRate(group.enrolled, group.capacity))">
+              </div>
+            </div>
+          </div>
+
+          <!-- Infos -->
+          <div class="card-info-list">
+            <div class="info-row">
+              <span class="info-label">Responsable:</span>
+              <span class="info-value">{{ group.responsible }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Capacité:</span>
+              <span class="info-value students-val"><mat-icon class="students-icon">group</mat-icon>{{ group.capacity }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Inscrits:</span>
+              <span class="info-value students-val"><mat-icon class="students-icon">person</mat-icon>{{ group.enrolled }}</span>
+            </div>
+          </div>
+
+          <!-- Cours assignés -->
+          <div class="groups-section">
+            <p class="groups-label">Cours assignés:</p>
+            <div class="groups-chips">
+              <span *ngFor="let c of group.courses" class="group-chip group-chip-blue">{{ c }}</span>
+              <span *ngIf="group.courses.length === 0" class="no-groups">Aucun cours</span>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="card-footer">
+            <button class="btn-modifier" (click)="openGroupModal(group)">
+              <mat-icon>edit</mat-icon> Modifier
+            </button>
+            <button class="btn-trash" (click)="openDeleteModal(group.id, group.name, 'group')">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Empty -->
+        <div *ngIf="filteredGroups.length === 0" class="empty-state">
+          <mat-icon>group</mat-icon>
+          <h3>Aucun groupe trouvé</h3>
+          <p>{{ searchQuery ? 'Essayez un autre terme.' : 'Commencez par créer votre premier groupe.' }}</p>
+          <button class="btn-new" (click)="openGroupModal()"><mat-icon>add</mat-icon> Nouveau groupe</button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ═══ MODAL COURS ═══ -->
+<div *ngIf="isCourseModalOpen" class="modal-overlay" (click)="closeCourseModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>{{ editingCourse ? 'Modifier le cours' : 'Nouveau cours' }}</h2>
+      <button class="modal-close" (click)="closeCourseModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nom du cours <span class="req">*</span></label>
+          <input type="text" [(ngModel)]="newCourse.name" placeholder="Ex: Mathématiques Avancées" />
+        </div>
+        <div class="form-group">
+          <label>Code <span class="req">*</span></label>
+          <input type="text" [(ngModel)]="newCourse.code" placeholder="Ex: MATH301" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Niveau</label>
+          <select [(ngModel)]="newCourse.level">
+            <option>L1</option><option>L2</option><option>L3</option><option>M1</option><option>M2</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select [(ngModel)]="newCourse.type">
+            <option value="Cours magistral">Cours magistral</option>
+            <option value="TD">TD</option>
+            <option value="TP">TP</option>
+            <option value="Séminaire">Séminaire</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Enseignant</label>
+        <select [(ngModel)]="newCourse.professor">
+          <option value="">— Sélectionner —</option>
+          <option *ngFor="let t of teachers" [value]="t.name">{{ t.name }}</option>
+          <option *ngFor="let p of professors" [value]="p">{{ p }}</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Volume horaire (h/semaine)</label>
+          <input type="number" [(ngModel)]="newCourse.hours" min="1" max="20" />
+        </div>
+        <div class="form-group">
+          <label>Nombre d'étudiants max</label>
+          <input type="number" [(ngModel)]="newCourse.students" min="0" max="500" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Crédits <span class="req">*</span></label>
+          <select [(ngModel)]="newCourse.credits">
+            <option *ngFor="let c of creditsList" [value]="c">{{ c }} crédit{{ c > 1 ? 's' : '' }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Durée séance <span class="req">*</span></label>
+          <select [(ngModel)]="newCourse.duration">
+            <option *ngFor="let d of durations" [value]="d">{{ d }} min</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Département <span class="req">*</span></label>
+          <select [(ngModel)]="newCourse.department">
+            <option value="">— Choisir —</option>
+            <option *ngFor="let d of departments" [value]="d">{{ d }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Semestre <span class="req">*</span></label>
+          <select [(ngModel)]="newCourse.semester">
+            <option value="S1">Semestre 1</option>
+            <option value="S2">Semestre 2</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeCourseModal()">Annuler</button>
+      <button class="btn-save" (click)="saveCourse()">
+        <mat-icon>save</mat-icon> {{ editingCourse ? 'Sauvegarder' : 'Créer le cours' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL GROUPE ═══ -->
+<div *ngIf="isGroupModalOpen" class="modal-overlay" (click)="closeGroupModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>{{ editingGroup ? 'Modifier le groupe' : 'Nouveau groupe' }}</h2>
+      <button class="modal-close" (click)="closeGroupModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nom du groupe <span class="req">*</span></label>
+          <input type="text" [(ngModel)]="newGroup.name" placeholder="Ex: L3-G1" />
+        </div>
+        <div class="form-group">
+          <label>Niveau</label>
+          <select [(ngModel)]="newGroup.level">
+            <option>L1</option><option>L2</option><option>L3</option><option>M1</option><option>M2</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Promotion</label>
+          <select [(ngModel)]="newGroup.promotion">
+            <option value="Licence 1">Licence 1</option>
+            <option value="Licence 2">Licence 2</option>
+            <option value="Licence 3">Licence 3</option>
+            <option value="Master 1">Master 1</option>
+            <option value="Master 2">Master 2</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Capacité max</label>
+          <input type="number" [(ngModel)]="newGroup.capacity" min="1" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Responsable</label>
+        <select [(ngModel)]="newGroup.responsible">
+          <option value="">— Sélectionner —</option>
+          <option *ngFor="let t of teachers" [value]="t.name">{{ t.name }}</option>
+          <option *ngFor="let p of professors" [value]="p">{{ p }}</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeGroupModal()">Annuler</button>
+      <button class="btn-save" (click)="saveGroup()">
+        <mat-icon>save</mat-icon> {{ editingGroup ? 'Sauvegarder' : 'Créer le groupe' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL SUPPRESSION ═══ -->
+<div *ngIf="isDeleteModalOpen && itemToDelete" class="modal-overlay" (click)="closeDeleteModal()">
+  <div class="modal modal-delete" (click)="$event.stopPropagation()">
+    <div class="delete-body">
+      <div class="delete-icon-circle"><mat-icon>delete_forever</mat-icon></div>
+      <h2 class="delete-title">Supprimer {{ itemToDelete.type === 'course' ? 'le cours' : 'le groupe' }} ?</h2>
+      <p class="delete-desc">
+        Vous êtes sur le point de supprimer <strong>{{ itemToDelete.name }}</strong>.
+        Cette action est <strong>irréversible</strong>.
+      </p>
+    </div>
+    <div class="modal-footer delete-footer">
+      <button class="btn-cancel" (click)="closeDeleteModal()">Annuler</button>
+      <button class="btn-delete-confirm" (click)="confirmDelete()">
+        <mat-icon>delete</mat-icon> Oui, supprimer
+      </button>
+    </div>
+  </div>
+</div>

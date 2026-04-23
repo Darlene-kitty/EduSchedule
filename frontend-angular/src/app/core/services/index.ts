@@ -1,0 +1,36 @@
+// Export tous les services pour faciliter les imports
+export * from './storage.service';
+export * from './auth.service';
+export * from './user.service';
+export * from './users-management.service';
+export * from './courses-management.service';
+export * from './rooms-management.service';
+export * from './reservations-management.service';
+export * from './events-management.service';
+export * from './resources-management.service';
+export * from './notifications-management.service';
+export * from './schedule-management.service';
+export * from './preferences.service';
+export * from './cache.service';
+export * from './dashboard.service';
+export * from './api.service';
+// Export seulement le service, pas l'interface Course pour éviter le conflit
+export { CourseService } from './course.service';
+export * from './profile.service';
+export * from './schedule.service';
+export * from './teacher-availability-management.service';
+export * from './school-management.service';
+export * from './filieres-management.service';
+export * from './niveaux-management.service';
+export * from './groupes-management.service';
+export * from './categories-ue-management.service';
+export * from './equipment-management.service';
+export * from './salle-materiel.service';
+export * from './room-suggestion.service';
+export * from './exam-scheduling.service';
+export * from './websocket.service';
+export * from './reporting.service';
+export * from './students-management.service';
+export * from './toast.service';
+export * from './course-documents.service';
+export * from './conflicts-management.service';

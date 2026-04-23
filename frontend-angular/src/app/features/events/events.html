@@ -1,0 +1,386 @@
+<div class="page-layout">
+  <app-sidebar activePage="events"></app-sidebar>
+  <div class="main-wrapper">
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn"><mat-icon>notifications</mat-icon><span class="notif-dot">2</span></button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <!-- Toast import -->
+    <div class="toast-success" [class.visible]="showImportToast">
+      <mat-icon>check_circle</mat-icon>
+      <span>{{ importedCount }} événement(s) importé(s) avec succès !</span>
+    </div>
+
+    <main class="page-content">
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Gestion des événements</h1>
+          <p class="page-sub">Organisez séminaires, conférences, examens et événements spéciaux</p>
+        </div>
+        <div class="title-actions">
+          <button class="btn-import" (click)="openImportModal()">
+            <mat-icon>upload_file</mat-icon> Importer
+          </button>
+          <button class="btn-add" (click)="openCreateModal()">
+            <mat-icon>add</mat-icon> Nouvel événement
+          </button>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div class="search-wrapper">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input type="text" class="search-input" placeholder="Rechercher un événement..." [(ngModel)]="searchQuery" />
+      </div>
+
+      <!-- Events List -->
+      <div class="events-list">
+        <div *ngFor="let event of filteredEvents" class="event-card">
+          <div class="event-header">
+            <div class="event-icon-box"><mat-icon>calendar_month</mat-icon></div>
+            <div class="event-title-block">
+              <div class="event-title-row">
+                <h3 class="event-title">{{ event.title }}</h3>
+                <span class="status-badge" [ngClass]="getStatusClass(event.status)">{{ event.status }}</span>
+                <span class="type-badge"   [ngClass]="getTypeClass(event.type)">{{ event.type }}</span>
+              </div>
+              <p class="event-desc">{{ event.description }}</p>
+            </div>
+          </div>
+
+          <div class="event-meta-grid">
+            <div class="meta-item">
+              <mat-icon>calendar_today</mat-icon>
+              <div><p class="meta-value">{{ event.date }}</p><p class="meta-label">{{ event.time }}</p></div>
+            </div>
+            <div class="meta-item">
+              <mat-icon>place</mat-icon>
+              <div><p class="meta-value">{{ event.room }}</p><p class="meta-label">{{ event.roomStatus }}</p></div>
+            </div>
+            <div class="meta-item">
+              <mat-icon>group</mat-icon>
+              <div><p class="meta-value">{{ event.attendees }}/{{ event.maxAttendees }}</p><p class="meta-label">{{ event.fillRate }}</p></div>
+            </div>
+            <div class="meta-item">
+              <mat-icon>person</mat-icon>
+              <div><p class="meta-value">{{ event.organizer }}</p><p class="meta-label">{{ event.organizerLabel }}</p></div>
+            </div>
+          </div>
+
+          <div class="event-footer">
+            <div class="event-actions">
+              <button class="btn-edit"    (click)="openEditModal(event)"><mat-icon>edit</mat-icon> Modifier</button>
+              <button class="btn-details" (click)="openViewModal(event)"><mat-icon>visibility</mat-icon> Voir les détails</button>
+            </div>
+            <button class="btn-delete" (click)="openDeleteModal(event)"><mat-icon>delete</mat-icon></button>
+          </div>
+        </div>
+
+        <div *ngIf="filteredEvents.length === 0" class="empty-state">
+          <mat-icon>event_busy</mat-icon>
+          <p>Aucun événement trouvé</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ═══ MODAL CRÉER ═══ -->
+<div *ngIf="isCreateModalOpen" class="modal-overlay" (click)="closeCreateModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Nouvel événement</h2>
+      <button class="modal-close" (click)="closeCreateModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>Titre <span class="req">*</span></label><input type="text" [(ngModel)]="newEvent.title" placeholder="Nom de l'événement" /></div>
+      <div class="form-group"><label>Description</label><textarea [(ngModel)]="newEvent.description" rows="2" placeholder="Description..."></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label>Type</label>
+          <select [(ngModel)]="newEvent.type">
+            <option *ngFor="let t of eventTypes" [value]="t.value">{{ t.label }}</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Statut</label>
+          <select [(ngModel)]="newEvent.status">
+            <option value="CONFIRMED">Confirmé</option>
+            <option value="PLANNED">Planifié</option>
+            <option value="POSTPONED">Reporté</option>
+            <option value="CANCELLED">Annulé</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Date</label><input type="date" [(ngModel)]="newEvent.date" /></div>
+        <div class="form-group"><label>Capacité max</label><input type="number" [(ngModel)]="newEvent.maxAttendees" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Heure début</label><input type="time" [(ngModel)]="newEvent.startTime" /></div>
+        <div class="form-group"><label>Heure fin</label><input type="time" [(ngModel)]="newEvent.endTime" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Salle</label>
+          <select [(ngModel)]="newEvent.resourceId" (ngModelChange)="onRoomChange(newEvent)">
+            <option [ngValue]="0">— Sélectionner une salle —</option>
+            <option *ngFor="let r of availableRooms" [ngValue]="r.id">{{ r.name }} — {{ r.building }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Organisateur</label>
+          <select [(ngModel)]="newEvent.organizerId" (ngModelChange)="onOrganizerChange(newEvent)">
+            <option [ngValue]="0">— Sélectionner —</option>
+            <option *ngFor="let u of availableOrganizers" [ngValue]="u.id">{{ u.name }}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeCreateModal()">Annuler</button>
+      <button class="btn-save"   (click)="handleAdd()"><mat-icon>add</mat-icon> Créer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL VOIR DÉTAILS ═══ -->
+<div *ngIf="isViewModalOpen && viewingEvent" class="modal-overlay" (click)="closeViewModal()">
+  <div class="modal modal-view" (click)="$event.stopPropagation()">
+    <div class="modal-header modal-header-view">
+      <div class="view-header-left">
+        <div class="view-icon-box"><mat-icon>event</mat-icon></div>
+        <div>
+          <h2>{{ viewingEvent.title }}</h2>
+          <p class="view-subtitle">{{ viewingEvent.date }} • {{ viewingEvent.time }}</p>
+        </div>
+      </div>
+      <button class="modal-close" (click)="closeViewModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <!-- Badges -->
+      <div class="view-badges">
+        <span class="status-badge" [ngClass]="getStatusClass(viewingEvent.status)">
+          <mat-icon>{{ getStatusIcon(viewingEvent.status) }}</mat-icon>{{ viewingEvent.status }}
+        </span>
+        <span class="type-badge" [ngClass]="getTypeClass(viewingEvent.type)">{{ viewingEvent.type }}</span>
+      </div>
+      <!-- Description -->
+      <div class="view-section">
+        <p class="view-section-label">Description</p>
+        <p class="view-section-text">{{ viewingEvent.description || '—' }}</p>
+      </div>
+      <!-- Grille infos -->
+      <div class="view-detail-grid">
+        <div class="view-detail-card">
+          <div class="vd-icon blue"><mat-icon>place</mat-icon></div>
+          <div><p class="vd-label">Salle</p><p class="vd-value">{{ viewingEvent.room }}</p><p class="vd-sub">{{ viewingEvent.roomStatus }}</p></div>
+        </div>
+        <div class="view-detail-card">
+          <div class="vd-icon green"><mat-icon>group</mat-icon></div>
+          <div><p class="vd-label">Participants</p><p class="vd-value">{{ viewingEvent.attendees }} / {{ viewingEvent.maxAttendees }}</p><p class="vd-sub">{{ viewingEvent.fillRate }}</p></div>
+        </div>
+        <div class="view-detail-card">
+          <div class="vd-icon purple"><mat-icon>person</mat-icon></div>
+          <div><p class="vd-label">Organisateur</p><p class="vd-value">{{ viewingEvent.organizer }}</p></div>
+        </div>
+        <div class="view-detail-card">
+          <div class="vd-icon orange"><mat-icon>schedule</mat-icon></div>
+          <div><p class="vd-label">Horaire</p><p class="vd-value">{{ viewingEvent.time }}</p><p class="vd-sub">{{ viewingEvent.date }}</p></div>
+        </div>
+      </div>
+      <!-- Barre de remplissage -->
+      <div class="fill-bar-wrapper" *ngIf="viewingEvent.maxAttendees > 0">
+        <div class="fill-bar-header">
+          <span>Taux de remplissage</span>
+          <span><strong>{{ getFillPercent(viewingEvent.attendees, viewingEvent.maxAttendees) }}%</strong></span>
+        </div>
+        <div class="fill-track">
+          <div class="fill-fill" [style.width.%]="getFillPercent(viewingEvent.attendees, viewingEvent.maxAttendees)"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeViewModal()">Fermer</button>
+      <button class="btn-save btn-edit-action" (click)="closeViewModal(); openEditModal(viewingEvent!)">
+        <mat-icon>edit</mat-icon> Modifier
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL MODIFIER ═══ -->
+<div *ngIf="isEditModalOpen" class="modal-overlay" (click)="closeEditModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Modifier l'événement</h2>
+      <button class="modal-close" (click)="closeEditModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>Titre <span class="req">*</span></label><input type="text" [(ngModel)]="editEventData.title" /></div>
+      <div class="form-group"><label>Description</label><textarea [(ngModel)]="editEventData.description" rows="2"></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label>Type</label>
+          <select [(ngModel)]="editEventData.type">
+            <option *ngFor="let t of eventTypes" [value]="t.value">{{ t.label }}</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Statut</label>
+          <select [(ngModel)]="editEventData.status">
+            <option value="CONFIRMED">Confirmé</option>
+            <option value="PLANNED">Planifié</option>
+            <option value="POSTPONED">Reporté</option>
+            <option value="CANCELLED">Annulé</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Nouvelle date (optionnel)</label><input type="date" [(ngModel)]="editEventData.date" /></div>
+        <div class="form-group"><label>Capacité max</label><input type="number" [(ngModel)]="editEventData.maxAttendees" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Heure début</label><input type="time" [(ngModel)]="editEventData.startTime" /></div>
+        <div class="form-group"><label>Heure fin</label><input type="time" [(ngModel)]="editEventData.endTime" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Salle</label>
+          <select [(ngModel)]="editEventData.resourceId" (ngModelChange)="onRoomChange(editEventData)">
+            <option [ngValue]="0">— Sélectionner une salle —</option>
+            <option *ngFor="let r of availableRooms" [ngValue]="r.id">{{ r.name }} — {{ r.building }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Organisateur</label>
+          <select [(ngModel)]="editEventData.organizerId" (ngModelChange)="onOrganizerChange(editEventData)">
+            <option [ngValue]="0">— Sélectionner —</option>
+            <option *ngFor="let u of availableOrganizers" [ngValue]="u.id">{{ u.name }}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeEditModal()">Annuler</button>
+      <button class="btn-save"   (click)="saveEdit()"><mat-icon>save</mat-icon> Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL SUPPRIMER ═══ -->
+<div *ngIf="isDeleteModalOpen && eventToDelete" class="modal-overlay" (click)="closeDeleteModal()">
+  <div class="modal modal-delete" (click)="$event.stopPropagation()">
+    <div class="delete-body">
+      <div class="delete-icon-circle"><mat-icon>delete_forever</mat-icon></div>
+      <h2 class="delete-title">Supprimer l'événement ?</h2>
+      <p class="delete-desc">Vous êtes sur le point de supprimer <strong>{{ eventToDelete.title }}</strong>. Cette action est <strong>irréversible</strong>.</p>
+      <div class="delete-preview">
+        <mat-icon class="delete-preview-icon">calendar_month</mat-icon>
+        <div>
+          <p class="delete-preview-name">{{ eventToDelete.title }}</p>
+          <p class="delete-preview-sub">{{ eventToDelete.date }} • {{ eventToDelete.room }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer delete-footer">
+      <button class="btn-cancel" (click)="closeDeleteModal()">Annuler</button>
+      <button class="btn-delete-confirm" (click)="confirmDelete()"><mat-icon>delete</mat-icon> Oui, supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL IMPORT ═══ -->
+<div *ngIf="isImportModalOpen" class="modal-overlay" (click)="closeImportModal()">
+  <div class="modal modal-import" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="import-modal-icon"><mat-icon>upload_file</mat-icon></div>
+        <div><h2>Importer des événements</h2><p class="modal-header-sub">Fichier CSV ou Excel (.xlsx)</p></div>
+      </div>
+      <button class="modal-close" (click)="closeImportModal()"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <!-- Étape 1 -->
+    <div *ngIf="importStep === 1" class="modal-body">
+      <div class="template-banner">
+        <mat-icon>download</mat-icon>
+        <div><p class="template-title">Télécharger le modèle</p><p class="template-sub">Utilisez notre modèle pour formater vos données</p></div>
+        <button class="btn-template" (click)="downloadTemplate()"><mat-icon>file_download</mat-icon> Modèle CSV</button>
+      </div>
+      <div class="drop-zone" [class.dragging]="isDragging" [class.has-file]="importFile"
+        (dragover)="onImportDragOver($event)" (dragleave)="onImportDragLeave()" (drop)="onImportDrop($event)" (click)="fileInput.click()">
+        <input #fileInput type="file" accept=".csv,.xlsx,.xls" style="display:none" (change)="onImportFileSelected($event)" />
+        <div *ngIf="!importFile" class="drop-content">
+          <div class="drop-icon-circle"><mat-icon>cloud_upload</mat-icon></div>
+          <p class="drop-title">Glissez votre fichier ici</p>
+          <p class="drop-sub">ou <span class="drop-link">cliquez pour sélectionner</span></p>
+          <p class="drop-formats">CSV, XLS, XLSX • Max 10 Mo</p>
+        </div>
+        <div *ngIf="importFile" class="file-selected">
+          <mat-icon class="file-icon">description</mat-icon>
+          <div class="file-info"><p class="file-name">{{ importFile.name }}</p><p class="file-size">{{ formatSize(importFile.size) }}</p></div>
+          <button class="file-remove" (click)="removeImportFile($event)"><mat-icon>close</mat-icon></button>
+        </div>
+      </div>
+      <div class="format-info">
+        <p class="format-title">Colonnes attendues :</p>
+        <div class="columns-list">
+          <span class="column-tag">Titre</span><span class="column-tag">Type</span>
+          <span class="column-tag">Date</span><span class="column-tag">Salle</span>
+          <span class="column-tag">Organisateur</span><span class="column-tag">Capacité max</span>
+        </div>
+      </div>
+      <div *ngIf="importParseError" class="error-banner"><mat-icon>error</mat-icon><span>{{ importParseError }}</span></div>
+    </div>
+
+    <!-- Étape 2 -->
+    <div *ngIf="importStep === 2" class="modal-body preview-body">
+      <div class="summary-badges">
+        <div class="summary-badge total"><mat-icon>table_rows</mat-icon><div><p class="badge-num">{{ importPreviewRows.length }}</p><p class="badge-lbl">Total</p></div></div>
+        <div class="summary-badge valid"><mat-icon>check_circle</mat-icon><div><p class="badge-num">{{ validImportRows.length }}</p><p class="badge-lbl">Valides</p></div></div>
+        <div class="summary-badge invalid" *ngIf="invalidImportRows.length"><mat-icon>error</mat-icon><div><p class="badge-num">{{ invalidImportRows.length }}</p><p class="badge-lbl">Erreurs</p></div></div>
+      </div>
+      <div class="preview-table-wrapper">
+        <table class="preview-table">
+          <thead><tr><th>#</th><th>Titre</th><th>Type</th><th>Date</th><th>Salle</th><th>✓</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let row of importPreviewRows; let i = index" [class.row-invalid]="!row.valid">
+              <td class="col-num">{{ i+1 }}</td>
+              <td class="col-bold">{{ row.title }}</td>
+              <td>{{ row.type }}</td>
+              <td>{{ row.date }}</td>
+              <td>{{ row.room }}</td>
+              <td>
+                <mat-icon *ngIf="row.valid"  class="valid-icon">check_circle</mat-icon>
+                <mat-icon *ngIf="!row.valid" class="error-icon">warning</mat-icon>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="import-note" *ngIf="invalidImportRows.length"><mat-icon>info</mat-icon> Seules les {{ validImportRows.length }} lignes valides seront importées.</p>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeImportModal()">Annuler</button>
+      <div class="footer-right">
+        <button *ngIf="importStep === 2" class="btn-back" (click)="importStep = 1"><mat-icon>arrow_back</mat-icon> Retour</button>
+        <button *ngIf="importStep === 1" class="btn-next" [disabled]="!importFile || isImportLoading" (click)="parseImportFile()">
+          <mat-icon>visibility</mat-icon> {{ isImportLoading ? 'Analyse...' : 'Aperçu' }}
+        </button>
+        <button *ngIf="importStep === 2 && validImportRows.length" class="btn-import-confirm" (click)="confirmImport()">
+          <mat-icon>upload</mat-icon> Importer {{ validImportRows.length }} événement(s)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,226 @@
+<div class="page-layout">
+  <app-sidebar activePage="teacher-availability"></app-sidebar>
+  <div class="main-wrapper">
+
+    <!-- Header -->
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn"><mat-icon>notifications</mat-icon><span class="notif-dot">2</span></button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <main class="page-content">
+
+      <!-- Title -->
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">
+            {{ isTeacher ? 'Mes disponibilités' : 'Disponibilités des enseignants' }}
+          </h1>
+          <p class="page-sub">
+            {{ isTeacher
+              ? 'Gérez vos créneaux de disponibilité hebdomadaires'
+              : 'Supervisez et gérez les disponibilités de tous les enseignants' }}
+          </p>
+        </div>
+        <div class="title-actions">
+          <button class="btn-green" (click)="openAdd()"><mat-icon>add</mat-icon>
+            {{ isTeacher ? 'Ajouter un créneau' : 'Ajouter une disponibilité' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div *ngFor="let stat of stats" class="stat-card">
+          <div class="stat-icon" [style.background]="stat.color">
+            <mat-icon>{{ stat.icon }}</mat-icon>
+          </div>
+          <div>
+            <p class="stat-value">{{ stat.value }}</p>
+            <p class="stat-label">{{ stat.label }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="search-wrapper">
+          <mat-icon class="search-icon">search</mat-icon>
+          <input type="text" class="search-input"
+            [placeholder]="isTeacher ? 'Rechercher un créneau...' : 'Rechercher un enseignant...'"
+            [(ngModel)]="searchQuery" />
+        </div>
+        <div class="toolbar-right">
+          <!-- Filtre enseignant — admin uniquement -->
+          <select *ngIf="!isTeacher" class="day-select" [(ngModel)]="selectedTeacher">
+            <option value="all">Tous les enseignants</option>
+            <option *ngFor="let t of teacherNames" [value]="t">{{ t }}</option>
+          </select>
+          <select class="day-select" [(ngModel)]="selectedDay">
+            <option value="all">Tous les jours</option>
+            <option *ngFor="let d of days" [value]="d.key">{{ d.label }}</option>
+          </select>
+          <div class="view-toggle">
+            <button class="toggle-btn" [class.active]="viewMode === 'calendar'" (click)="viewMode = 'calendar'">
+              <mat-icon>grid_view</mat-icon>
+            </button>
+            <button class="toggle-btn" [class.active]="viewMode === 'list'" (click)="viewMode = 'list'">
+              <mat-icon>list</mat-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CALENDAR VIEW -->
+      <div *ngIf="viewMode === 'calendar'" class="calendar-card">
+        <div class="cal-grid">
+          <div class="time-col-header"></div>
+          <div *ngFor="let day of days" class="cal-day-header">{{ day.label }}</div>
+
+          <ng-container *ngFor="let hour of hours">
+            <div class="time-cell">{{ hour }}</div>
+            <div *ngFor="let day of days" class="cal-cell">
+              <ng-container *ngFor="let slot of getCalendarSlots(day.key, hour)">
+                <div class="cal-slot" [style.background]="slot.color">{{ slot.name }}</div>
+              </ng-container>
+            </div>
+          </ng-container>
+        </div>
+      </div>
+
+      <!-- LIST VIEW -->
+      <div *ngIf="viewMode === 'list'" class="list-grid">
+        <div *ngFor="let a of filteredAvailabilities" class="avail-card">
+          <div class="avail-card-header">
+            <div class="avail-icon"><mat-icon>calendar_today</mat-icon></div>
+            <div class="avail-info">
+              <h3>{{ a.teacherName }}</h3>
+              <p>{{ a.effectiveDate }}</p>
+            </div>
+          </div>
+
+          <div class="avail-details">
+            <div class="detail-row">
+              <span class="detail-label">Statut</span>
+              <span class="status-badge" [ngClass]="getStatusClass(a.status)">{{ getStatusLabel(a.status) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Créneaux</span>
+              <span class="detail-value">{{ a.slots.length }} créneaux</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Max h/semaine</span>
+              <span class="detail-value">{{ a.maxHoursPerWeek }}h</span>
+            </div>
+          </div>
+
+          <div class="slots-preview">
+            <p class="slots-title">Créneaux disponibles:</p>
+            <div *ngFor="let slot of a.slots.slice(0, 3)" class="slot-item">
+              {{ slot.dayLabel }} : {{ slot.startTime }} - {{ slot.endTime }}
+            </div>
+            <p *ngIf="a.slots.length > 3" class="more-slots">+{{ a.slots.length - 3 }} autres créneaux</p>
+          </div>
+
+          <p *ngIf="a.notes" class="avail-notes">{{ a.notes }}</p>
+
+          <div class="avail-actions">
+            <button class="btn-edit-sm" (click)="openEdit(a)"><mat-icon>edit</mat-icon> Modifier</button>
+            <button class="btn-del-sm" (click)="deleteAvailability(a.id)"><mat-icon>delete</mat-icon></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div *ngIf="filteredAvailabilities.length === 0" class="empty-state">
+        <mat-icon>calendar_today</mat-icon>
+        <h3>Aucune disponibilité trouvée</h3>
+        <p>Commencez par ajouter des créneaux de disponibilité.</p>
+        <button class="btn-green" (click)="openAdd()"><mat-icon>add</mat-icon> Ajouter une disponibilité</button>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal Ajout/Édition -->
+<div *ngIf="isAddModalOpen" class="modal-overlay" (click)="closeModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>{{ editingAvailability ? 'Modifier la disponibilité' : 'Nouvelle disponibilité' }}</h2>
+      <button class="modal-close" (click)="closeModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Enseignant</label>
+          <!-- Admin : select depuis la liste. Enseignant : pré-rempli et verrouillé -->
+          <select *ngIf="!isTeacher" [(ngModel)]="newForm.teacherName">
+            <option value="">— Sélectionner un enseignant —</option>
+            <option *ngFor="let t of teacherList" [value]="t.name">{{ t.name }}</option>
+            <option *ngFor="let t of teacherNames" [value]="t">{{ t }}</option>
+          </select>
+          <input *ngIf="isTeacher" type="text" [(ngModel)]="newForm.teacherName" [disabled]="true" class="input-locked" />
+        </div>
+        <div class="form-group">
+          <label>Date effective</label>
+          <input type="date" [(ngModel)]="newForm.effectiveDate" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Max h/jour</label>
+          <input type="number" [(ngModel)]="newForm.maxHoursPerDay" />
+        </div>
+        <div class="form-group">
+          <label>Max h/semaine</label>
+          <input type="number" [(ngModel)]="newForm.maxHoursPerWeek" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Statut</label>
+        <select [(ngModel)]="newForm.status">
+          <option value="active">Actif</option>
+          <option value="inactive">Inactif</option>
+          <option value="pending">En attente</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea [(ngModel)]="newForm.notes" rows="2" placeholder="Notes optionnelles..."></textarea>
+      </div>
+
+      <!-- Slots -->
+      <div class="slots-section">
+        <div class="slots-header">
+          <p class="slots-section-title">Créneaux de disponibilité</p>
+          <button class="btn-add-slot" (click)="addSlot()"><mat-icon>add</mat-icon> Ajouter un créneau</button>
+        </div>
+        <div *ngFor="let slot of newSlots; let i = index" class="slot-row">
+          <select class="slot-select" [ngModel]="slot.day" (ngModelChange)="updateSlotDay(slot, $event)">
+            <option *ngFor="let d of days" [value]="d.key">{{ d.label }}</option>
+          </select>
+          <input type="time" class="slot-time" [(ngModel)]="slot.startTime" />
+          <span class="slot-sep">→</span>
+          <input type="time" class="slot-time" [(ngModel)]="slot.endTime" />
+          <button class="slot-del" (click)="removeSlot(i)"><mat-icon>close</mat-icon></button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeModal()">Annuler</button>
+      <button class="btn-green" (click)="handleSave()"><mat-icon>save</mat-icon> {{ editingAvailability ? 'Sauvegarder' : 'Ajouter' }}</button>
+    </div>
+  </div>
+</div>

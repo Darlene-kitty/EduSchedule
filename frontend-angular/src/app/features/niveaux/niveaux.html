@@ -1,0 +1,328 @@
+<div class="page-layout">
+  <app-sidebar activePage="niveaux"></app-sidebar>
+  <div class="main-wrapper">
+
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn"><mat-icon>notifications</mat-icon></button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <div class="toast-success" [class.visible]="showSuccess">
+      <mat-icon>check_circle</mat-icon><span>{{ successMessage }}</span>
+    </div>
+
+    <main class="page-content">
+
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Niveaux</h1>
+          <p class="page-sub">{{ niveaux.length }} niveaux d'études configurés</p>
+        </div>
+        <button class="btn-add" (click)="openAddModal()">
+          <mat-icon>add</mat-icon> Nouveau niveau
+        </button>
+      </div>
+
+      <!-- Stats par type -->
+      <div class="stats-row">
+        <div class="stat-card total" [class.active]="filterType === ''" (click)="filterType = ''">
+          <div class="stat-icon"><mat-icon>layers</mat-icon></div>
+          <div><p class="stat-num">{{ niveaux.length }}</p><p class="stat-lbl">Tous</p></div>
+        </div>
+        <div *ngFor="let s of typeStats" class="stat-card" [ngClass]="'stat-' + s.type.toLowerCase().replace('é','e').replace('oire','')"
+          [class.active]="filterType === s.type" (click)="filterType = filterType === s.type ? '' : s.type">
+          <div class="stat-icon"><mat-icon>{{ s.type === 'Licence' ? 'school' : s.type === 'Master' ? 'workspace_premium' : s.type === 'Doctorat' ? 'military_tech' : 'auto_stories' }}</mat-icon></div>
+          <div><p class="stat-num">{{ s.count }}</p><p class="stat-lbl">{{ s.type }}</p></div>
+        </div>
+      </div>
+
+      <!-- Filtres -->
+      <div class="filters-row">
+        <div class="search-wrapper">
+          <mat-icon class="search-icon">search</mat-icon>
+          <input type="text" class="search-input" placeholder="Rechercher un niveau..." [(ngModel)]="searchQuery" />
+        </div>
+        <select class="filter-select" [(ngModel)]="filterEcole">
+          <option value="">Toutes les écoles</option>
+          <option *ngFor="let e of ecoles" [value]="e.sigle">{{ e.sigle }} — {{ e.nom }}</option>
+        </select>
+      </div>
+
+      <!-- Tableau -->
+      <div class="table-card">
+        <div class="table-card-header">
+          <h2 class="table-title">Liste des niveaux</h2>
+          <p class="table-sub">{{ filteredNiveaux.length }} niveau(x) trouvé(s)</p>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Niveau</th>
+                <th>Type</th>
+                <th>Année</th>
+                <th>Écoles</th>
+                <th>Filières</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let n of filteredNiveaux" class="table-row">
+                <td>
+                  <div class="niveau-cell">
+                    <div class="niveau-code" [ngClass]="getTypeClass(n.type)">{{ n.code }}</div>
+                    <div>
+                      <div class="niveau-nom">{{ n.nom }}</div>
+                      <div class="niveau-desc">{{ n.description | slice:0:55 }}...</div>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="type-badge" [ngClass]="getTypeClass(n.type)">{{ n.type }}</span></td>
+                <td><span class="annee-badge">Année {{ n.annee }}</span></td>
+                <td>
+                  <div class="ecoles-cell">
+                    <span *ngFor="let e of n.ecoles" class="ecole-dot" [style.background]="getEcoleColor(e)" [title]="e">{{ e.substring(0,3) }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="filieres-cell">
+                    <span *ngFor="let f of n.filieres.slice(0,2)" class="tag-filiere-sm">{{ f | slice:0:12 }}</span>
+                    <span *ngIf="n.filieres.length > 2" class="tag-more">+{{ n.filieres.length - 2 }}</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="status-badge" [class.active]="n.enabled" [class.inactive]="!n.enabled">
+                    {{ n.enabled ? 'Actif' : 'Inactif' }}
+                  </span>
+                </td>
+                <td>
+                  <div class="actions-cell">
+                    <button class="action-btn view-btn"   (click)="openViewModal(n)"   title="Voir"><mat-icon>visibility</mat-icon></button>
+                    <button class="action-btn edit-btn"   (click)="openEditModal(n)"   title="Modifier"><mat-icon>edit</mat-icon></button>
+                    <button class="action-btn delete-btn" (click)="openDeleteModal(n)" title="Supprimer"><mat-icon>delete</mat-icon></button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="filteredNiveaux.length === 0">
+                <td colspan="7" class="empty-row">
+                  <mat-icon>layers</mat-icon><p>Aucun niveau trouvé</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL VUE ═══════════════════ -->
+<div *ngIf="isViewModalOpen && viewingNiveau" class="modal-overlay" (click)="closeViewModal()">
+  <div class="modal modal-view" (click)="$event.stopPropagation()">
+    <div class="modal-hero" [ngClass]="getTypeClass(viewingNiveau.type)">
+      <div class="hero-code">{{ viewingNiveau.code }}</div>
+      <div class="hero-info">
+        <h2>{{ viewingNiveau.nom }}</h2>
+        <p>{{ viewingNiveau.type }} · Année {{ viewingNiveau.annee }}</p>
+      </div>
+      <button class="modal-close-white" (click)="closeViewModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <p class="view-desc">{{ viewingNiveau.description }}</p>
+      <div class="view-info-grid">
+        <div class="view-info-item">
+          <div class="view-info-icon blue"><mat-icon>layers</mat-icon></div>
+          <div><p class="view-info-label">Type</p><p class="view-info-value">{{ viewingNiveau.type }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon orange"><mat-icon>looks_one</mat-icon></div>
+          <div><p class="view-info-label">Année dans le cycle</p><p class="view-info-value">Année {{ viewingNiveau.annee }}</p></div>
+        </div>
+      </div>
+      <div class="view-section">
+        <p class="view-section-title"><mat-icon>account_balance</mat-icon> Écoles ({{ viewingNiveau.ecoles.length }})</p>
+        <div class="ecoles-tags">
+          <span *ngFor="let e of viewingNiveau.ecoles" class="ecole-tag" [style.background]="getEcoleColor(e) + '20'" [style.color]="getEcoleColor(e)" [style.border-color]="getEcoleColor(e) + '50'">
+            {{ e }}
+          </span>
+        </div>
+      </div>
+      <div class="view-section">
+        <p class="view-section-title"><mat-icon>fork_right</mat-icon> Filières ({{ viewingNiveau.filieres.length }})</p>
+        <div class="tags-list">
+          <span *ngFor="let f of viewingNiveau.filieres" class="tag-filiere">{{ f }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeViewModal()">Fermer</button>
+      <button class="btn-save" (click)="closeViewModal(); openEditModal(viewingNiveau!)">
+        <mat-icon>edit</mat-icon> Modifier
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL SUPPRESSION ═══════════════════ -->
+<div *ngIf="isDeleteModalOpen && niveauToDelete" class="modal-overlay" (click)="closeDeleteModal()">
+  <div class="modal modal-delete" (click)="$event.stopPropagation()">
+    <div class="delete-modal-body">
+      <div class="delete-icon-circle"><mat-icon>delete_forever</mat-icon></div>
+      <h2 class="delete-title">Supprimer le niveau ?</h2>
+      <p class="delete-desc">Vous êtes sur le point de supprimer <strong>{{ niveauToDelete.nom }}</strong>. Cette action est <strong>irréversible</strong>.</p>
+      <div class="delete-preview">
+        <div class="delete-code" [ngClass]="getTypeClass(niveauToDelete.type)">{{ niveauToDelete.code }}</div>
+        <div>
+          <p class="delete-name">{{ niveauToDelete.nom }}</p>
+          <p class="delete-sub">{{ niveauToDelete.type }} · {{ niveauToDelete.filieres.length }} filière(s)</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer delete-footer">
+      <button class="btn-cancel" (click)="closeDeleteModal()">Annuler</button>
+      <button class="btn-delete-confirm" (click)="confirmDelete()"><mat-icon>delete</mat-icon> Oui, supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL AJOUT ═══════════════════ -->
+<div *ngIf="isAddModalOpen" class="modal-overlay" (click)="closeAddModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Nouveau niveau</h2>
+      <button class="modal-close" (click)="closeAddModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Code *</label>
+          <input type="text" [(ngModel)]="newNiveau.code" placeholder="Ex: L1, M2, C1" />
+        </div>
+        <div class="form-group">
+          <label>Année dans le cycle</label>
+          <input type="number" [(ngModel)]="newNiveau.annee" min="1" max="5" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Nom complet *</label>
+        <input type="text" [(ngModel)]="newNiveau.nom" placeholder="Ex: Licence 1" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Type *</label>
+          <select [(ngModel)]="newNiveau.type">
+            <option *ngFor="let t of types" [value]="t">{{ t }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea [(ngModel)]="newNiveau.description" rows="2" placeholder="Description du niveau..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Écoles concernées</label>
+        <div class="ecole-checkboxes">
+          <label *ngFor="let e of ecoles" class="ecole-checkbox-item" [style.--c]="e.couleur">
+            <input type="checkbox" [checked]="hasEcoleNew(e.sigle)" (change)="toggleEcole(newNiveau, e.sigle)" />
+            <span class="ecole-check-label" [style.border-color]="e.couleur">
+              <span class="ecole-check-dot" [style.background]="e.couleur"></span>
+              {{ e.sigle }}
+            </span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Filière associée</label>
+        <select [(ngModel)]="newFiliereId">
+          <option [ngValue]="null">-- Choisir une filière --</option>
+          <option *ngFor="let f of allFilieres" [ngValue]="f.id">{{ f.name }}</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAddModal()">Annuler</button>
+      <button class="btn-save" (click)="handleAddNiveau()" [disabled]="!newNiveau.code || !newNiveau.nom">
+        <mat-icon>save</mat-icon> Ajouter
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL ÉDITION ═══════════════════ -->
+<div *ngIf="isEditModalOpen" class="modal-overlay" (click)="closeEditModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Modifier le niveau</h2>
+      <button class="modal-close" (click)="closeEditModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Code *</label>
+          <input type="text" [(ngModel)]="editNiveauData.code" />
+        </div>
+        <div class="form-group">
+          <label>Année dans le cycle</label>
+          <input type="number" [(ngModel)]="editNiveauData.annee" min="1" max="5" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Nom complet *</label>
+        <input type="text" [(ngModel)]="editNiveauData.nom" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Type *</label>
+          <select [(ngModel)]="editNiveauData.type">
+            <option *ngFor="let t of types" [value]="t">{{ t }}</option>
+          </select>
+        </div>
+        <div class="form-group toggle-group">
+          <label>Statut</label>
+          <label class="toggle"><input type="checkbox" [(ngModel)]="editNiveauData.enabled" /><span class="toggle-slider"></span></label>
+          <span class="toggle-label">{{ editNiveauData.enabled ? 'Actif' : 'Inactif' }}</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea [(ngModel)]="editNiveauData.description" rows="2"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Écoles concernées</label>
+        <div class="ecole-checkboxes">
+          <label *ngFor="let e of ecoles" class="ecole-checkbox-item">
+            <input type="checkbox" [checked]="hasEcoleEdit(e.sigle)" (change)="toggleEcole(editNiveauData, e.sigle)" />
+            <span class="ecole-check-label" [style.border-color]="e.couleur">
+              <span class="ecole-check-dot" [style.background]="e.couleur"></span>
+              {{ e.sigle }}
+            </span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Filière associée</label>
+        <select [(ngModel)]="editFiliereId">
+          <option [ngValue]="null">-- Choisir une filière --</option>
+          <option *ngFor="let f of allFilieres" [ngValue]="f.id">{{ f.name }}</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeEditModal()">Annuler</button>
+      <button class="btn-save" (click)="handleEditNiveau()"><mat-icon>save</mat-icon> Sauvegarder</button>
+    </div>
+  </div>
+</div>

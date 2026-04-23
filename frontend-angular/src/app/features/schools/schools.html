@@ -1,0 +1,435 @@
+<div class="page-layout">
+  <app-sidebar activePage="schools"></app-sidebar>
+  <div class="main-wrapper">
+
+    <!-- Header -->
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn"><mat-icon>notifications</mat-icon></button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <!-- Toast -->
+    <div class="toast-success" [class.visible]="showSuccess">
+      <mat-icon>check_circle</mat-icon>
+      <span>{{ successMessage }}</span>
+    </div>
+
+    <main class="page-content">
+
+      <!-- Titre -->
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Écoles — IUSJ</h1>
+          <p class="page-sub">Institut Universitaire Saint Jean du Cameroun · {{ schools.length }} écoles</p>
+        </div>
+        <button class="btn-add" (click)="openAddModal()">
+          <mat-icon>add</mat-icon> Nouvelle école
+        </button>
+      </div>
+
+      <!-- Bannière info multi-école -->
+      <div class="info-banner">
+        <mat-icon>info</mat-icon>
+        <p>Un enseignant peut intervenir dans <strong>plusieurs écoles simultanément</strong>. La planification des emplois du temps tient compte des disponibilités inter-écoles pour éviter les conflits.</p>
+      </div>
+
+      <!-- Recherche -->
+      <div class="search-wrapper">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input type="text" class="search-input" placeholder="Rechercher une école..." [(ngModel)]="searchQuery" />
+      </div>
+
+      <!-- Cartes écoles -->
+      <div class="schools-grid">
+        <div *ngFor="let school of filteredSchools" class="school-card" [class.inactive]="!school.enabled">
+
+          <!-- En-tête carte -->
+          <div class="card-header" [style.background]="school.couleur">
+            <div class="card-sigle">{{ school.sigle }}</div>
+            <div class="card-header-actions">
+              <button class="card-action-btn" (click)="openViewModal(school)" title="Voir"><mat-icon>visibility</mat-icon></button>
+              <button class="card-action-btn" (click)="openEditModal(school)" title="Modifier"><mat-icon>edit</mat-icon></button>
+              <button class="card-action-btn danger" (click)="openDeleteModal(school)" title="Supprimer"><mat-icon>delete</mat-icon></button>
+            </div>
+          </div>
+
+          <!-- Corps carte -->
+          <div class="card-body">
+            <div class="card-title-row">
+              <h3 class="card-name">{{ school.nom }}</h3>
+              <span class="status-dot" [class.active]="school.enabled" [class.inactive]="!school.enabled"></span>
+            </div>
+            <p class="card-desc">{{ school.description }}</p>
+
+            <div class="card-meta">
+              <div class="card-meta-item">
+                <mat-icon>person</mat-icon>
+                <span>{{ school.directeur }}</span>
+              </div>
+              <div class="card-meta-item">
+                <mat-icon>mail</mat-icon>
+                <span>{{ school.email }}</span>
+              </div>
+            </div>
+
+            <!-- Filières -->
+            <div class="card-section">
+              <p class="card-section-label">Filières ({{ school.filieres.length }})</p>
+              <div class="tags-list">
+                <span *ngFor="let f of school.filieres.slice(0,3)" class="tag-filiere">{{ f }}</span>
+                <span *ngIf="school.filieres.length > 3" class="tag-more">+{{ school.filieres.length - 3 }}</span>
+              </div>
+            </div>
+
+            <!-- Niveaux -->
+            <div class="card-section">
+              <p class="card-section-label">Niveaux</p>
+              <div class="tags-list">
+                <span *ngFor="let n of school.niveaux" class="tag-niveau">{{ n }}</span>
+              </div>
+            </div>
+
+            <!-- Infrastructures -->
+            <div class="card-infra">
+              <span class="infra-badge"><mat-icon>meeting_room</mat-icon>{{ school.salles }} salles</span>
+              <span class="infra-badge"><mat-icon>science</mat-icon>{{ school.laboratoires }} labos</span>
+              <span class="infra-badge"><mat-icon>theater_comedy</mat-icon>{{ school.amphi }} amphi</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div *ngIf="filteredSchools.length === 0" class="empty-state">
+          <mat-icon>account_balance</mat-icon>
+          <p>Aucune école trouvée</p>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL VUE DÉTAILS ═══════════════════ -->
+<div *ngIf="isViewModalOpen && viewingSchool" class="modal-overlay" (click)="closeViewModal()">
+  <div class="modal modal-view" (click)="$event.stopPropagation()">
+    <div class="modal-header" [style.background]="viewingSchool.couleur">
+      <div class="modal-header-hero">
+        <div class="modal-sigle">{{ viewingSchool.sigle }}</div>
+        <div>
+          <h2 class="modal-school-name">{{ viewingSchool.nom }}</h2>
+          <p class="modal-school-sub">Institut Universitaire Saint Jean du Cameroun</p>
+        </div>
+      </div>
+      <button class="modal-close-white" (click)="closeViewModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <p class="view-desc">{{ viewingSchool.description }}</p>
+
+      <div class="view-info-grid">
+        <div class="view-info-item">
+          <div class="view-info-icon blue"><mat-icon>person</mat-icon></div>
+          <div><p class="view-info-label">Directeur</p><p class="view-info-value">{{ viewingSchool.directeur }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon green"><mat-icon>mail</mat-icon></div>
+          <div><p class="view-info-label">Email</p><p class="view-info-value">{{ viewingSchool.email }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon orange"><mat-icon>phone</mat-icon></div>
+          <div><p class="view-info-label">Téléphone</p><p class="view-info-value">{{ viewingSchool.telephone }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon" [class.purple]="viewingSchool.enabled" [class.gray]="!viewingSchool.enabled">
+            <mat-icon>{{ viewingSchool.enabled ? 'check_circle' : 'cancel' }}</mat-icon>
+          </div>
+          <div>
+            <p class="view-info-label">Statut</p>
+            <span class="status-badge" [class.active]="viewingSchool.enabled" [class.inactive]="!viewingSchool.enabled">
+              {{ viewingSchool.enabled ? 'Active' : 'Inactive' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Infrastructures -->
+      <div class="view-infra-row">
+        <div class="view-infra-item">
+          <mat-icon>meeting_room</mat-icon>
+          <div><p class="infra-count">{{ viewingSchool.salles }}</p><p class="infra-label">Salles</p></div>
+        </div>
+        <div class="view-infra-item">
+          <mat-icon>science</mat-icon>
+          <div><p class="infra-count">{{ viewingSchool.laboratoires }}</p><p class="infra-label">Labos</p></div>
+        </div>
+        <div class="view-infra-item">
+          <mat-icon>theater_comedy</mat-icon>
+          <div><p class="infra-count">{{ viewingSchool.amphi }}</p><p class="infra-label">Amphithéâtres</p></div>
+        </div>
+      </div>
+
+      <div class="view-section">
+        <p class="view-section-title"><mat-icon>fork_right</mat-icon> Filières ({{ viewingSchool.filieres.length }})</p>
+        <div class="tags-list">
+          <span *ngFor="let f of viewingSchool.filieres" class="tag-filiere">{{ f }}</span>
+        </div>
+      </div>
+
+      <div class="view-section">
+        <p class="view-section-title"><mat-icon>layers</mat-icon> Niveaux</p>
+        <div class="tags-list">
+          <span *ngFor="let n of viewingSchool.niveaux" class="tag-niveau">{{ n }}</span>
+        </div>
+      </div>
+
+      <div class="multi-school-note">
+        <mat-icon>swap_horiz</mat-icon>
+        <p>Les enseignants affectés à cette école peuvent également intervenir dans d'autres écoles de l'IUSJ. Leurs emplois du temps sont gérés de façon centralisée pour éviter tout conflit.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeViewModal()">Fermer</button>
+      <button class="btn-save" (click)="closeViewModal(); openEditModal(viewingSchool!)">
+        <mat-icon>edit</mat-icon> Modifier
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL SUPPRESSION ═══════════════════ -->
+<div *ngIf="isDeleteModalOpen && schoolToDelete" class="modal-overlay" (click)="closeDeleteModal()">
+  <div class="modal modal-delete" (click)="$event.stopPropagation()">
+    <div class="delete-modal-body">
+      <div class="delete-icon-circle"><mat-icon>delete_forever</mat-icon></div>
+      <h2 class="delete-title">Supprimer l'école ?</h2>
+      <p class="delete-desc">
+        Vous êtes sur le point de supprimer <strong>{{ schoolToDelete.nom }} ({{ schoolToDelete.sigle }})</strong>.
+        Cette action est <strong>irréversible</strong> et supprimera toutes les filières et données associées.
+      </p>
+      <div class="delete-preview" [style.border-left-color]="schoolToDelete.couleur">
+        <div class="delete-avatar" [style.background]="schoolToDelete.couleur">{{ schoolToDelete.sigle.substring(0,2) }}</div>
+        <div>
+          <p class="delete-name">{{ schoolToDelete.nom }}</p>
+          <p class="delete-sub">{{ schoolToDelete.filieres.length }} filière(s) · {{ schoolToDelete.niveaux.length }} niveau(x)</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer delete-footer">
+      <button class="btn-cancel" (click)="closeDeleteModal()">Annuler</button>
+      <button class="btn-delete-confirm" (click)="confirmDelete()">
+        <mat-icon>delete</mat-icon> Oui, supprimer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL AJOUT ═══════════════════ -->
+<div *ngIf="isAddModalOpen" class="modal-overlay" (click)="closeAddModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Nouvelle école</h2>
+      <button class="modal-close" (click)="closeAddModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Sigle *</label>
+          <input type="text" [(ngModel)]="newSchool.sigle" placeholder="Ex: SJI" />
+        </div>
+        <div class="form-group">
+          <label>Couleur</label>
+          <div class="color-picker">
+            <div *ngFor="let c of couleurs" class="color-dot"
+              [style.background]="c.value"
+              [class.selected]="newSchool.couleur === c.value"
+              (click)="newSchool.couleur = c.value"
+              [title]="c.label">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Nom complet *</label>
+        <input type="text" [(ngModel)]="newSchool.nom" placeholder="Ex: Saint Jean Ingénieur" />
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea [(ngModel)]="newSchool.description" rows="2" placeholder="Description de l'école..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Directeur</label>
+          <input type="text" [(ngModel)]="newSchool.directeur" placeholder="Prof. Nom Prénom" />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" [(ngModel)]="newSchool.email" placeholder="ecole@iusj.cm" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Téléphone</label>
+        <input type="tel" [(ngModel)]="newSchool.telephone" placeholder="+237 6XX XX XX XX" />
+      </div>
+
+      <div class="form-group">
+        <label>Infrastructures</label>
+        <div class="infra-grid">
+          <div class="infra-item">
+            <mat-icon>meeting_room</mat-icon>
+            <label>Salles de cours</label>
+            <input type="number" min="0" [(ngModel)]="newSchool.salles" placeholder="0" />
+          </div>
+          <div class="infra-item">
+            <mat-icon>science</mat-icon>
+            <label>Laboratoires</label>
+            <input type="number" min="0" [(ngModel)]="newSchool.laboratoires" placeholder="0" />
+          </div>
+          <div class="infra-item">
+            <mat-icon>theater_comedy</mat-icon>
+            <label>Amphithéâtres</label>
+            <input type="number" min="0" [(ngModel)]="newSchool.amphi" placeholder="0" />
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Filières rattachées</label>
+        <div class="checkbox-grid">
+          <label *ngFor="let f of allFilieres" class="checkbox-item">
+            <input type="checkbox" [checked]="hasFiliereNew(f)" (change)="toggleFiliere(newSchool, f)" />
+            <span>{{ f }}</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Niveaux</label>
+        <div class="checkbox-grid checkbox-grid-sm">
+          <label *ngFor="let n of allNiveaux" class="checkbox-item">
+            <input type="checkbox" [checked]="hasNiveauNew(n)" (change)="toggleNiveau(newSchool, n)" />
+            <span>{{ n }}</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAddModal()">Annuler</button>
+      <button class="btn-save" (click)="handleAddSchool()" [disabled]="!newSchool.sigle || !newSchool.nom">
+        <mat-icon>save</mat-icon> Ajouter
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL ÉDITION ═══════════════════ -->
+<div *ngIf="isEditModalOpen" class="modal-overlay" (click)="closeEditModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Modifier l'école</h2>
+      <button class="modal-close" (click)="closeEditModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Sigle *</label>
+          <input type="text" [(ngModel)]="editSchoolData.sigle" />
+        </div>
+        <div class="form-group">
+          <label>Couleur</label>
+          <div class="color-picker">
+            <div *ngFor="let c of couleurs" class="color-dot"
+              [style.background]="c.value"
+              [class.selected]="editSchoolData.couleur === c.value"
+              (click)="editSchoolData.couleur = c.value"
+              [title]="c.label">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Nom complet *</label>
+        <input type="text" [(ngModel)]="editSchoolData.nom" />
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea [(ngModel)]="editSchoolData.description" rows="2"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Directeur</label>
+          <input type="text" [(ngModel)]="editSchoolData.directeur" />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" [(ngModel)]="editSchoolData.email" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Téléphone</label>
+          <input type="tel" [(ngModel)]="editSchoolData.telephone" />
+        </div>
+        <div class="form-group toggle-group">
+          <label>Statut</label>
+          <label class="toggle"><input type="checkbox" [(ngModel)]="editSchoolData.enabled" /><span class="toggle-slider"></span></label>
+          <span class="toggle-label">{{ editSchoolData.enabled ? 'Active' : 'Inactive' }}</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Infrastructures</label>
+        <div class="infra-grid">
+          <div class="infra-item">
+            <mat-icon>meeting_room</mat-icon>
+            <label>Salles de cours</label>
+            <input type="number" min="0" [(ngModel)]="editSchoolData.salles" />
+          </div>
+          <div class="infra-item">
+            <mat-icon>science</mat-icon>
+            <label>Laboratoires</label>
+            <input type="number" min="0" [(ngModel)]="editSchoolData.laboratoires" />
+          </div>
+          <div class="infra-item">
+            <mat-icon>theater_comedy</mat-icon>
+            <label>Amphithéâtres</label>
+            <input type="number" min="0" [(ngModel)]="editSchoolData.amphi" />
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Filières rattachées</label>
+        <div class="checkbox-grid">
+          <label *ngFor="let f of allFilieres" class="checkbox-item">
+            <input type="checkbox" [checked]="hasFiliereEdit(f)" (change)="toggleFiliere(editSchoolData, f)" />
+            <span>{{ f }}</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Niveaux</label>
+        <div class="checkbox-grid checkbox-grid-sm">
+          <label *ngFor="let n of allNiveaux" class="checkbox-item">
+            <input type="checkbox" [checked]="hasNiveauEdit(n)" (change)="toggleNiveau(editSchoolData, n)" />
+            <span>{{ n }}</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeEditModal()">Annuler</button>
+      <button class="btn-save" (click)="handleEditSchool()"><mat-icon>save</mat-icon> Sauvegarder</button>
+    </div>
+  </div>
+</div>

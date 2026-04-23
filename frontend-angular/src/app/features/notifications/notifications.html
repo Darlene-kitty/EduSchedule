@@ -1,0 +1,179 @@
+<div class="page-layout">
+  <app-sidebar activePage="notifications"></app-sidebar>
+  <div class="main-wrapper">
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn"><mat-icon>notifications</mat-icon><span class="notif-dot">{{ newCount }}</span></button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <main class="page-content">
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Notifications et rappels</h1>
+          <p class="page-sub">Consultez vos notifications et configurez vos préférences</p>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs-bar">
+        <button class="tab-btn" [class.active]="activeTab === 'notifications'" (click)="activeTab = 'notifications'">
+          <mat-icon>notifications</mat-icon>
+          Notifications
+          <span *ngIf="newCount > 0" class="tab-badge">{{ newCount }}</span>
+        </button>
+        <button class="tab-btn" [class.active]="activeTab === 'settings'" (click)="activeTab = 'settings'">
+          Paramètres
+        </button>
+      </div>
+
+      <!-- Notifications List -->
+      <div *ngIf="activeTab === 'notifications'">
+        <div class="list-header">
+          <span class="list-count">{{ newCount }} nouvelles notifications</span>
+          <button class="btn-mark-read" (click)="markAllRead()">Tout marquer comme lu</button>
+        </div>
+
+        <div class="notifications-list">
+          <div *ngIf="isLoading" class="empty-state">
+            <mat-icon class="spinning">refresh</mat-icon>
+            <p>Chargement des notifications...</p>
+          </div>
+          <div *ngIf="!isLoading && notifications.length === 0" class="empty-state">
+            <mat-icon style="font-size:48px;color:#9CA3AF">notifications_none</mat-icon>
+            <p style="color:#6B7280;margin-top:8px">Aucune notification pour le moment</p>
+          </div>
+          <div *ngFor="let notif of notifications" class="notif-card"
+               [style.background]="notif.bgColor"
+               [style.border-left]="'4px solid ' + notif.borderColor">
+            <div class="notif-body">
+              <div class="notif-icon-box" [style.background]="notif.iconBg">
+                <mat-icon [style.color]="getIconColor(notif.type)">{{ notif.icon }}</mat-icon>
+              </div>
+              <div class="notif-content">
+                <div class="notif-top">
+                  <h3 class="notif-title">{{ notif.title }}</h3>
+                  <span *ngIf="notif.isNew" class="new-badge">Nouveau</span>
+                </div>
+                <p class="notif-desc">{{ notif.description }}</p>
+                <p class="notif-time">{{ notif.time }}</p>
+                <div *ngIf="notif.hasActions" class="notif-actions">
+                  <button class="btn-resolve" (click)="dismiss(notif.id)"><mat-icon>check</mat-icon> Résoudre</button>
+                  <button class="btn-details">Voir les détails</button>
+                  <button class="btn-dismiss" (click)="dismiss(notif.id)">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Tab -->
+      <div *ngIf="activeTab === 'settings'" class="settings-card">
+        <h3>Préférences de notifications</h3>
+
+        <div class="pref-item">
+          <div>
+            <p class="pref-label">Notifications par email</p>
+            <p class="pref-desc">Recevoir les alertes par email</p>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" [(ngModel)]="preferences.emailEnabled" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="pref-item">
+          <div>
+            <p class="pref-label">Notifications push</p>
+            <p class="pref-desc">Recevoir les alertes dans l'application</p>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" [(ngModel)]="preferences.pushEnabled" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="pref-item">
+          <div>
+            <p class="pref-label">Changements d'emploi du temps</p>
+            <p class="pref-desc">Être notifié lors de modifications de planning</p>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" [(ngModel)]="preferences.scheduleChanges" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="pref-item">
+          <div>
+            <p class="pref-label">Alertes de conflits</p>
+            <p class="pref-desc">Être notifié en cas de conflit d'horaire</p>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" [(ngModel)]="preferences.conflictAlerts" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="pref-item">
+          <div>
+            <p class="pref-label">Mises à jour des réservations</p>
+            <p class="pref-desc">Notification pour chaque changement de réservation</p>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" [(ngModel)]="preferences.reservationUpdates" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="pref-item">
+          <div>
+            <p class="pref-label">Rappels de cours</p>
+            <p class="pref-desc">Recevoir un rappel avant chaque cours</p>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" [(ngModel)]="preferences.reminderNotifications" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="pref-item" *ngIf="preferences.reminderNotifications">
+          <div>
+            <p class="pref-label">Délai de rappel (minutes)</p>
+            <p class="pref-desc">Combien de minutes avant le cours</p>
+          </div>
+          <select class="pref-select" [(ngModel)]="preferences.reminderMinutesBefore">
+            <option [value]="15">15 min</option>
+            <option [value]="30">30 min</option>
+            <option [value]="60">1 heure</option>
+            <option [value]="120">2 heures</option>
+          </select>
+        </div>
+
+        <div class="pref-actions">
+          <button class="btn-save" (click)="savePreferences()" [disabled]="isSavingPrefs">
+            <mat-icon>save</mat-icon>
+            {{ isSavingPrefs ? 'Enregistrement...' : 'Enregistrer' }}
+          </button>
+          <span *ngIf="prefsSaved" class="save-confirm">
+            <mat-icon>check_circle</mat-icon> Préférences sauvegardées
+          </span>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>

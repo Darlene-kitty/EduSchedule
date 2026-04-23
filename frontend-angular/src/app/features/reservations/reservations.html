@@ -1,0 +1,336 @@
+<div class="page-layout">
+  <app-sidebar activePage="reservations"></app-sidebar>
+  <div class="main-wrapper">
+
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Toast -->
+    <div class="toast-success" [class.visible]="showToast" [class.toast-error]="toastType==='error'">
+      <mat-icon>{{ toastType==='success' ? 'check_circle' : 'error' }}</mat-icon>
+      <span>{{ toastMessage }}</span>
+    </div>
+
+    <main class="page-content">
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Réservation des salles</h1>
+          <p class="page-sub">Gérez la disponibilité et réservez les salles en temps réel</p>
+        </div>
+        <div class="title-actions">
+          <button class="btn-import" (click)="openImportModal()"><mat-icon>upload_file</mat-icon> Importer</button>
+          <button class="btn-add" (click)="openModal()"><mat-icon>add</mat-icon> Réserver une salle</button>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs-row">
+        <button class="tab-btn" [class.active]="activeTab==='rooms'"   (click)="activeTab='rooms'">
+          <mat-icon>meeting_room</mat-icon> Salles disponibles
+        </button>
+        <button class="tab-btn" [class.active]="activeTab==='pending'" (click)="activeTab='pending'" *ngIf="isAdmin">
+          <mat-icon>pending_actions</mat-icon> En attente
+          <span class="badge" *ngIf="pendingReservations.length">{{ pendingReservations.length }}</span>
+        </button>
+        <button class="tab-btn" [class.active]="activeTab==='all'"     (click)="activeTab='all'">
+          <mat-icon>list</mat-icon> Toutes les réservations
+        </button>
+      </div>
+
+      <!-- Search -->
+      <div class="search-wrapper" *ngIf="activeTab==='rooms'">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input type="text" class="search-input" placeholder="Rechercher une salle..." [(ngModel)]="searchQuery" />
+      </div>
+
+      <!-- ── TAB: Salles ── -->
+      <div class="rooms-grid" *ngIf="activeTab==='rooms'">
+        <div *ngFor="let room of filteredRooms" class="room-card">
+          <div class="room-header">
+            <div class="room-icon-name">
+              <div class="room-icon"><mat-icon>meeting_room</mat-icon></div>
+              <div>
+                <h3 class="room-name">{{ room.name }}</h3>
+                <p class="room-building">{{ room.building }}</p>
+              </div>
+            </div>
+            <mat-icon class="status-icon" [class.available]="room.available" [class.occupied]="!room.available">
+              {{ room.available ? 'check_circle' : 'cancel' }}
+            </mat-icon>
+          </div>
+          <div class="room-meta">
+            <div class="capacity"><mat-icon class="capacity-icon">group</mat-icon><span>{{ room.capacity }} places</span></div>
+            <span class="type-badge" [ngClass]="getTypeClass(room.type)">{{ room.type }}</span>
+          </div>
+          <div *ngIf="room.equipments.length > 0" class="equipments">
+            <div class="equip-list">
+              <span *ngFor="let eq of room.equipments" class="equip-badge">
+                <mat-icon class="equip-icon">{{ getEquipmentIcon(eq) }}</mat-icon> {{ eq }}
+              </span>
+            </div>
+          </div>
+          <div class="card-separator"></div>
+          <button *ngIf="room.available" class="btn-reserve" (click)="reserveRoom(room)">Réserver maintenant</button>
+          <div *ngIf="!room.available" class="occupied-label">Occupée : {{ room.currentCourse }}</div>
+        </div>
+      </div>
+
+      <!-- ── TAB: En attente (admin) ── -->
+      <div *ngIf="activeTab==='pending' && isAdmin">
+        <div *ngIf="pendingReservations.length === 0" class="empty-state">
+          <mat-icon>check_circle</mat-icon>
+          <p>Aucune réservation en attente d'approbation.</p>
+        </div>
+        <div class="reservations-list" *ngIf="pendingReservations.length > 0">
+          <div *ngFor="let r of pendingReservations" class="reservation-card pending-card">
+            <div class="res-info">
+              <div class="res-title">{{ r.title || r.purpose || 'Réservation' }}</div>
+              <div class="res-meta">
+                <span><mat-icon>meeting_room</mat-icon> {{ r.roomName || 'Salle #' + r.roomId }}</span>
+                <span><mat-icon>person</mat-icon> {{ r.requestedBy || 'Utilisateur #' + r.userId }}</span>
+                <span><mat-icon>schedule</mat-icon> {{ r.date || r.startDateTime }} {{ r.startTime }} – {{ r.endTime }}</span>
+              </div>
+            </div>
+            <div class="res-actions">
+              <button class="btn-approve" (click)="openApproveModal(r)">
+                <mat-icon>check</mat-icon> Approuver
+              </button>
+              <button class="btn-reject" (click)="openRejectModal(r)">
+                <mat-icon>close</mat-icon> Refuser
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB: Toutes ── -->
+      <div *ngIf="activeTab==='all'" class="reservations-list">
+        <div *ngFor="let r of reservations" class="reservation-card">
+          <div class="res-info">
+            <div class="res-title">{{ r.title || r.purpose || 'Réservation' }}</div>
+            <div class="res-meta">
+              <span><mat-icon>meeting_room</mat-icon> {{ r.roomName || 'Salle #' + r.roomId }}</span>
+              <span><mat-icon>schedule</mat-icon> {{ r.date || r.startDateTime }} {{ r.startTime }}</span>
+            </div>
+          </div>
+          <span class="status-badge" [ngClass]="getStatusClass(r.status)">{{ getStatusLabel(r.status) }}</span>
+        </div>
+        <div *ngIf="reservations.length === 0" class="empty-state">
+          <mat-icon>event_busy</mat-icon><p>Aucune réservation trouvée.</p>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ═══ MODAL RÉSERVATION ═══ -->
+<div *ngIf="isModalOpen" class="modal-overlay" (click)="closeModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Réserver une salle</h2>
+      <button class="modal-close" (click)="closeModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Champs horaires en premier pour activer la suggestion -->
+      <div class="form-row">
+        <div class="form-group">
+          <label>Type de cours</label>
+          <select [(ngModel)]="newReservation.type">
+            <option value="COURSE">Cours magistral</option>
+            <option value="TD">TD</option>
+            <option value="TP">TP</option>
+            <option value="EXAM">Examen</option>
+            <option value="SEMINAR">Séminaire</option>
+            <option value="CONFERENCE">Conférence</option>
+            <option value="COMPETITION">Compétition</option>
+            <option value="EVENT">Événement</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Participants</label>
+          <input type="number" [(ngModel)]="newReservation.attendees" min="1" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" [(ngModel)]="newReservation.date" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Heure de début</label>
+          <input type="time" [(ngModel)]="newReservation.startTime" />
+        </div>
+        <div class="form-group">
+          <label>Heure de fin</label>
+          <input type="time" [(ngModel)]="newReservation.endTime" />
+        </div>
+      </div>
+
+      <!-- Bouton suggestion -->
+      <button class="btn-suggest" (click)="suggestRooms()" [disabled]="isSuggesting">
+        <mat-icon>auto_awesome</mat-icon>
+        {{ isSuggesting ? 'Recherche en cours...' : 'Suggérer une salle automatiquement' }}
+      </button>
+
+      <!-- Suggestions -->
+      <div *ngIf="showSuggestions && suggestions.length > 0" class="suggestions-panel">
+        <p class="suggestions-title">Salles recommandées :</p>
+        <div *ngFor="let s of suggestions" class="suggestion-item" (click)="selectSuggestion(s)"
+             [class.selected]="newReservation.roomId === s.resourceId.toString()">
+          <div class="suggestion-info">
+            <span class="suggestion-name">{{ s.roomName }}</span>
+            <span class="suggestion-meta">{{ s.capacity }} places · {{ s.location }}</span>
+            <span class="suggestion-reason">{{ s.recommendationReason }}</span>
+          </div>
+          <div class="suggestion-score" [style.color]="getScoreColor(s.optimizationScore)">
+            {{ s.optimizationScore | number:'1.0-0' }}%
+          </div>
+        </div>
+      </div>
+      <div *ngIf="showSuggestions && suggestions.length === 0" class="no-suggestions">
+        <mat-icon>info</mat-icon> Aucune salle disponible pour ce créneau. Sélectionnez manuellement.
+      </div>
+
+      <!-- Sélection manuelle -->
+      <div class="form-group">
+        <label>Salle <span class="label-hint">(ou sélectionnez via suggestion)</span></label>
+        <select [(ngModel)]="newReservation.roomId">
+          <option value="">Sélectionner une salle</option>
+          <option *ngFor="let room of rooms" [value]="room.id" [disabled]="!room.available">
+            {{ room.name }} – {{ room.building }} ({{ room.capacity }} places){{ !room.available ? ' — Occupée' : '' }}
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Objet</label>
+        <input type="text" [(ngModel)]="newReservation.purpose" placeholder="Ex: Cours de Mathématiques" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeModal()">Annuler</button>
+      <button class="btn-save" (click)="handleReserve()">
+        <mat-icon>event_available</mat-icon> Confirmer la réservation
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL APPROBATION ═══ -->
+<div *ngIf="isApproveModalOpen" class="modal-overlay" (click)="closeApproveModal()">
+  <div class="modal modal-sm" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Approuver la réservation</h2>
+      <button class="modal-close" (click)="closeApproveModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body" *ngIf="selectedReservation">
+      <p>Confirmer l'approbation de :</p>
+      <div class="confirm-details">
+        <strong>{{ selectedReservation.title || selectedReservation.purpose }}</strong><br>
+        <span>{{ selectedReservation.roomName }}</span><br>
+        <span>{{ selectedReservation.date }} {{ selectedReservation.startTime }} – {{ selectedReservation.endTime }}</span>
+      </div>
+      <p class="confirm-note">Une notification sera envoyée au demandeur.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeApproveModal()">Annuler</button>
+      <button class="btn-approve-confirm" (click)="confirmApprove()" [disabled]="isProcessing">
+        <mat-icon>check_circle</mat-icon> {{ isProcessing ? 'Traitement...' : 'Approuver' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL REJET ═══ -->
+<div *ngIf="isRejectModalOpen" class="modal-overlay" (click)="closeRejectModal()">
+  <div class="modal modal-sm" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Refuser la réservation</h2>
+      <button class="modal-close" (click)="closeRejectModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body" *ngIf="selectedReservation">
+      <p>Motif du refus (optionnel) :</p>
+      <textarea [(ngModel)]="rejectReason" rows="3" placeholder="Ex: Salle déjà réservée pour un événement prioritaire..."></textarea>
+      <p class="confirm-note">Une notification sera envoyée au demandeur.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeRejectModal()">Annuler</button>
+      <button class="btn-reject-confirm" (click)="confirmReject()" [disabled]="isProcessing">
+        <mat-icon>cancel</mat-icon> {{ isProcessing ? 'Traitement...' : 'Refuser' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL IMPORT ═══ -->
+<div *ngIf="isImportModalOpen" class="modal-overlay" (click)="closeImportModal()">
+  <div class="modal modal-import" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="import-modal-icon"><mat-icon>upload_file</mat-icon></div>
+        <div><h2>Importer des salles</h2><p class="modal-header-sub">Fichier CSV ou Excel (.xlsx)</p></div>
+      </div>
+      <button class="modal-close" (click)="closeImportModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div *ngIf="importStep === 1" class="modal-body">
+      <div class="template-banner">
+        <mat-icon>download</mat-icon>
+        <div><p class="template-title">Télécharger le modèle</p></div>
+        <button class="btn-template" (click)="downloadTemplate()"><mat-icon>file_download</mat-icon> Modèle CSV</button>
+      </div>
+      <div class="drop-zone" [class.dragging]="isDragging" [class.has-file]="importFile"
+        (dragover)="onImportDragOver($event)" (dragleave)="onImportDragLeave()" (drop)="onImportDrop($event)" (click)="fileInput.click()">
+        <input #fileInput type="file" accept=".csv,.xlsx,.xls" style="display:none" (change)="onImportFileSelected($event)" />
+        <div *ngIf="!importFile" class="drop-content">
+          <div class="drop-icon-circle"><mat-icon>cloud_upload</mat-icon></div>
+          <p class="drop-title">Glissez votre fichier ici</p>
+          <p class="drop-sub">ou <span class="drop-link">cliquez pour sélectionner</span></p>
+        </div>
+        <div *ngIf="importFile" class="file-selected">
+          <mat-icon class="file-icon">description</mat-icon>
+          <div class="file-info"><p class="file-name">{{ importFile.name }}</p><p class="file-size">{{ formatSize(importFile.size) }}</p></div>
+          <button class="file-remove" (click)="removeImportFile($event)"><mat-icon>close</mat-icon></button>
+        </div>
+      </div>
+      <div *ngIf="importParseError" class="error-banner"><mat-icon>error</mat-icon><span>{{ importParseError }}</span></div>
+    </div>
+    <div *ngIf="importStep === 2" class="modal-body preview-body">
+      <div class="summary-badges">
+        <div class="summary-badge total"><mat-icon>table_rows</mat-icon><div><p class="badge-num">{{ importPreviewRows.length }}</p><p class="badge-lbl">Total</p></div></div>
+        <div class="summary-badge valid"><mat-icon>check_circle</mat-icon><div><p class="badge-num">{{ validImportRows.length }}</p><p class="badge-lbl">Valides</p></div></div>
+      </div>
+      <div class="preview-table-wrapper">
+        <table class="preview-table">
+          <thead><tr><th>#</th><th>Salle</th><th>Bâtiment</th><th>Capacité</th><th>Type</th><th>✓</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let row of filteredImportRows; let i = index" [class.row-invalid]="!row.valid">
+              <td>{{ i+1 }}</td><td>{{ row.name }}</td><td>{{ row.building }}</td><td>{{ row.capacity }}</td><td>{{ row.type }}</td>
+              <td><mat-icon *ngIf="row.valid" class="valid-icon">check_circle</mat-icon><mat-icon *ngIf="!row.valid" class="error-icon">warning</mat-icon></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeImportModal()">Annuler</button>
+      <div class="footer-right">
+        <button *ngIf="importStep === 2" class="btn-back" (click)="importStep = 1"><mat-icon>arrow_back</mat-icon> Retour</button>
+        <button *ngIf="importStep === 1" class="btn-next" [disabled]="!importFile || isImportLoading" (click)="parseImportFile()">
+          <mat-icon>visibility</mat-icon> {{ isImportLoading ? 'Analyse...' : 'Aperçu' }}
+        </button>
+        <button *ngIf="importStep === 2 && validImportCount > 0" class="btn-import-confirm" (click)="confirmImport()">
+          <mat-icon>upload</mat-icon> Importer {{ validImportCount }} élément(s)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

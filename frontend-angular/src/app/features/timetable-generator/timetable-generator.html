@@ -1,0 +1,414 @@
+<div class="page-layout">
+  <app-sidebar activePage="timetable-generator"></app-sidebar>
+  <div class="main-wrapper">
+
+    <header class="page-header">
+      <div class="header-left">
+        <h1 class="page-title">Optimisation automatique des emplois du temps</h1>
+        <p class="page-sub">Algorithme Ford-Fulkerson / Edmonds-Karp</p>
+      </div>
+      <div class="header-right">
+        <button class="btn-ghost" (click)="reset()" *ngIf="currentStep() !== 'config'">
+          <mat-icon>refresh</mat-icon> Nouvelle optimisation
+        </button>
+      </div>
+    </header>
+
+    <div class="toast" [class.visible]="showToast" [attr.data-type]="toastType">
+      <mat-icon>{{ toastType === 'success' ? 'check_circle' : toastType === 'error' ? 'error' : 'info' }}</mat-icon>
+      <span>{{ toastMsg }}</span>
+    </div>
+
+    <div class="stepper">
+      <div class="step" [class.active]="currentStep() === 'config'" [class.done]="currentStep() !== 'config'">
+        <div class="step-circle">
+          <mat-icon *ngIf="currentStep() !== 'config'">check</mat-icon>
+          <span *ngIf="currentStep() === 'config'">1</span>
+        </div>
+        <span class="step-label">Configuration</span>
+      </div>
+      <div class="step-line" [class.done]="currentStep() === 'running' || currentStep() === 'results' || currentStep() === 'calendar'"></div>
+      <div class="step" [class.active]="currentStep() === 'running'" [class.done]="currentStep() === 'results' || currentStep() === 'calendar'">
+        <div class="step-circle">
+          <mat-icon *ngIf="currentStep() === 'results' || currentStep() === 'calendar'">check</mat-icon>
+          <span *ngIf="currentStep() !== 'results' && currentStep() !== 'calendar'">2</span>
+        </div>
+        <span class="step-label">Exécution</span>
+      </div>
+      <div class="step-line" [class.done]="currentStep() === 'results' || currentStep() === 'calendar'"></div>
+      <div class="step" [class.active]="currentStep() === 'results'" [class.done]="currentStep() === 'calendar'">
+        <div class="step-circle">
+          <mat-icon *ngIf="currentStep() === 'calendar'">check</mat-icon>
+          <span *ngIf="currentStep() !== 'calendar'">3</span>
+        </div>
+        <span class="step-label">Résultats</span>
+      </div>
+      <div class="step-line" [class.done]="currentStep() === 'calendar'"></div>
+      <div class="step" [class.active]="currentStep() === 'calendar'">
+        <div class="step-circle">4</div>
+        <span class="step-label">Calendrier</span>
+      </div>
+    </div>
+
+    <main class="page-content">
+
+      <!-- ÉTAPE 1 : CONFIGURATION -->
+      <div *ngIf="currentStep() === 'config'" class="step-content">
+
+        <div class="card">
+          <div class="card-header">
+            <mat-icon>tune</mat-icon>
+            <span>Paramètres généraux</span>
+          </div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label>École</label>
+              <select [(ngModel)]="request.schoolId">
+                <option [value]="0" disabled>-- Choisir une école --</option>
+                <option *ngFor="let s of schools()" [value]="s.id">{{ s.nom || s.sigle }}</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Semestre</label>
+              <select [(ngModel)]="request.semester">
+                <option *ngFor="let s of semesters" [value]="s">{{ s }}</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Niveau</label>
+              <select [(ngModel)]="request.level">
+                <option *ngFor="let l of levels" [value]="l">{{ l }}</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Max heures / jour</label>
+              <input type="number" [(ngModel)]="request.maxHoursPerDay" min="2" max="12" />
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <mat-icon>rule</mat-icon>
+            <span>Contraintes d'optimisation</span>
+          </div>
+          <div class="constraints-list">
+            <label class="constraint-item" *ngFor="let c of constraints" (click)="toggleConstraint(c)">
+              <div class="checkbox" [class.checked]="c.enabled">
+                <mat-icon *ngIf="c.enabled">check</mat-icon>
+              </div>
+              <span>{{ c.label }}</span>
+              <input *ngIf="c.key === 'max_consecutive' && c.enabled"
+                     type="number" [(ngModel)]="maxConsecutiveHours" min="1" max="8"
+                     class="inline-input" (click)="$event.stopPropagation()" />
+              <span *ngIf="c.key === 'max_consecutive' && c.enabled" class="inline-label">heures max</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <mat-icon>account_tree</mat-icon>
+            <span>Algorithme</span>
+          </div>
+          <div class="algo-options">
+            <label class="algo-option" [class.selected]="selectedAlgo === 'ford-fulkerson'"
+                   (click)="selectedAlgo = 'ford-fulkerson'">
+              <div class="radio" [class.checked]="selectedAlgo === 'ford-fulkerson'">
+                <div class="radio-dot" *ngIf="selectedAlgo === 'ford-fulkerson'"></div>
+              </div>
+              <div>
+                <p class="algo-name">Ford-Fulkerson (standard)</p>
+                <p class="algo-desc">DFS — adapté aux petits volumes</p>
+              </div>
+            </label>
+            <label class="algo-option" [class.selected]="selectedAlgo === 'edmonds-karp'"
+                   (click)="selectedAlgo = 'edmonds-karp'">
+              <div class="radio" [class.checked]="selectedAlgo === 'edmonds-karp'">
+                <div class="radio-dot" *ngIf="selectedAlgo === 'edmonds-karp'"></div>
+              </div>
+              <div>
+                <p class="algo-name">Edmonds-Karp (optimisé)</p>
+                <p class="algo-desc">BFS — recommandé pour grands volumes · O(V·E²)</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="card" *ngIf="rooms().length > 0">
+          <div class="card-header">
+            <mat-icon>meeting_room</mat-icon>
+            <span>Salles disponibles</span>
+            <span class="badge">{{ selectedRooms().length }} / {{ rooms().length }}</span>
+          </div>
+          <div class="rooms-grid">
+            <label class="room-chip" *ngFor="let r of rooms()" [class.selected]="isRoomSelected(r.id)">
+              <input type="checkbox" [checked]="isRoomSelected(r.id)" (change)="toggleRoom(r.id)" />
+              <span>{{ r.name }}</span>
+              <small *ngIf="r.capacity">{{ r.capacity }} pl.</small>
+            </label>
+          </div>
+        </div>
+
+        <p class="error-msg" *ngIf="errorMsg()">
+          <mat-icon>error_outline</mat-icon> {{ errorMsg() }}
+        </p>
+
+        <div class="config-actions">
+          <button class="btn-primary" (click)="launch()">
+            <mat-icon>play_arrow</mat-icon> Lancer l'optimisation
+          </button>
+          <button class="btn-secondary" (click)="reset()">
+            <mat-icon>close</mat-icon> Annuler
+          </button>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 2 : EXÉCUTION EN COURS -->
+      <div *ngIf="currentStep() === 'running'" class="step-content">
+        <div class="card running-card">
+          <div class="running-header">
+            <div class="spinner"></div>
+            <div>
+              <h2>Optimisation en cours…</h2>
+              <p class="running-algo">Algorithme : {{ selectedAlgo === 'edmonds-karp' ? 'Edmonds-Karp (BFS)' : 'Ford-Fulkerson (DFS)' }}</p>
+            </div>
+          </div>
+
+          <div class="progress-section">
+            <div class="progress-meta">
+              <span class="status-badge" [attr.data-status]="job()?.status">{{ job()?.status ?? 'PENDING' }}</span>
+              <span class="progress-pct">{{ job()?.progress ?? 0 }}%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" [style.width.%]="job()?.progress ?? 0" [style.background]="progressColor"></div>
+            </div>
+            <p class="progress-hint" *ngIf="job()?.message">{{ job()!.message }}</p>
+          </div>
+
+          <div class="running-stats" *ngIf="job()?.maxFlowValue">
+            <div class="stat-item">
+              <span class="stat-label">Flot actuel</span>
+              <span class="stat-value">{{ job()!.maxFlowValue }} / {{ job()!.totalDemand ?? '?' }} cours assignés</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Créneaux trouvés</span>
+              <span class="stat-value">{{ job()?.slots?.length ?? 0 }}</span>
+            </div>
+          </div>
+
+          <div class="graph-toggle">
+            <button class="btn-ghost-sm" (click)="showAdvancedGraph = !showAdvancedGraph">
+              <mat-icon>{{ showAdvancedGraph ? 'visibility_off' : 'visibility' }}</mat-icon>
+              {{ showAdvancedGraph ? 'Masquer' : 'Afficher' }} la visualisation du graphe de flot
+            </button>
+          </div>
+
+          <div class="flow-graph" *ngIf="showAdvancedGraph">
+            <div class="graph-title">
+              <mat-icon>hub</mat-icon> Réseau de flot — Structure du graphe
+            </div>
+            <div class="graph-visual">
+              <div class="graph-layer">
+                <div class="graph-node source">SOURCE</div>
+              </div>
+              <div class="graph-arrows">▼</div>
+              <div class="graph-layer">
+                <div class="graph-node course" *ngFor="let c of flowGraphCourses">{{ c }}</div>
+              </div>
+              <div class="graph-arrows">▼</div>
+              <div class="graph-layer">
+                <div class="graph-node slot" *ngFor="let s of flowGraphSlots">{{ s }}</div>
+              </div>
+              <div class="graph-arrows">▼</div>
+              <div class="graph-layer">
+                <div class="graph-node room" *ngFor="let r of flowGraphRooms">{{ r }}</div>
+              </div>
+              <div class="graph-arrows">▼</div>
+              <div class="graph-layer">
+                <div class="graph-node sink">PUITS</div>
+              </div>
+            </div>
+            <div class="graph-legend">
+              <span class="legend-item flow">Flot passant</span>
+              <span class="legend-item saturated">Arête saturée</span>
+              <span class="legend-item unused">Arête non utilisée</span>
+            </div>
+          </div>
+
+          <div class="running-actions">
+            <button class="btn-danger-outline" (click)="cancelGeneration()">
+              <mat-icon>stop</mat-icon> Annuler
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 3 : RÉSULTATS -->
+      <div *ngIf="currentStep() === 'results'" class="step-content">
+
+        <div class="kpi-row">
+          <div class="kpi-card green">
+            <mat-icon>menu_book</mat-icon>
+            <div>
+              <p class="kpi-value">{{ job()?.slots?.length ?? 0 }}/{{ job()?.totalDemand ?? '?' }}</p>
+              <p class="kpi-label">Cours planifiés</p>
+            </div>
+          </div>
+          <div class="kpi-card blue">
+            <mat-icon>meeting_room</mat-icon>
+            <div>
+              <p class="kpi-value">{{ rooms().length > 0 ? ((selectedRooms().length / rooms().length * 100) | number:'1.0-0') + '%' : '—' }}</p>
+              <p class="kpi-label">Occupation salles</p>
+            </div>
+          </div>
+          <div class="kpi-card purple">
+            <mat-icon>speed</mat-icon>
+            <div>
+              <p class="kpi-value">{{ job()?.generationTimeMs ? (job()!.generationTimeMs! / 1000 | number:'1.1-1') + 's' : '—' }}</p>
+              <p class="kpi-label">Temps d'exécution</p>
+            </div>
+          </div>
+          <div class="kpi-card" [class.orange]="totalConflicts > 0" [class.green]="totalConflicts === 0">
+            <mat-icon>{{ totalConflicts > 0 ? 'warning' : 'check_circle' }}</mat-icon>
+            <div>
+              <p class="kpi-value">{{ totalConflicts }}</p>
+              <p class="kpi-label">Conflit(s) détecté(s)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" *ngIf="totalConflicts > 0">
+          <div class="card-header warn">
+            <mat-icon>warning</mat-icon>
+            <span>Conflits détectés ({{ totalConflicts }})</span>
+            <span class="badge-resolved">{{ resolvedCount }}/{{ totalConflicts }} résolus</span>
+          </div>
+
+          <div class="conflict-item" *ngFor="let c of conflicts()" [class.resolved]="c.resolved">
+            <div class="conflict-header" (click)="toggleConflict(c.id)">
+              <div class="conflict-left">
+                <div class="conflict-dot" [attr.data-type]="c.type"></div>
+                <div>
+                  <p class="conflict-title">
+                    <mat-icon>{{ c.type === 'teacher' ? 'person_off' : c.type === 'room' ? 'meeting_room' : 'warning' }}</mat-icon>
+                    Conflit #{{ c.id }} : {{ c.title }}
+                  </p>
+                  <p class="conflict-course">{{ c.course }}</p>
+                  <p class="conflict-problem">{{ c.problem }}</p>
+                </div>
+              </div>
+              <div class="conflict-right">
+                <span class="resolved-badge" *ngIf="c.resolved">
+                  <mat-icon>check_circle</mat-icon> Résolu
+                </span>
+                <mat-icon class="expand-icon">{{ expandedConflict() === c.id ? 'expand_less' : 'expand_more' }}</mat-icon>
+              </div>
+            </div>
+
+            <div class="conflict-suggestions" *ngIf="expandedConflict() === c.id && !c.resolved">
+              <p class="suggestions-label">Alternatives suggérées :</p>
+              <div class="suggestion-item" *ngFor="let s of c.suggestions; let i = index"
+                   [class.chosen]="c.chosenSuggestion === i"
+                   (click)="chooseSuggestion(c, i)">
+                <div class="suggestion-score"
+                     [style.background]="s.score >= 90 ? '#dcfce7' : s.score >= 75 ? '#fef9c3' : '#fee2e2'"
+                     [style.color]="s.score >= 90 ? '#15803d' : s.score >= 75 ? '#854d0e' : '#991b1b'">
+                  {{ s.score }}%
+                </div>
+                <span>{{ s.label }}</span>
+                <button class="btn-choose">Choisir</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card no-conflict-card" *ngIf="totalConflicts === 0">
+          <mat-icon>check_circle</mat-icon>
+          <p>Aucun conflit détecté — l'emploi du temps est optimal.</p>
+        </div>
+
+        <div class="results-actions">
+          <button class="btn-primary" (click)="apply()" [disabled]="isConfirming() || !canApply">
+            <mat-icon>{{ isConfirming() ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
+            {{ isConfirming() ? 'Application en cours…' : 'Appliquer la solution' }}
+          </button>
+          <button class="btn-secondary" (click)="exportReport()">
+            <mat-icon>picture_as_pdf</mat-icon> Exporter le rapport
+          </button>
+          <p class="confirm-msg" *ngIf="confirmMsg()">{{ confirmMsg() }}</p>
+          <p class="cant-apply-hint" *ngIf="!canApply">
+            <mat-icon>info</mat-icon> Résolvez tous les conflits avant d'appliquer.
+          </p>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 4 : CALENDRIER OPTIMISÉ -->
+      <div *ngIf="currentStep() === 'calendar'" class="step-content">
+
+        <div class="calendar-toolbar">
+          <div class="calendar-title">
+            <mat-icon>calendar_month</mat-icon>
+            <span>Emploi du temps optimisé — {{ request.level }} · {{ request.semester }}</span>
+          </div>
+          <div class="calendar-views">
+            <button [class.active]="calendarView === 'all'"     (click)="calendarView = 'all'">Tous</button>
+            <button [class.active]="calendarView === 'teacher'" (click)="calendarView = 'teacher'">Par enseignant</button>
+            <button [class.active]="calendarView === 'room'"    (click)="calendarView = 'room'">Par salle</button>
+            <button [class.active]="calendarView === 'school'"  (click)="calendarView = 'school'">Par école</button>
+          </div>
+        </div>
+
+        <div class="calendar-card">
+          <div class="calendar-grid">
+            <div class="cal-corner"></div>
+            <div class="cal-day-header" *ngFor="let d of days">{{ d }}</div>
+            <ng-container *ngFor="let time of timeSlots">
+              <div class="cal-time">{{ time }}</div>
+              <div class="cal-cell" *ngFor="let day of days">
+                <div class="cal-slot" *ngFor="let slot of getSlotsForCell(day, time)"
+                     [style.background]="getSlotColor(slot) + '22'"
+                     [style.border-left]="'3px solid ' + getSlotColor(slot)">
+                  <span class="slot-code">{{ slot.courseCode }}</span>
+                  <span class="slot-name">{{ slot.courseName }}</span>
+                  <span class="slot-room">
+                    <mat-icon>meeting_room</mat-icon>{{ slot.roomName }}
+                  </span>
+                  <span class="slot-time">{{ slot.startTime }} – {{ slot.endTime }}</span>
+                </div>
+              </div>
+            </ng-container>
+          </div>
+          <div class="calendar-legend">
+            <span class="legend-type cm">CM</span>
+            <span class="legend-type td">TD</span>
+            <span class="legend-type tp">TP</span>
+            <span class="legend-type sem">Séminaire</span>
+          </div>
+        </div>
+
+        <div class="calendar-actions">
+          <button class="btn-primary" (click)="exportReport()">
+            <mat-icon>picture_as_pdf</mat-icon> Exporter PDF
+          </button>
+          <button class="btn-secondary" (click)="syncEnt()">
+            <mat-icon>sync</mat-icon> Synchroniser ENT
+          </button>
+          <button class="btn-secondary" (click)="sendNotifs()">
+            <mat-icon>notifications</mat-icon> Envoyer notifications
+          </button>
+        </div>
+
+        <div class="teacher-notif-card">
+          <div class="notif-icon"><mat-icon>person</mat-icon></div>
+          <div>
+            <p class="notif-title">Notifications envoyées aux enseignants</p>
+            <p class="notif-desc">Chaque enseignant recevra son emploi du temps personnalisé par notification et email.</p>
+          </div>
+          <span class="notif-badge">{{ job()?.slots?.length ?? 0 }} créneaux</span>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>

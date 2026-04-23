@@ -1,0 +1,339 @@
+<div class="page-layout">
+  <app-sidebar activePage="filieres"></app-sidebar>
+  <div class="main-wrapper">
+
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn"><mat-icon>notifications</mat-icon></button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <!-- <span class="header-username"></span> -->
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <!-- Toast -->
+    <div class="toast-success" [class.visible]="showSuccess">
+      <mat-icon>check_circle</mat-icon>
+      <span>{{ successMessage }}</span>
+    </div>
+
+    <main class="page-content">
+
+      <!-- Titre -->
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Filières</h1>
+          <p class="page-sub">{{ filieres.length }} filières réparties dans {{ ecoles.length }} écoles</p>
+        </div>
+        <button class="btn-add" (click)="openAddModal()">
+          <mat-icon>add</mat-icon> Nouvelle filière
+        </button>
+      </div>
+
+      <!-- Stats par école -->
+      <div class="ecole-stats-row">
+        <button class="ecole-stat-btn" [class.active]="filterEcole === ''" (click)="filterEcole = ''">
+          <span class="stat-count">{{ filieres.length }}</span>
+          <span class="stat-label">Toutes</span>
+        </button>
+        <button *ngFor="let e of ecoleStats; let i = index" class="ecole-stat-btn"
+          [class.active]="filterEcole === e.sigle"
+          [style.--ecole-color]="e.couleur"
+          (click)="filterEcole = filterEcole === e.sigle ? '' : e.sigle">
+          <span class="stat-sigle" [style.background]="e.couleur">{{ e.sigle }}</span>
+          <span class="stat-count">{{ e.count }}</span>
+          <span class="stat-label">{{ e.nom }}</span>
+        </button>
+      </div>
+
+      <!-- Recherche -->
+      <div class="search-wrapper">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input type="text" class="search-input" placeholder="Rechercher par nom, code, responsable..." [(ngModel)]="searchQuery" />
+        <span *ngIf="filterEcole" class="filter-active-badge">
+          {{ filterEcole }} <button (click)="filterEcole = ''"><mat-icon>close</mat-icon></button>
+        </span>
+      </div>
+
+      <!-- Tableau -->
+      <div class="table-card">
+        <div class="table-card-header">
+          <h2 class="table-title">Liste des filières</h2>
+          <p class="table-sub">{{ filteredFilieres.length }} filière(s) trouvée(s)</p>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Filière</th>
+                <th>École</th>
+                <th>Responsable</th>
+                <th>Niveaux</th>
+                <th>Durée</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let f of filteredFilieres" class="table-row">
+                <td>
+                  <div class="filiere-cell">
+                    <div class="filiere-code-badge" [style.background]="f.couleurEcole">{{ f.code }}</div>
+                    <div>
+                      <div class="filiere-nom">{{ f.nom }}</div>
+                      <div class="filiere-desc-short">{{ f.description | slice:0:60 }}...</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class="ecole-badge" [style.background]="f.couleurEcole + '20'" [style.color]="f.couleurEcole" [style.border-color]="f.couleurEcole + '40'">
+                    {{ f.sigleEcole }}
+                  </span>
+                </td>
+                <td>
+                  <div class="responsable-cell">
+                    <div class="resp-avatar" [style.background]="f.couleurEcole">{{ f.responsable.split(' ').slice(-1)[0][0] }}{{ f.responsable.split(' ').slice(-2)[0][0] }}</div>
+                    <span>{{ f.responsable }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="niveaux-cell">
+                    <span *ngFor="let n of f.niveaux.slice(0,3)" class="tag-niveau">{{ n }}</span>
+                    <span *ngIf="f.niveaux.length > 3" class="tag-more">+{{ f.niveaux.length - 3 }}</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="duree-badge">{{ f.duree }} an{{ f.duree > 1 ? 's' : '' }}</span>
+                </td>
+                <td>
+                  <span class="status-badge" [class.active]="f.enabled" [class.inactive]="!f.enabled">
+                    {{ f.enabled ? 'Active' : 'Inactive' }}
+                  </span>
+                </td>
+                <td>
+                  <div class="actions-cell">
+                    <button class="action-btn view-btn" (click)="openViewModal(f)" title="Voir"><mat-icon>visibility</mat-icon></button>
+                    <button class="action-btn edit-btn" (click)="openEditModal(f)" title="Modifier"><mat-icon>edit</mat-icon></button>
+                    <button class="action-btn delete-btn" (click)="openDeleteModal(f)" title="Supprimer"><mat-icon>delete</mat-icon></button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="filteredFilieres.length === 0">
+                <td colspan="7" class="empty-row">
+                  <mat-icon>fork_right</mat-icon>
+                  <p>Aucune filière trouvée</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL VUE DÉTAILS ═══════════════════ -->
+<div *ngIf="isViewModalOpen && viewingFiliere" class="modal-overlay" (click)="closeViewModal()">
+  <div class="modal modal-view" (click)="$event.stopPropagation()">
+    <div class="modal-hero" [style.background]="viewingFiliere.couleurEcole">
+      <div class="hero-code">{{ viewingFiliere.code }}</div>
+      <div class="hero-info">
+        <h2>{{ viewingFiliere.nom }}</h2>
+        <p>{{ viewingFiliere.ecole }}</p>
+      </div>
+      <button class="modal-close-white" (click)="closeViewModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <p class="view-desc">{{ viewingFiliere.description }}</p>
+      <div class="view-info-grid">
+        <div class="view-info-item">
+          <div class="view-info-icon blue"><mat-icon>person</mat-icon></div>
+          <div><p class="view-info-label">Responsable</p><p class="view-info-value">{{ viewingFiliere.responsable }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon orange"><mat-icon>schedule</mat-icon></div>
+          <div><p class="view-info-label">Durée</p><p class="view-info-value">{{ viewingFiliere.duree }} an{{ viewingFiliere.duree > 1 ? 's' : '' }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon purple"><mat-icon>account_balance</mat-icon></div>
+          <div><p class="view-info-label">École</p><p class="view-info-value">{{ viewingFiliere.sigleEcole }} — {{ viewingFiliere.ecole }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon" [class.green]="viewingFiliere.enabled" [class.gray]="!viewingFiliere.enabled">
+            <mat-icon>{{ viewingFiliere.enabled ? 'check_circle' : 'cancel' }}</mat-icon>
+          </div>
+          <div>
+            <p class="view-info-label">Statut</p>
+            <span class="status-badge" [class.active]="viewingFiliere.enabled" [class.inactive]="!viewingFiliere.enabled">
+              {{ viewingFiliere.enabled ? 'Active' : 'Inactive' }}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="view-section">
+        <p class="view-section-title"><mat-icon>layers</mat-icon> Niveaux ({{ viewingFiliere.niveaux.length }})</p>
+        <div class="tags-list">
+          <span *ngFor="let n of viewingFiliere.niveaux" class="tag-niveau">{{ n }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeViewModal()">Fermer</button>
+      <button class="btn-save" (click)="closeViewModal(); openEditModal(viewingFiliere!)">
+        <mat-icon>edit</mat-icon> Modifier
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL SUPPRESSION ═══════════════════ -->
+<div *ngIf="isDeleteModalOpen && filiereToDelete" class="modal-overlay" (click)="closeDeleteModal()">
+  <div class="modal modal-delete" (click)="$event.stopPropagation()">
+    <div class="delete-modal-body">
+      <div class="delete-icon-circle"><mat-icon>delete_forever</mat-icon></div>
+      <h2 class="delete-title">Supprimer la filière ?</h2>
+      <p class="delete-desc">
+        Vous êtes sur le point de supprimer <strong>{{ filiereToDelete.nom }}</strong>.
+        Cette action est <strong>irréversible</strong>.
+      </p>
+      <div class="delete-preview" [style.border-left-color]="filiereToDelete.couleurEcole">
+        <div class="delete-avatar" [style.background]="filiereToDelete.couleurEcole">{{ filiereToDelete.code }}</div>
+        <div>
+          <p class="delete-name">{{ filiereToDelete.nom }}</p>
+          <p class="delete-sub">{{ filiereToDelete.sigleEcole }} · {{ filiereToDelete.niveaux.length }} niveau(x)</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer delete-footer">
+      <button class="btn-cancel" (click)="closeDeleteModal()">Annuler</button>
+      <button class="btn-delete-confirm" (click)="confirmDelete()">
+        <mat-icon>delete</mat-icon> Oui, supprimer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL AJOUT ═══════════════════ -->
+<div *ngIf="isAddModalOpen" class="modal-overlay" (click)="closeAddModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Nouvelle filière</h2>
+      <button class="modal-close" (click)="closeAddModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Code *</label>
+          <input type="text" [(ngModel)]="newFiliere.code" placeholder="Ex: GI" />
+        </div>
+        <div class="form-group">
+          <label>Durée (années)</label>
+          <input type="number" [(ngModel)]="newFiliere.duree" min="1" max="8" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Nom complet *</label>
+        <input type="text" [(ngModel)]="newFiliere.nom" placeholder="Ex: Génie Informatique" />
+      </div>
+      <div class="form-group">
+        <label>École *</label>
+        <select [(ngModel)]="newSchoolId">
+          <option [ngValue]="null">-- Choisir une école --</option>
+          <option *ngFor="let e of ecoles" [ngValue]="e.id">{{ e.sigle || e.code }} — {{ e.nom || e.name }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Responsable</label>
+        <input type="text" [(ngModel)]="newFiliere.responsable" placeholder="Dr. Nom Prénom" />
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea [(ngModel)]="newFiliere.description" rows="2" placeholder="Description de la filière..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Niveaux</label>
+        <div class="checkbox-grid">
+          <label *ngFor="let n of allNiveaux" class="checkbox-item">
+            <input type="checkbox" [checked]="hasNiveauNew(n)" (change)="toggleNiveau(newFiliere, n)" />
+            <span>{{ n }}</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAddModal()">Annuler</button>
+      <button class="btn-save" (click)="handleAddFiliere()" [disabled]="!newFiliere.code || !newFiliere.nom || !newSchoolId">
+        <mat-icon>save</mat-icon> Ajouter
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL ÉDITION ═══════════════════ -->
+<div *ngIf="isEditModalOpen" class="modal-overlay" (click)="closeEditModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Modifier la filière</h2>
+      <button class="modal-close" (click)="closeEditModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Code *</label>
+          <input type="text" [(ngModel)]="editFiliereData.code" />
+        </div>
+        <div class="form-group">
+          <label>Durée (années)</label>
+          <input type="number" [(ngModel)]="editFiliereData.duree" min="1" max="8" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Nom complet *</label>
+        <input type="text" [(ngModel)]="editFiliereData.nom" />
+      </div>
+      <div class="form-group">
+        <label>École *</label>
+        <select [(ngModel)]="editSchoolId">
+          <option [ngValue]="null">-- Choisir une école --</option>
+          <option *ngFor="let e of ecoles" [ngValue]="e.id">{{ e.sigle || e.code }} — {{ e.nom || e.name }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Responsable</label>
+        <input type="text" [(ngModel)]="editFiliereData.responsable" />
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea [(ngModel)]="editFiliereData.description" rows="2"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group toggle-group">
+          <label>Statut</label>
+          <label class="toggle"><input type="checkbox" [(ngModel)]="editFiliereData.enabled" /><span class="toggle-slider"></span></label>
+          <span class="toggle-label">{{ editFiliereData.enabled ? 'Active' : 'Inactive' }}</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Niveaux</label>
+        <div class="checkbox-grid">
+          <label *ngFor="let n of allNiveaux" class="checkbox-item">
+            <input type="checkbox" [checked]="hasNiveauEdit(n)" (change)="toggleNiveau(editFiliereData, n)" />
+            <span>{{ n }}</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeEditModal()">Annuler</button>
+      <button class="btn-save" (click)="handleEditFiliere()"><mat-icon>save</mat-icon> Sauvegarder</button>
+    </div>
+  </div>
+</div>

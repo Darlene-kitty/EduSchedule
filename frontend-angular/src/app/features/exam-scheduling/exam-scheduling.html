@@ -1,0 +1,165 @@
+<div class="page-layout">
+  <app-sidebar activePage="exam-scheduling"></app-sidebar>
+  <div class="main-wrapper">
+
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="page-content">
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Génération du planning d'examens</h1>
+          <p class="page-sub">Planification automatique avec gestion des contraintes</p>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs-row">
+        <button class="tab-btn" [class.active]="activeTab==='config'" (click)="activeTab='config'">
+          <mat-icon>settings</mat-icon> Configuration
+        </button>
+        <button class="tab-btn" [class.active]="activeTab==='results'" (click)="activeTab='results'" [disabled]="!result">
+          <mat-icon>event_note</mat-icon> Planning
+          <span class="badge green" *ngIf="result">{{ result.scheduled }}</span>
+        </button>
+        <button class="tab-btn" [class.active]="activeTab==='conflicts'" (click)="activeTab='conflicts'" [disabled]="!result">
+          <mat-icon>warning</mat-icon> Conflits
+          <span class="badge red" *ngIf="result && result.conflicts > 0">{{ result.conflicts }}</span>
+        </button>
+      </div>
+
+      <!-- ── CONFIG ── -->
+      <div *ngIf="activeTab==='config'" class="config-panel">
+        <div class="config-grid">
+
+          <div class="config-card">
+            <h3 class="card-title"><mat-icon>school</mat-icon> Session</h3>
+            <div class="form-group">
+              <label>Semestre</label>
+              <select [(ngModel)]="request.semester">
+                <option *ngFor="let s of allSemesters" [value]="s">{{ s }}</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Date de début</label>
+                <input type="date" [(ngModel)]="request.sessionStart" />
+              </div>
+              <div class="form-group">
+                <label>Date de fin</label>
+                <input type="date" [(ngModel)]="request.sessionEnd" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Durée par examen (min)</label>
+              <input type="number" [(ngModel)]="request.defaultDurationMinutes" min="60" max="240" step="30" />
+            </div>
+            <div class="form-group">
+              <label>Max examens/jour/niveau</label>
+              <input type="number" [(ngModel)]="request.maxExamsPerDayPerLevel" min="1" max="4" />
+            </div>
+          </div>
+
+          <div class="config-card">
+            <h3 class="card-title"><mat-icon>layers</mat-icon> Niveaux</h3>
+            <div class="levels-grid">
+              <button *ngFor="let level of allLevels" class="level-btn"
+                      [class.selected]="isLevelSelected(level)"
+                      [style.border-color]="isLevelSelected(level) ? getLevelColor(level) : '#E5E7EB'"
+                      [style.background]="isLevelSelected(level) ? getLevelColor(level) + '15' : 'white'"
+                      (click)="toggleLevel(level)">
+                <span [style.color]="isLevelSelected(level) ? getLevelColor(level) : '#6B7280'">{{ level }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="config-card">
+            <h3 class="card-title"><mat-icon>schedule</mat-icon> Créneaux disponibles</h3>
+            <div class="slots-list">
+              <button *ngFor="let slot of defaultSlots" class="slot-btn"
+                      [class.selected]="isSlotSelected(slot)"
+                      (click)="toggleSlot(slot)">
+                <mat-icon>{{ isSlotSelected(slot) ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                {{ slot }}
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <button class="btn-generate" (click)="generate()" [disabled]="isGenerating || !request.sessionStart || !request.sessionEnd || request.levels.length === 0">
+          <mat-icon [class.spinning]="isGenerating">{{ isGenerating ? 'refresh' : 'auto_awesome' }}</mat-icon>
+          {{ isGenerating ? 'Génération en cours...' : 'Générer le planning d\'examens' }}
+        </button>
+      </div>
+
+      <!-- ── RESULTS ── -->
+      <div *ngIf="activeTab==='results' && result">
+        <!-- Summary -->
+        <div class="summary-row">
+          <div class="summary-card green">
+            <mat-icon>check_circle</mat-icon>
+            <div><p class="sum-num">{{ result.scheduled }}</p><p class="sum-lbl">Planifiés</p></div>
+          </div>
+          <div class="summary-card red" *ngIf="result.conflicts > 0">
+            <mat-icon>warning</mat-icon>
+            <div><p class="sum-num">{{ result.conflicts }}</p><p class="sum-lbl">Conflits</p></div>
+          </div>
+          <div class="summary-card blue">
+            <mat-icon>school</mat-icon>
+            <div><p class="sum-num">{{ result.totalCourses }}</p><p class="sum-lbl">Cours total</p></div>
+          </div>
+        </div>
+
+        <!-- Planning par date -->
+        <div *ngFor="let date of sortedDates" class="day-block">
+          <div class="day-header">
+            <mat-icon>calendar_today</mat-icon>
+            <span>{{ formatDate(date) }}</span>
+            <span class="day-count">{{ scheduledByDate.get(date)?.length }} examen(s)</span>
+          </div>
+          <div class="exam-grid">
+            <div *ngFor="let slot of scheduledByDate.get(date)" class="exam-card"
+                 [style.border-left-color]="getLevelColor(slot.level)">
+              <div class="exam-header">
+                <span class="exam-level" [style.background]="getLevelColor(slot.level) + '20'" [style.color]="getLevelColor(slot.level)">{{ slot.level }}</span>
+                <span class="exam-time">{{ slot.startTime }} – {{ slot.endTime }}</span>
+              </div>
+              <p class="exam-name">{{ slot.courseName }}</p>
+              <p class="exam-code">{{ slot.courseCode }}</p>
+              <div class="exam-meta">
+                <span *ngIf="slot.roomName"><mat-icon>meeting_room</mat-icon> {{ slot.roomName }}</span>
+                <span *ngIf="slot.teacherName"><mat-icon>person</mat-icon> {{ slot.teacherName }}</span>
+                <span><mat-icon>timer</mat-icon> {{ slot.durationMinutes }} min</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CONFLICTS ── -->
+      <div *ngIf="activeTab==='conflicts' && result">
+        <div *ngIf="result.unscheduled.length === 0" class="empty-state">
+          <mat-icon>check_circle</mat-icon>
+          <p>Aucun conflit — tous les examens ont été planifiés.</p>
+        </div>
+        <div *ngFor="let slot of result.unscheduled" class="conflict-card">
+          <mat-icon class="conflict-icon">warning</mat-icon>
+          <div>
+            <p class="conflict-name">{{ slot.courseName }} ({{ slot.courseCode }})</p>
+            <p class="conflict-level">Niveau : {{ slot.level }}</p>
+            <p class="conflict-reason">{{ slot.conflictReason }}</p>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>

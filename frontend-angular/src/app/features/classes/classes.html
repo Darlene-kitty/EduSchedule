@@ -1,0 +1,378 @@
+<div class="page-layout">
+  <app-sidebar activePage="classes"></app-sidebar>
+  <div class="main-wrapper">
+
+    <header class="page-header">
+      <button class="header-menu-btn"><mat-icon>menu</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+        <button class="header-notif-btn"><mat-icon>notifications</mat-icon></button>
+        <div class="header-user">
+          <div class="header-avatar">AS</div>
+          <span class="header-username">Admin</span>
+          <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <div class="toast-success" [class.visible]="showSuccess">
+      <mat-icon>check_circle</mat-icon><span>{{ successMessage }}</span>
+    </div>
+
+    <main class="page-content">
+
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Classes</h1>
+          <p class="page-sub">{{ classes.length }} classes · {{ totalEffectif }} étudiants au total</p>
+        </div>
+        <button class="btn-add" (click)="openAddModal()">
+          <mat-icon>add</mat-icon> Nouvelle classe
+        </button>
+      </div>
+
+      <!-- Filtres -->
+      <div class="filters-row">
+        <div class="search-wrapper">
+          <mat-icon class="search-icon">search</mat-icon>
+          <input type="text" class="search-input" placeholder="Rechercher par nom, code, filière..." [(ngModel)]="searchQuery" />
+        </div>
+        <select class="filter-select" [(ngModel)]="filterEcole">
+          <option value="">Toutes les écoles</option>
+          <option *ngFor="let e of ecoles" [value]="e.sigle">{{ e.sigle }}</option>
+        </select>
+        <select class="filter-select" [(ngModel)]="filterNiveau">
+          <option value="">Tous les niveaux</option>
+          <option *ngFor="let n of allNiveaux" [value]="n">{{ n }}</option>
+        </select>
+      </div>
+
+      <!-- Tableau -->
+      <div class="table-card">
+        <div class="table-card-header">
+          <h2 class="table-title">Liste des classes</h2>
+          <p class="table-sub">{{ filteredClasses.length }} classe(s) trouvée(s)</p>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Classe</th>
+                <th>École</th>
+                <th>Filière</th>
+                <th>Niveau</th>
+                <th>Effectif</th>
+                <th>Délégué</th>
+                <th>Salle</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let c of filteredClasses" class="table-row">
+                <td>
+                  <div class="classe-cell">
+                    <div class="classe-avatar" [style.background]="c.couleurEcole">
+                      {{ c.code.split('-')[0] }}
+                    </div>
+                    <div>
+                      <div class="classe-nom">{{ c.nom }}</div>
+                      <div class="classe-code">{{ c.code }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class="ecole-badge" [style.background]="c.couleurEcole + '18'" [style.color]="c.couleurEcole" [style.border-color]="c.couleurEcole + '40'">
+                    {{ c.sigleEcole }}
+                  </span>
+                </td>
+                <td class="filiere-col">{{ c.filiere }}</td>
+                <td><span class="niveau-tag">{{ c.niveau }}</span></td>
+                <td>
+                  <div class="effectif-cell">
+                    <span class="effectif-num">{{ c.effectif }}<span class="effectif-max">/{{ c.effectifMax }}</span></span>
+                    <div class="progress-bar">
+                      <div class="progress-fill" [ngClass]="getTauxClass(getTauxRemplissage(c))"
+                        [style.width]="getTauxRemplissage(c) + '%'"></div>
+                    </div>
+                    <span class="taux-pct" [ngClass]="getTauxClass(getTauxRemplissage(c))">{{ getTauxRemplissage(c) }}%</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="delegue-cell" *ngIf="c.delegue; else noDelegue">
+                    <div class="delegue-avatar" [style.background]="c.couleurEcole">{{ c.delegue[0] }}</div>
+                    <span>{{ c.delegue }}</span>
+                  </div>
+                  <ng-template #noDelegue><span class="text-muted">—</span></ng-template>
+                </td>
+                <td>
+                  <div class="salle-cell" *ngIf="c.salle; else noSalle">
+                    <mat-icon>meeting_room</mat-icon><span>{{ c.salle }}</span>
+                  </div>
+                  <ng-template #noSalle><span class="text-muted">—</span></ng-template>
+                </td>
+                <td>
+                  <span class="status-badge" [class.active]="c.enabled" [class.inactive]="!c.enabled">
+                    {{ c.enabled ? 'Active' : 'Inactive' }}
+                  </span>
+                </td>
+                <td>
+                  <div class="actions-cell">
+                    <button class="action-btn view-btn"   (click)="openViewModal(c)"   title="Voir"><mat-icon>visibility</mat-icon></button>
+                    <button class="action-btn edit-btn"   (click)="openEditModal(c)"   title="Modifier"><mat-icon>edit</mat-icon></button>
+                    <button class="action-btn delete-btn" (click)="openDeleteModal(c)" title="Supprimer"><mat-icon>delete</mat-icon></button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="filteredClasses.length === 0">
+                <td colspan="9" class="empty-row">
+                  <mat-icon>groups</mat-icon><p>Aucune classe trouvée</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL VUE ═══════════════════ -->
+<div *ngIf="isViewModalOpen && viewingClasse" class="modal-overlay" (click)="closeViewModal()">
+  <div class="modal modal-view" (click)="$event.stopPropagation()">
+    <div class="modal-hero" [style.background]="viewingClasse.couleurEcole">
+      <div class="hero-avatar">{{ viewingClasse.code.split('-')[0] }}</div>
+      <div class="hero-info">
+        <h2>{{ viewingClasse.nom }}</h2>
+        <p>{{ viewingClasse.code }} · {{ viewingClasse.ecole }}</p>
+      </div>
+      <button class="modal-close-white" (click)="closeViewModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <!-- Taux remplissage -->
+      <div class="view-effectif-card">
+        <div class="view-effectif-nums">
+          <span class="view-eff-big">{{ viewingClasse.effectif }}</span>
+          <span class="view-eff-sep">/</span>
+          <span class="view-eff-max">{{ viewingClasse.effectifMax }}</span>
+          <span class="view-eff-lbl">étudiants</span>
+        </div>
+        <div class="view-progress">
+          <div class="progress-bar large">
+            <div class="progress-fill" [ngClass]="getTauxClass(getTauxRemplissage(viewingClasse))"
+              [style.width]="getTauxRemplissage(viewingClasse) + '%'"></div>
+          </div>
+          <span class="taux-pct" [ngClass]="getTauxClass(getTauxRemplissage(viewingClasse))">{{ getTauxRemplissage(viewingClasse) }}% de remplissage</span>
+        </div>
+      </div>
+
+      <div class="view-info-grid">
+        <div class="view-info-item">
+          <div class="view-info-icon blue"><mat-icon>account_balance</mat-icon></div>
+          <div><p class="view-info-label">École</p><p class="view-info-value">{{ viewingClasse.sigleEcole }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon purple"><mat-icon>fork_right</mat-icon></div>
+          <div><p class="view-info-label">Filière</p><p class="view-info-value">{{ viewingClasse.filiere }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon teal"><mat-icon>layers</mat-icon></div>
+          <div><p class="view-info-label">Niveau</p><p class="view-info-value">{{ viewingClasse.niveau }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon orange"><mat-icon>meeting_room</mat-icon></div>
+          <div><p class="view-info-label">Salle par défaut</p><p class="view-info-value">{{ viewingClasse.salle || '—' }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon green"><mat-icon>person_pin</mat-icon></div>
+          <div><p class="view-info-label">Délégué</p><p class="view-info-value">{{ viewingClasse.delegue || '—' }}</p></div>
+        </div>
+        <div class="view-info-item">
+          <div class="view-info-icon" [class.green]="viewingClasse.enabled" [class.gray]="!viewingClasse.enabled">
+            <mat-icon>{{ viewingClasse.enabled ? 'check_circle' : 'cancel' }}</mat-icon>
+          </div>
+          <div>
+            <p class="view-info-label">Statut</p>
+            <span class="status-badge" [class.active]="viewingClasse.enabled" [class.inactive]="!viewingClasse.enabled">
+              {{ viewingClasse.enabled ? 'Active' : 'Inactive' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeViewModal()">Fermer</button>
+      <button class="btn-save" (click)="closeViewModal(); openEditModal(viewingClasse!)">
+        <mat-icon>edit</mat-icon> Modifier
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL SUPPRESSION ═══════════════════ -->
+<div *ngIf="isDeleteModalOpen && classeToDelete" class="modal-overlay" (click)="closeDeleteModal()">
+  <div class="modal modal-delete" (click)="$event.stopPropagation()">
+    <div class="delete-modal-body">
+      <div class="delete-icon-circle"><mat-icon>delete_forever</mat-icon></div>
+      <h2 class="delete-title">Supprimer la classe ?</h2>
+      <p class="delete-desc">Vous êtes sur le point de supprimer <strong>{{ classeToDelete.nom }}</strong>. Cette action est <strong>irréversible</strong>.</p>
+      <div class="delete-preview" [style.border-left-color]="classeToDelete.couleurEcole">
+        <div class="delete-avatar" [style.background]="classeToDelete.couleurEcole">{{ classeToDelete.code.split('-')[0] }}</div>
+        <div>
+          <p class="delete-name">{{ classeToDelete.nom }}</p>
+          <p class="delete-sub">{{ classeToDelete.sigleEcole }} · {{ classeToDelete.filiere }} · {{ classeToDelete.effectif }} étudiants</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer delete-footer">
+      <button class="btn-cancel" (click)="closeDeleteModal()">Annuler</button>
+      <button class="btn-delete-confirm" (click)="confirmDelete()"><mat-icon>delete</mat-icon> Oui, supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL AJOUT ═══════════════════ -->
+<div *ngIf="isAddModalOpen" class="modal-overlay" (click)="closeAddModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Nouvelle classe</h2>
+      <button class="modal-close" (click)="closeAddModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Code *</label>
+          <input type="text" [(ngModel)]="newClasse.code" placeholder="Ex: GI-L1-A" />
+        </div>
+        <div class="form-group">
+          <label>Nom *</label>
+          <input type="text" [(ngModel)]="newClasse.nom" placeholder="Ex: GI L1 Groupe A" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>École *</label>
+        <select [(ngModel)]="newClasse.sigleEcole" (ngModelChange)="onEcoleChange(newClasse)">
+          <option value="">-- Choisir une école --</option>
+          <option *ngFor="let e of ecoles" [value]="e.sigle">{{ e.sigle }} — {{ e.nom }}</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Filière *</label>
+          <select [(ngModel)]="newClasse.filiere" [disabled]="!newClasse.sigleEcole">
+            <option value="">-- Choisir --</option>
+            <option *ngFor="let f of filteredFilieres" [value]="f">{{ f }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Niveau *</label>
+          <select [(ngModel)]="newClasse.niveau" [disabled]="!newClasse.sigleEcole">
+            <option value="">-- Choisir --</option>
+            <option *ngFor="let n of filteredNiveauxNew" [value]="n">{{ n }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Effectif actuel</label>
+          <input type="number" [(ngModel)]="newClasse.effectif" min="0" />
+        </div>
+        <div class="form-group">
+          <label>Capacité max</label>
+          <input type="number" [(ngModel)]="newClasse.effectifMax" min="1" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Délégué</label>
+          <input type="text" [(ngModel)]="newClasse.delegue" placeholder="Nom du délégué" />
+        </div>
+        <div class="form-group">
+          <label>Salle par défaut</label>
+          <input type="text" [(ngModel)]="newClasse.salle" placeholder="Ex: Amphi A" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAddModal()">Annuler</button>
+      <button class="btn-save" (click)="handleAddClasse()" [disabled]="!newClasse.code || !newClasse.nom || !newClasse.sigleEcole">
+        <mat-icon>save</mat-icon> Ajouter
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL ÉDITION ═══════════════════ -->
+<div *ngIf="isEditModalOpen" class="modal-overlay" (click)="closeEditModal()">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Modifier la classe</h2>
+      <button class="modal-close" (click)="closeEditModal()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Code *</label>
+          <input type="text" [(ngModel)]="editClasseData.code" />
+        </div>
+        <div class="form-group">
+          <label>Nom *</label>
+          <input type="text" [(ngModel)]="editClasseData.nom" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>École *</label>
+        <select [(ngModel)]="editClasseData.sigleEcole" (ngModelChange)="onEcoleChange(editClasseData)">
+          <option *ngFor="let e of ecoles" [value]="e.sigle">{{ e.sigle }} — {{ e.nom }}</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Filière *</label>
+          <select [(ngModel)]="editClasseData.filiere">
+            <option *ngFor="let f of filteredFilieresEdit" [value]="f">{{ f }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Niveau *</label>
+          <select [(ngModel)]="editClasseData.niveau">
+            <option *ngFor="let n of filteredNiveauxEdit" [value]="n">{{ n }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Effectif actuel</label>
+          <input type="number" [(ngModel)]="editClasseData.effectif" min="0" />
+        </div>
+        <div class="form-group">
+          <label>Capacité max</label>
+          <input type="number" [(ngModel)]="editClasseData.effectifMax" min="1" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Délégué</label>
+          <input type="text" [(ngModel)]="editClasseData.delegue" />
+        </div>
+        <div class="form-group">
+          <label>Salle par défaut</label>
+          <input type="text" [(ngModel)]="editClasseData.salle" />
+        </div>
+      </div>
+      <div class="form-group toggle-group">
+        <label>Statut</label>
+        <label class="toggle"><input type="checkbox" [(ngModel)]="editClasseData.enabled" /><span class="toggle-slider"></span></label>
+        <span class="toggle-label">{{ editClasseData.enabled ? 'Active' : 'Inactive' }}</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeEditModal()">Annuler</button>
+      <button class="btn-save" (click)="handleEditClasse()"><mat-icon>save</mat-icon> Sauvegarder</button>
+    </div>
+  </div>
+</div>
