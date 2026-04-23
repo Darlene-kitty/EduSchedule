@@ -1,0 +1,223 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOCKER_IMAGE_PREFIX: ${{ secrets.DOCKER_USERNAME }}/eduschedule
+
+jobs:
+  build-java:
+    name: Build and Test Java Services
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build all modules
+        run: mvn clean package -DskipTests --batch-mode
+
+      - name: Run tests
+        run: mvn test --batch-mode
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: '**/target/surefire-reports/*.xml'
+          retention-days: 7
+
+  build-frontend:
+    name: Build Angular Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend-angular/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend-angular
+        run: npm ci
+
+      - name: Build Angular production
+        working-directory: frontend-angular
+        run: npm run build -- --configuration production
+
+  docker-build-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    needs: [ build-java, build-frontend ]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build JARs
+        run: mvn clean package -DskipTests --batch-mode
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set image tag
+        id: tag
+        run: echo "TAG=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
+      - name: Push eureka-server
+        uses: docker/build-push-action@v5
+        with:
+          context: ./eureka-server
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-eureka-server:latest,${{ env.DOCKER_IMAGE_PREFIX }}-eureka-server:${{ steps.tag.outputs.TAG }}
+
+      - name: Push config-server
+        uses: docker/build-push-action@v5
+        with:
+          context: ./config-server
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-config-server:latest,${{ env.DOCKER_IMAGE_PREFIX }}-config-server:${{ steps.tag.outputs.TAG }}
+
+      - name: Push api-gateway
+        uses: docker/build-push-action@v5
+        with:
+          context: ./api-gateway
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-api-gateway:latest,${{ env.DOCKER_IMAGE_PREFIX }}-api-gateway:${{ steps.tag.outputs.TAG }}
+
+      - name: Push user-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./user-service
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-user-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-user-service:${{ steps.tag.outputs.TAG }}
+
+      - name: Push resource-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./resource-service
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-resource-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-resource-service:${{ steps.tag.outputs.TAG }}
+
+      - name: Push reservation-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./reservation-service
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-reservation-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-reservation-service:${{ steps.tag.outputs.TAG }}
+
+      - name: Push course-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./course-service
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-course-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-course-service:${{ steps.tag.outputs.TAG }}
+
+      - name: Push school-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./school-service
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-school-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-school-service:${{ steps.tag.outputs.TAG }}
+
+      - name: Push notification-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./notification-service
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-notification-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-notification-service:${{ steps.tag.outputs.TAG }}
+
+      - name: Push scheduling-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./scheduling-service
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-scheduling-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-scheduling-service:${{ steps.tag.outputs.TAG }}
+
+      - name: Push room-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./room-service
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-room-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-room-service:${{ steps.tag.outputs.TAG }}
+
+      - name: Push calendar-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./calendar-service
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-calendar-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-calendar-service:${{ steps.tag.outputs.TAG }}
+
+      - name: Push reporting-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./reporting-service
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-reporting-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-reporting-service:${{ steps.tag.outputs.TAG }}
+
+      - name: Push event-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./event-service
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-event-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-event-service:${{ steps.tag.outputs.TAG }}
+
+      - name: Push teacher-availability-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./teacher-availability-service
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-teacher-availability-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-teacher-availability-service:${{ steps.tag.outputs.TAG }}
+
+      - name: Push ai-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ai-service
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-ai-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-ai-service:${{ steps.tag.outputs.TAG }}
+
+      - name: Push maintenance-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./maintenance-service
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-maintenance-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-maintenance-service:${{ steps.tag.outputs.TAG }}
+
+      - name: Push ent-integration-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ent-integration-service
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-ent-integration-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-ent-integration-service:${{ steps.tag.outputs.TAG }}
+
+      - name: Push frontend-angular
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend-angular
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_PREFIX }}-frontend-angular:latest,${{ env.DOCKER_IMAGE_PREFIX }}-frontend-angular:${{ steps.tag.outputs.TAG }}
