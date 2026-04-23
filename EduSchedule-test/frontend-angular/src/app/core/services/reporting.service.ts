@@ -44,11 +44,74 @@ export interface ReportDTO {
   createdAt?: string;
 }
 
+export interface TeacherStatistic {
+  teacherName: string;
+  teacherId: number;
+  courseCount: number;
+  totalHours: number;
+  department: string;
+}
+
+export interface RoomUsageStatistic {
+  roomName: string;
+  roomId: number;
+  occupancyRate: number;
+  totalHours: number;
+  availableHours: number;
+  roomType: string;
+  capacity: number;
+}
+
+export interface SchoolStatistic {
+  schoolName: string;
+  schoolId: number;
+  studentCount: number;
+  courseCount: number;
+  teacherCount: number;
+  averageClassSize: number;
+}
+
+export interface TeacherWorkloadStatistic {
+  teacherName: string;
+  teacherId: number;
+  weeklyHours: number;
+  courseCount: number;
+  status: string;
+}
+
+export interface ScheduledReportConfig {
+  name: string;
+  cronExpression: string;
+  description: string;
+  reportType: string;
+  reportFormat: string;
+  enabled: boolean;
+  nextExecution: string;
+}
+
 export interface StatisticsDTO {
-  totalReports?: number;
-  completedReports?: number;
-  failedReports?: number;
-  [key: string]: unknown;
+  totalUsers: number;
+  totalCourses: number;
+  totalReservations: number;
+  totalResources: number;
+  totalRooms: number;
+  totalSchools: number;
+  usersByRole: Record<string, number>;
+  reservationsByStatus: Record<string, number>;
+  coursesByDepartment: Record<string, number>;
+  coursesByLevel: Record<string, number>;
+  coursesBySchool: Record<string, number>;
+  coursesByRoomType: Record<string, number>;
+  resourcesByType: Record<string, number>;
+  reservationsByMonth: Record<string, number>;
+  averageRoomOccupancy: number;
+  averageCourseUtilization: number;
+  coursesByTeacher: TeacherStatistic[];
+  roomUsageDetails: RoomUsageStatistic[];
+  roomAvailabilityByHour: Record<string, number>;
+  schoolStatistics: SchoolStatistic[];
+  teacherWorkload: TeacherWorkloadStatistic[];
+  trends: Record<string, unknown>;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -90,7 +153,14 @@ export class ReportingService {
   /** Statistiques système */
   getStatistics(): Observable<StatisticsDTO> {
     return this.http.get<StatisticsDTO>(`${this.base}/statistics`).pipe(
-      catchError(() => of({}))
+      catchError(() => of({} as StatisticsDTO))
+    );
+  }
+
+  /** Liste les rapports planifiés configurés */
+  getScheduledConfigs(): Observable<ScheduledReportConfig[]> {
+    return this.http.get<ScheduledReportConfig[]>(`${this.base}/scheduled`).pipe(
+      catchError(() => of([]))
     );
   }
 

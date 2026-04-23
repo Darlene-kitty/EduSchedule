@@ -23,9 +23,14 @@ public class Room {
     
     @Column(unique = true, length = 50)
     private String code;
-    
+
+    /**
+     * Type de salle — utilise l'enum RoomType pour un matching fiable
+     * avec le type de cours (CourseType).
+     */
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private String type; // CLASSROOM, LABORATORY, AMPHITHEATER, OFFICE, etc.
+    private RoomType type; // CLASSROOM, LABORATORY, AMPHITHEATER, etc.
     
     @Column(nullable = false)
     private Integer capacity;

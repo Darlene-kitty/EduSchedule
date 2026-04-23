@@ -8,6 +8,8 @@ import { ScheduleManagementService } from '../../core/services/schedule-manageme
 import { UsersManagementService } from '../../core/services/users-management.service';
 import { AuthService } from '../../core/services/auth.service';
 import { WebSocketService } from '../../core/services/websocket.service';
+import { SchoolManagementService } from '../../core/services/school-management.service';
+import { RoomsManagementService } from '../../core/services/rooms-management.service';
 
 export interface CalendarEvent {
   id: number; subject: string; room: string; professor: string;
@@ -30,12 +32,19 @@ export class CalendarComponent implements OnInit, OnDestroy {
   private usersSvc        = inject(UsersManagementService);
   private authService     = inject(AuthService);
   private wsSvc           = inject(WebSocketService);
+  private schoolSvc       = inject(SchoolManagementService);
+  private roomSvc         = inject(RoomsManagementService);
 
   private wsSub?: Subscription;
 
   isTeacher = false;
   currentTeacherName = '';
   teachers: string[] = [];
+  rooms: string[] = [];
+  schools: { id: number; name: string }[] = [];
+  
+  selectedRoom = 'Toutes les salles';
+  selectedSchool = 'Toutes les écoles';
 
   currentDate = ''; currentTime = '';
   selectedView: ViewMode = 'Semaine';
@@ -86,6 +95,22 @@ export class CalendarComponent implements OnInit, OnDestroy {
       });
     }
 
+    // Charger la liste des salles pour le filtre
+    this.roomSvc.getRooms().subscribe({
+      next: rooms => {
+        this.rooms = ['Toutes les salles', ...(rooms || []).map(r => r.name).sort()];
+      },
+      error: () => {}
+    });
+
+    // Charger la liste des écoles pour le filtre
+    this.schoolSvc.getAll().subscribe({
+      next: schools => {
+        this.schools = schools.map(s => ({ id: s.id, name: s.nom || s.name || s.sigle || '' }));
+      },
+      error: () => {}
+    });
+
     // WebSocket — rechargement automatique quand l'emploi du temps change
     this.wsSvc.connect();
     this.wsSub = this.wsSvc.scheduleChanges$.subscribe(() => {
@@ -103,21 +128,50 @@ export class CalendarComponent implements OnInit, OnDestroy {
       next: (entries) => {
         const dayMap: Record<string, number> = {
           MONDAY:0, TUESDAY:1, WEDNESDAY:2, THURSDAY:3, FRIDAY:4, SATURDAY:5,
-          Lundi:0, Mardi:1, Mercredi:2, Jeudi:3, Vendredi:4, Samedi:5
+          Lundi:0, Mardi:1, Mercredi:2, Jeudi:3, Vendredi:4, Samedi:5,
+          '0':0, '1':1, '2':2, '3':3, '4':4, '5':5
         };
         this.events = (entries || []).map(e => {
-          const startH = e.startTime ? parseInt(e.startTime.split(':')[0]) : 8;
-          const endH   = e.endTime   ? parseInt(e.endTime.split(':')[0])   : startH + 2;
+          // Le scheduling-service retourne startTime/endTime comme LocalDateTime ISO
+          // Ex: "2024-01-15T08:00:00" — extraire heure et jour de la semaine
+          let startH = 8, endH = 10, dayIdx = 0;
+          let eventDate: Date | undefined;
+
+          if (e.startTime && e.startTime.includes('T')) {
+            // Format LocalDateTime ISO
+            const startDt = new Date(e.startTime);
+            const endDt   = e.endTime ? new Date(e.endTime) : new Date(e.startTime);
+            startH = startDt.getHours();
+            endH   = endDt.getHours() || startH + 2;
+            // JS getDay(): 0=Dim, 1=Lun, ..., 6=Sam → convertir en index 0=Lun
+            const jsDay = startDt.getDay();
+            dayIdx = jsDay === 0 ? 6 : jsDay - 1;
+            eventDate = startDt;
+          } else {
+            // Format heure simple "08:00"
+            startH = e.startTime ? parseInt(e.startTime.split(':')[0]) : 8;
+            endH   = e.endTime   ? parseInt(e.endTime.split(':')[0])   : startH + 2;
+            const rawDay = e.dayOfWeek;
+            if (typeof rawDay === 'number') {
+              dayIdx = rawDay;
+            } else if (typeof rawDay === 'string') {
+              dayIdx = dayMap[rawDay] ?? 0;
+            }
+            eventDate = new Date(this.currentWeekStart);
+            eventDate.setDate(eventDate.getDate() + dayIdx);
+          }
+
           const typeKey = (e as any).type || 'CM';
-          const dayIdx  = dayMap[e.dayOfWeek || ''] ?? 0;
-          const eventDate = new Date(this.currentWeekStart);
-          eventDate.setDate(eventDate.getDate() + dayIdx);
           return {
-            id: e.id, subject: e.courseName || e.title || 'Cours',
-            room: e.room || '', professor: e.teacher || '',
+            id: e.id,
+            subject: e.courseName || e.course || e.title || 'Cours',
+            room: e.room || '',
+            professor: e.teacher || '',
             type: typeKey as CalendarEvent['type'],
             color: this.typeColors[typeKey] || '#1D4ED8',
-            dayIndex: dayIdx, startHour: startH, endHour: endH,
+            dayIndex: dayIdx,
+            startHour: startH,
+            endHour: endH,
             date: eventDate
           };
         });
@@ -134,6 +188,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
       this.currentWeekStart = new Date(this.currentWeekStart);
       this.currentWeekStart.setDate(this.currentWeekStart.getDate() - 7);
       this.days = this.buildWeekDays(this.currentWeekStart);
+      this.loadSchedule();
     } else if (this.selectedView === 'Jour') {
       this.currentDayDate = new Date(this.currentDayDate);
       this.currentDayDate.setDate(this.currentDayDate.getDate() - 1);
@@ -149,6 +204,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
       this.currentWeekStart = new Date(this.currentWeekStart);
       this.currentWeekStart.setDate(this.currentWeekStart.getDate() + 7);
       this.days = this.buildWeekDays(this.currentWeekStart);
+      this.loadSchedule();
     } else if (this.selectedView === 'Jour') {
       this.currentDayDate = new Date(this.currentDayDate);
       this.currentDayDate.setDate(this.currentDayDate.getDate() + 1);
@@ -187,10 +243,20 @@ export class CalendarComponent implements OnInit, OnDestroy {
   // ── Filtered events ───────────────────────────────────────────────────────
 
   get filteredEvents(): CalendarEvent[] {
-    if (this.selectedTeacher && this.selectedTeacher !== 'Tous les enseignants') {
-      return this.events.filter(e => e.professor === this.selectedTeacher);
-    }
-    return this.events;
+    return this.events.filter(e => {
+      // Filtre enseignant
+      if (this.selectedTeacher && this.selectedTeacher !== 'Tous les enseignants') {
+        if (e.professor !== this.selectedTeacher) return false;
+      }
+      // Filtre salle
+      if (this.selectedRoom && this.selectedRoom !== 'Toutes les salles') {
+        if (e.room !== this.selectedRoom) return false;
+      }
+      // Filtre école (basé sur le subject contenant le nom de l'école ou autre logique)
+      // Pour l'instant, on ne filtre pas par école car les events n'ont pas ce champ
+      // TODO: Ajouter schoolId/schoolName dans ScheduleEntry si nécessaire
+      return true;
+    });
   }
 
   // Vue semaine

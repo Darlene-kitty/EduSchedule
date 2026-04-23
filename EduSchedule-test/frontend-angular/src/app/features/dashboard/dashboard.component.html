@@ -70,6 +70,69 @@
         </div>
       </div>
 
+      <!-- ── Charts Row ─────────────────────────────────────────────────── -->
+      <div class="charts-grid">
+
+        <!-- Graphique 1 : Occupation par bâtiment -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">Occupation par bâtiment</h3>
+              <p class="chart-sub">Taux d'occupation en temps réel (%)</p>
+            </div>
+            <div class="chart-badge chart-badge-blue">
+              <mat-icon>meeting_room</mat-icon>
+            </div>
+          </div>
+          <div class="chart-canvas-wrap">
+            <canvas #occupancyBarCanvas class="chart-canvas"></canvas>
+          </div>
+          <div class="chart-legend-row">
+            <span class="legend-dot" style="background:#10B981"></span><span class="legend-label">&lt; 50%</span>
+            <span class="legend-dot" style="background:#3B82F6"></span><span class="legend-label">50–79%</span>
+            <span class="legend-dot" style="background:#EF4444"></span><span class="legend-label">≥ 80%</span>
+          </div>
+        </div>
+
+        <!-- Graphique 2 : Réservations sur 7 jours -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">Réservations — 7 derniers jours</h3>
+              <p class="chart-sub">Nombre de réservations par jour</p>
+            </div>
+            <div class="chart-badge chart-badge-green">
+              <mat-icon>calendar_today</mat-icon>
+            </div>
+          </div>
+          <div class="chart-canvas-wrap">
+            <canvas #weekLineCanvas class="chart-canvas"></canvas>
+          </div>
+          <div class="chart-legend-row">
+            <span class="legend-line" style="background:#3B82F6"></span>
+            <span class="legend-label">Réservations actives</span>
+          </div>
+        </div>
+
+        <!-- Graphique 3 : Répartition des cours -->
+        <div class="chart-card chart-card-narrow">
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">Répartition des cours</h3>
+              <p class="chart-sub">Par type de séance</p>
+            </div>
+            <div class="chart-badge chart-badge-purple">
+              <mat-icon>menu_book</mat-icon>
+            </div>
+          </div>
+          <div class="chart-canvas-wrap">
+            <canvas #coursesPieCanvas class="chart-canvas"></canvas>
+          </div>
+        </div>
+
+      </div>
+      <!-- ── End Charts ─────────────────────────────────────────────────── -->
+
       <!-- Upcoming Courses + Occupancy -->
       <div class="bottom-grid">
 

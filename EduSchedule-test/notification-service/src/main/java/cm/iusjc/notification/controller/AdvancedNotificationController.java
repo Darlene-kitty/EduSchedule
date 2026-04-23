@@ -4,6 +4,8 @@ import cm.iusjc.notification.dto.*;
 import cm.iusjc.notification.service.ScheduleNotificationService;
 import cm.iusjc.notification.service.NotificationTemplateService;
 import cm.iusjc.notification.service.SMSService;
+import cm.iusjc.notification.service.EmailService;
+import cm.iusjc.notification.service.WebSocketNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -22,7 +24,51 @@ public class AdvancedNotificationController {
     private final ScheduleNotificationService scheduleNotificationService;
     private final NotificationTemplateService templateService;
     private final SMSService smsService;
+    private final EmailService emailService;
+    private final WebSocketNotificationService webSocketNotificationService;
     
+    /**
+     * Reçoit une alerte de conflit inter-écoles depuis le course-service.
+     * Diffuse via WebSocket (broadcastConflict) et envoie un email si configuré.
+     */
+    @PostMapping("/conflict-alert")
+    public ResponseEntity<Map<String, Object>> sendConflictAlert(
+            @RequestBody Map<String, Object> payload) {
+        try {
+            String conflictType  = (String) payload.getOrDefault("conflictType", "INTER_SCHOOL_CONFLICT");
+            String description   = (String) payload.getOrDefault("description", "Conflit d'horaire détecté");
+            Object teacherId     = payload.get("teacherId");
+
+            log.info("Conflict alert received: type={} teacher={}", conflictType, teacherId);
+
+            // 1. Broadcast WebSocket vers tous les admins connectés
+            webSocketNotificationService.broadcastConflict(conflictType, description, payload);
+
+            // 2. Email d'alerte si l'enseignant a une adresse connue
+            // (on tente via le schedule-change email générique)
+            String adminEmail = "admin@iusjc.cm";
+            emailService.sendEmail(
+                adminEmail,
+                "⚠️ Conflit d'horaire détecté — Enseignant " + teacherId,
+                "Un conflit d'horaire inter-écoles a été détecté.\n\n" +
+                "Type : " + conflictType + "\n" +
+                "Détail : " + description + "\n\n" +
+                "Connectez-vous à EduSchedule pour consulter et résoudre ce conflit."
+            );
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Conflict alert broadcast via WebSocket and email"
+            ));
+        } catch (Exception e) {
+            log.error("Error sending conflict alert: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", e.getMessage()
+            ));
+        }
+    }
+
     /**
      * Envoie une notification de changement d'emploi du temps
      */
@@ -36,7 +82,7 @@ public class AdvancedNotificationController {
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "Schedule change notification sent successfully",
-                    "scheduleId", event.getScheduleId(),
+                    "scheduleId", String.valueOf(event.getScheduleId()),
                     "changeType", event.getChangeType()
             ));
         } catch (Exception e) {
@@ -69,8 +115,8 @@ public class AdvancedNotificationController {
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "Auto notifications sent successfully",
-                    "scheduleId", scheduleId,
-                    "notificationsSent", scheduleNotificationService.getLastNotificationCount()
+                    "scheduleId", String.valueOf(scheduleId),
+                    "notificationsSent", String.valueOf(scheduleNotificationService.getLastNotificationCount())
             ));
         } catch (Exception e) {
             log.error("Error sending auto schedule notifications: {}", e.getMessage());
@@ -193,18 +239,17 @@ public class AdvancedNotificationController {
      */
     @PostMapping("/sms/schedule-change")
     public ResponseEntity<Map<String, Object>> sendScheduleChangeSMS(
-            @RequestParam Long userId,
-            @RequestParam Long scheduleId,
-            @RequestParam String changeType) {
+            @RequestParam String phoneNumber,
+            @RequestParam String courseName,
+            @RequestParam String changeDescription) {
         try {
-            log.info("Sending schedule change SMS to user: {}", userId);
-            smsService.sendScheduleChangeSMS(userId, scheduleId, changeType);
+            log.info("Sending schedule change SMS to: {}", phoneNumber);
+            smsService.sendScheduleChangeSMS(phoneNumber, courseName, changeDescription);
             
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "Schedule change SMS sent successfully",
-                    "userId", userId,
-                    "scheduleId", scheduleId
+                    "phoneNumber", phoneNumber
             ));
         } catch (Exception e) {
             log.error("Error sending schedule change SMS: {}", e.getMessage());
@@ -226,12 +271,12 @@ public class AdvancedNotificationController {
             log.info("Setting notification preferences for user: {}", userId);
             scheduleNotificationService.setUserNotificationPreferences(userId, preferences);
             
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "message", "Notification preferences updated successfully",
-                    "userId", userId,
-                    "preferences", preferences
-            ));
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("success", true);
+            response.put("message", "Notification preferences updated successfully");
+            response.put("userId", String.valueOf(userId));
+            response.put("preferences", preferences);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("Error setting notification preferences: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
@@ -297,7 +342,7 @@ public class AdvancedNotificationController {
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "Notification marked as read",
-                    "notificationId", notificationId
+                    "notificationId", String.valueOf(notificationId)
             ));
         } catch (Exception e) {
             log.error("Error marking notification as read: {}", e.getMessage());
@@ -321,8 +366,8 @@ public class AdvancedNotificationController {
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "Bulk notifications sent successfully",
-                    "totalRecipients", request.getRecipientIds().size(),
-                    "sentCount", sentCount
+                    "totalRecipients", String.valueOf(request.getRecipientIds().size()),
+                    "sentCount", String.valueOf(sentCount)
             ));
         } catch (Exception e) {
             log.error("Error sending bulk notifications: {}", e.getMessage());

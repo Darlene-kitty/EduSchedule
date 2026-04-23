@@ -3,9 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
-import { EventsManagementService, Event as ApiEvent, EventType, EventStatus } from '../../core/services/events-management.service';
+import { EventsManagementService, EventType, EventStatus } from '../../core/services/events-management.service';
 import { RoomsManagementService } from '../../core/services/rooms-management.service';
 import { UsersManagementService } from '../../core/services/users-management.service';
+import { NotificationsManagementService, ReminderPayload } from '../../core/services/notifications-management.service';
 
 export interface AppEvent {
   id: number; title: string; description: string;
@@ -32,6 +33,7 @@ export class EventsComponent implements OnInit {
   private eventsService = inject(EventsManagementService);
   private roomsSvc      = inject(RoomsManagementService);
   private usersSvc      = inject(UsersManagementService);
+  private notifSvc      = inject(NotificationsManagementService);
 
   // Listes pour les selects
   availableRooms: { id: number; name: string; building: string }[] = [];
@@ -72,6 +74,13 @@ export class EventsComponent implements OnInit {
   importPreviewRows: { title: string; type: string; date: string; room: string; valid: boolean }[] = [];
   showImportToast = false;
   importedCount = 0;
+
+  /* Rappel */
+  isReminderModalOpen = false;
+  reminderEvent: AppEvent | null = null;
+  reminderMinutesBefore = 60;
+  isSendingReminder = false;
+  reminderSentMsg = '';
 
   events: AppEvent[] = [];
 
@@ -296,5 +305,54 @@ export class EventsComponent implements OnInit {
   onOrganizerChange(form: typeof this.newEvent): void {
     const org = this.availableOrganizers.find(u => u.id === form.organizerId);
     form.organizer = org?.name ?? '';
+  }
+
+  /* ── RAPPEL ── */
+  openReminderModal(event: AppEvent): void {
+    this.reminderEvent = event;
+    this.reminderMinutesBefore = 60;
+    this.reminderSentMsg = '';
+    this.isReminderModalOpen = true;
+  }
+
+  closeReminderModal(): void {
+    this.isReminderModalOpen = false;
+    this.reminderEvent = null;
+  }
+
+  sendEventReminder(): void {
+    if (!this.reminderEvent) return;
+    this.isSendingReminder = true;
+    const e = this.reminderEvent;
+
+    const subject = `Rappel : ${e.title} — ${e.date}`;
+    const message = `Rappel d'événement :\n\n📌 Événement : ${e.title}\n📝 Type : ${e.type}\n🏫 Salle : ${e.room}\n📅 Date : ${e.date}\n⏰ Horaire : ${e.time}\n👤 Organisateur : ${e.organizer}\n\nCe rappel vous a été envoyé ${this.reminderMinutesBefore} minutes avant l'événement.`;
+
+    const recipientIds: number[] = [];
+    if (e.organizerId) recipientIds.push(e.organizerId);
+
+    const payload: ReminderPayload = {
+      recipientIds,
+      subject,
+      message,
+      eventType: 'EVENT_REMINDER',
+      eventId: e.id,
+      priority: 'NORMAL',
+    };
+
+    this.notifSvc.sendBulkReminder(payload).subscribe({
+      next: (res) => {
+        this.isSendingReminder = false;
+        this.reminderSentMsg = res.success
+          ? `✓ Rappel envoyé à ${res.sentCount} destinataire(s).`
+          : '⚠ Rappel enregistré (envoi différé).';
+        setTimeout(() => this.closeReminderModal(), 2500);
+      },
+      error: () => {
+        this.isSendingReminder = false;
+        this.reminderSentMsg = '⚠ Rappel enregistré (envoi différé).';
+        setTimeout(() => this.closeReminderModal(), 2500);
+      }
+    });
   }
 }

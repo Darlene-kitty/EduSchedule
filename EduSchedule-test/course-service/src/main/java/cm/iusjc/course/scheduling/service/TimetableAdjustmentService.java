@@ -10,8 +10,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -36,6 +41,11 @@ public class TimetableAdjustmentService {
     private final TeacherAvailabilityClient availabilityClient;
     private final CourseService courseService;
     private final RabbitTemplate rabbitTemplate;
+    private final RestTemplate restTemplate;
+
+    /** URL du notification-service (configurable via application.properties) */
+    @Value("${app.notification-service.url:http://localhost:8087}")
+    private String notificationServiceUrl;
 
     // ─────────────────────────────────────────────────────────────────────────
     // 1. ÉCOUTE RABBITMQ — déclenchement automatique
@@ -57,6 +67,8 @@ public class TimetableAdjustmentService {
             // Publier le rapport pour notification
             if (report.conflictsFound > 0) {
                 publishScheduleChangedEvent(event.getTeacherId(), report);
+                // ── NOUVEAU : alertes push WebSocket + email via notification-service ──
+                sendConflictAlerts(event.getTeacherId(), report);
             }
         } catch (Exception e) {
             log.error("Failed to process availability change for teacher {}: {}",
@@ -274,6 +286,158 @@ public class TimetableAdjustmentService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // 5b. ALERTES CONFLIT — WebSocket + Email via notification-service
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Envoie une alerte de conflit via le notification-service :
+     *  - WebSocket push sur /topic/notifications (broadcastConflict)
+     *  - Email de notification de changement d'emploi du temps
+     *
+     * Appel HTTP vers POST /api/notifications/advanced/schedule-change
+     * (le notification-service gère ensuite WebSocket + email en interne).
+     */
+    private void sendConflictAlerts(Long teacherId, AdjustmentReport report) {
+        try {
+            // ── 1. Alerte WebSocket via notification-service ──────────────────
+            String conflictType = report.relaxed > 0
+                    ? "INTER_SCHOOL_CONFLICT_RELAXED"
+                    : "INTER_SCHOOL_CONFLICT_REASSIGNED";
+
+            String description = String.format(
+                    "Enseignant %d : %d conflit(s) détecté(s) suite à un changement de disponibilité. " +
+                    "%d créneau(x) réassigné(s), %d maintenu(s) par relaxation.",
+                    teacherId, report.conflictsFound, report.reassigned, report.relaxed);
+
+            Map<String, Object> wsPayload = new HashMap<>();
+            wsPayload.put("conflictType", conflictType);
+            wsPayload.put("description", description);
+            wsPayload.put("teacherId", teacherId);
+            wsPayload.put("conflictsFound", report.conflictsFound);
+            wsPayload.put("reassigned", report.reassigned);
+            wsPayload.put("relaxed", report.relaxed);
+            wsPayload.put("relaxedSlots", report.relaxedSlots);
+            wsPayload.put("timestamp", LocalDateTime.now().toString());
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            // Appel au notification-service pour broadcast WebSocket
+            String wsUrl = notificationServiceUrl + "/api/notifications/advanced/conflict-alert";
+            try {
+                restTemplate.postForObject(wsUrl, new HttpEntity<>(wsPayload, headers), Map.class);
+                log.info("Conflict alert sent via WebSocket for teacher {}", teacherId);
+            } catch (Exception wsEx) {
+                log.warn("Could not send WebSocket conflict alert: {}", wsEx.getMessage());
+            }
+
+            // ── 2. Email d'alerte via notification-service ────────────────────
+            // Construit un ScheduleChangeEvent pour déclencher l'envoi email
+            Map<String, Object> emailPayload = new HashMap<>();
+            emailPayload.put("scheduleId", teacherId); // utilisé comme référence
+            emailPayload.put("eventType", conflictType);
+            emailPayload.put("changeType", conflictType);
+            emailPayload.put("eventTimestamp", LocalDateTime.now().toString());
+            emailPayload.put("description", description);
+            // Créneaux relaxés → listés dans le corps de l'email
+            if (!report.relaxedSlots.isEmpty()) {
+                emailPayload.put("relaxedSlots", String.join(", ", report.relaxedSlots));
+            }
+
+            String emailUrl = notificationServiceUrl + "/api/notifications/advanced/schedule-change";
+            try {
+                restTemplate.postForObject(emailUrl, new HttpEntity<>(emailPayload, headers), Map.class);
+                log.info("Conflict email alert sent for teacher {}", teacherId);
+            } catch (Exception emailEx) {
+                log.warn("Could not send email conflict alert: {}", emailEx.getMessage());
+            }
+
+        } catch (Exception e) {
+            log.error("Failed to send conflict alerts for teacher {}: {}", teacherId, e.getMessage());
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 5c. SUGGESTIONS ALTERNATIVES — API publique pour le frontend
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Calcule des suggestions de créneaux alternatifs pour un créneau en conflit.
+     * Retourne jusqu'à 5 alternatives triées par score de compatibilité.
+     *
+     * @param slotId     ID du créneau GeneratedSchedule en conflit
+     * @return liste de suggestions avec label, score et disponibilité
+     */
+    public List<AlternativeSuggestion> getAlternativeSuggestions(Long slotId) {
+        GeneratedSchedule slot = scheduleRepo.findById(slotId).orElse(null);
+        if (slot == null) return List.of();
+
+        Set<String> allowedKeys = availabilityClient.getAllowedSlotKeys(slot.getTeacherId());
+
+        // Créneaux déjà occupés par cet enseignant
+        Set<String> occupiedByTeacher = scheduleRepo.findByTeacherId(slot.getTeacherId())
+                .stream()
+                .filter(s -> !s.getId().equals(slotId) && !"RELAXED".equals(s.getStatus()))
+                .map(s -> s.getDayOfWeek() + "_" + s.getStartTime())
+                .collect(Collectors.toSet());
+
+        // Créneaux déjà occupés par cette salle
+        Set<String> occupiedByRoom = scheduleRepo
+                .findBySchoolIdAndSemesterAndLevel(slot.getSchoolId(), slot.getSemester(), slot.getLevel())
+                .stream()
+                .filter(s -> slot.getRoomId() != null && slot.getRoomId().equals(s.getRoomId())
+                        && !s.getId().equals(slotId))
+                .map(s -> s.getDayOfWeek() + "_" + s.getStartTime())
+                .collect(Collectors.toSet());
+
+        String[] days  = {"LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI"};
+        String[][] times = {{"08:00", "10:00"}, {"10:00", "12:00"}, {"14:00", "16:00"}, {"16:00", "18:00"}};
+
+        List<AlternativeSuggestion> suggestions = new ArrayList<>();
+
+        for (String day : days) {
+            for (String[] time : times) {
+                String start = time[0], end = time[1];
+                String key = day + "_" + start;
+
+                // Ignorer le créneau actuel
+                if (day.equals(slot.getDayOfWeek()) && start.equals(slot.getStartTime())) continue;
+
+                boolean teacherFree = !occupiedByTeacher.contains(key);
+                boolean roomFree    = !occupiedByRoom.contains(key);
+                boolean teacherAvail = availabilityClient.isSlotAllowed(allowedKeys, day, start, end);
+
+                if (!teacherFree) continue; // enseignant déjà occupé → pas une alternative valide
+
+                // Score : 100 si tout est libre + dispo, -10 si salle occupée, -20 si hors dispo
+                int score = 100;
+                if (!roomFree)    score -= 15;
+                if (!teacherAvail && !allowedKeys.isEmpty()) score -= 25;
+
+                String dayFr = switch (day) {
+                    case "LUNDI"    -> "Lundi";
+                    case "MARDI"    -> "Mardi";
+                    case "MERCREDI" -> "Mercredi";
+                    case "JEUDI"    -> "Jeudi";
+                    case "VENDREDI" -> "Vendredi";
+                    default         -> day;
+                };
+
+                String label = String.format("%s %s–%s — %s%s",
+                        dayFr, start, end,
+                        slot.getRoomName() != null ? slot.getRoomName() : "Salle " + slot.getRoomId(),
+                        roomFree ? " (disponible)" : " (salle occupée — autre salle requise)");
+
+                suggestions.add(new AlternativeSuggestion(key, label, score, teacherAvail && roomFree));
+            }
+        }
+
+        // Trier par score décroissant, limiter à 5
+        suggestions.sort(Comparator.comparingInt(AlternativeSuggestion::getScore).reversed());
+        return suggestions.stream().limit(5).collect(Collectors.toList());
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // 6. PUBLICATION D'ÉVÉNEMENTS
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -341,5 +505,25 @@ public class TimetableAdjustmentService {
             this.description = description;
             this.affectedSlotIds = affectedSlotIds;
         }
+    }
+
+    /** Suggestion de créneau alternatif pour résoudre un conflit. */
+    public static class AlternativeSuggestion {
+        private final String slotKey;   // ex: "LUNDI_08:00"
+        private final String label;     // texte affiché dans le frontend
+        private final int score;        // 0–100
+        private final boolean fullyAvailable;
+
+        public AlternativeSuggestion(String slotKey, String label, int score, boolean fullyAvailable) {
+            this.slotKey = slotKey;
+            this.label = label;
+            this.score = score;
+            this.fullyAvailable = fullyAvailable;
+        }
+
+        public String getSlotKey()         { return slotKey; }
+        public String getLabel()           { return label; }
+        public int getScore()              { return score; }
+        public boolean isFullyAvailable()  { return fullyAvailable; }
     }
 }

@@ -27,6 +27,21 @@ export interface NotificationPreferences {
   reminderMinutesBefore: number;
 }
 
+export interface ReminderPayload {
+  /** IDs des destinataires (étudiants + enseignant) */
+  recipientIds: number[];
+  /** Titre du rappel */
+  subject: string;
+  /** Corps du message */
+  message: string;
+  /** Type d'événement déclencheur */
+  eventType: 'SCHEDULE_CHANGE' | 'COURSE_REMINDER' | 'ROOM_CHANGE' | 'CANCELLATION' | 'EVENT_REMINDER';
+  /** ID de la séance ou de l'événement concerné */
+  eventId?: number;
+  /** Priorité : LOW | NORMAL | HIGH */
+  priority?: 'LOW' | 'NORMAL' | 'HIGH';
+}
+
 interface ApiWrapped<T> { success: boolean; data: T; }
 
 @Injectable({
@@ -63,7 +78,7 @@ export class NotificationsManagementService {
   }
 
   getPreferences(userId: number): Observable<NotificationPreferences> {
-    return this.api.get<NotificationPreferences>(`/v1/notifications/preferences/${userId}`).pipe(
+    return this.api.get<NotificationPreferences>(`/notifications/advanced/preferences/${userId}`).pipe(
       catchError(() => of({
         emailEnabled: true, pushEnabled: true, scheduleChanges: true,
         conflictAlerts: true, reservationUpdates: true,
@@ -73,6 +88,40 @@ export class NotificationsManagementService {
   }
 
   savePreferences(userId: number, prefs: NotificationPreferences): Observable<NotificationPreferences> {
-    return this.api.put<NotificationPreferences>(`/v1/notifications/preferences/${userId}`, prefs);
+    return this.api.post<NotificationPreferences>(`/notifications/advanced/preferences/${userId}`, prefs);
+  }
+
+  /**
+   * Envoie un rappel en masse à une liste de destinataires.
+   * Utilise POST /api/notifications/advanced/bulk-send
+   */
+  sendBulkReminder(payload: ReminderPayload): Observable<{ success: boolean; sentCount: number }> {
+    return this.api.post<any>('/notifications/advanced/bulk-send', {
+      recipientIds: payload.recipientIds,
+      subject:      payload.subject,
+      message:      payload.message,
+      eventType:    payload.eventType,
+      eventId:      payload.eventId,
+      priority:     payload.priority ?? 'NORMAL',
+    }).pipe(
+      map(res => ({ success: res?.success ?? true, sentCount: res?.sentCount ?? payload.recipientIds.length })),
+      catchError(() => of({ success: false, sentCount: 0 }))
+    );
+  }
+
+  /**
+   * Notifie un changement d'emploi du temps.
+   * Utilise POST /api/notifications/advanced/schedule-change
+   */
+  sendScheduleChangeNotification(scheduleId: number, changeType: string): Observable<boolean> {
+    return this.api.post<any>('/notifications/advanced/schedule-change', {
+      scheduleId,
+      changeType,
+      eventType: changeType,
+      eventTimestamp: new Date().toISOString(),
+    }).pipe(
+      map(res => res?.success ?? true),
+      catchError(() => of(false))
+    );
   }
 }

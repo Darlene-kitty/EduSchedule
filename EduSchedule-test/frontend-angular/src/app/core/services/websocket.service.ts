@@ -41,7 +41,7 @@ export class WebSocketService implements OnDestroy {
   private schedule$      = new Subject<ScheduleChangeEvent>();
 
   // WebSocket natif STOMP — brokerURL pointe vers le endpoint /ws/websocket du notification-service
-  private wsUrl = `${((environment as any).wsUrl || 'ws://localhost:8087')}/ws/websocket`;
+  private wsUrl = `${environment.wsUrl || 'ws://localhost:8087'}/ws/websocket`;
 
   get isConnected$(): Observable<boolean> { return this.connected$.asObservable(); }
   get allNotifications$(): Observable<WsMessage> { return this.notifications$.asObservable(); }

@@ -47,7 +47,7 @@ export interface CoursePayload {
   teacherId?: number;
   maxStudents?: number;
   hoursPerWeek?: number;
-  schoolId?: number;
+  schoolId?: number;       // @NotNull dans CourseDTO — obligatoire à la création
 }
 
 interface ApiWrapped<T> { success: boolean; data: T; }

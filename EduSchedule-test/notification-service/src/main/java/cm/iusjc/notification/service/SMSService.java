@@ -1,98 +1,136 @@
 package cm.iusjc.notification.service;
 
+import com.twilio.Twilio;
+import com.twilio.rest.api.v2010.account.Message;
+import com.twilio.type.PhoneNumber;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
+import java.util.List;
+
 @Service
 @Slf4j
 public class SMSService {
-    
-    @Value("${sms.provider.enabled:false}")
+
+    @Value("${sms.twilio.enabled:false}")
     private boolean smsEnabled;
-    
-    @Value("${sms.provider.api-key:}")
-    private String apiKey;
-    
-    @Value("${sms.provider.sender-id:EduSchedule}")
+
+    @Value("${sms.twilio.account-sid:}")
+    private String accountSid;
+
+    @Value("${sms.twilio.auth-token:}")
+    private String authToken;
+
+    @Value("${sms.twilio.from-number:}")
+    private String fromNumber;
+
+    @Value("${sms.twilio.sender-id:EduSchedule}")
     private String senderId;
-    
+
+    /** Initialise le SDK Twilio au démarrage si les credentials sont présents. */
+    @PostConstruct
+    public void init() {
+        if (smsEnabled && isConfigured()) {
+            Twilio.init(accountSid, authToken);
+            log.info("Twilio SMS service initialized (from: {})", fromNumber);
+        } else if (smsEnabled) {
+            log.warn("SMS enabled but Twilio credentials are missing — SMS will be logged only.");
+        } else {
+            log.info("SMS service disabled (sms.twilio.enabled=false).");
+        }
+    }
+
+    // ── Envoi simple ──────────────────────────────────────────────────────────
+
     /**
-     * Send SMS notification
+     * Envoie un SMS. Si Twilio n'est pas configuré, logue le message sans erreur.
      */
-    public void sendSMS(String phoneNumber, String message) {
+    public void sendSMS(String phoneNumber, String messageText) {
         if (!smsEnabled) {
-            log.info("SMS service disabled. Would send to {}: {}", phoneNumber, message);
+            log.info("[SMS-DISABLED] To={} | {}", phoneNumber, messageText);
             return;
         }
-        
+
+        String formatted = formatPhoneNumber(phoneNumber);
+        if (!isValidPhoneNumber(formatted)) {
+            log.warn("Numéro invalide, SMS ignoré : {}", phoneNumber);
+            return;
+        }
+
+        if (!isConfigured()) {
+            log.warn("[SMS-NO-CREDENTIALS] To={} | {}", formatted, messageText);
+            return;
+        }
+
         try {
-            // Here you would integrate with your SMS provider (Twilio, AWS SNS, etc.)
-            // For now, we'll just log the SMS
-            log.info("Sending SMS to {}: {}", phoneNumber, message);
-            
-            // Example integration with Twilio (commented out)
-            /*
-            Twilio.init(accountSid, authToken);
-            Message twilioMessage = Message.creator(
-                new PhoneNumber(phoneNumber),
-                new PhoneNumber(fromPhoneNumber),
-                message
+            Message msg = Message.creator(
+                    new PhoneNumber(formatted),
+                    new PhoneNumber(fromNumber),
+                    messageText
             ).create();
-            
-            log.info("SMS sent successfully. SID: {}", twilioMessage.getSid());
-            */
-            
-            // Simulate successful SMS sending
-            simulateSMSSending(phoneNumber, message);
-            
+
+            log.info("SMS envoyé à {} — SID: {}", formatted, msg.getSid());
         } catch (Exception e) {
-            log.error("Error sending SMS to {}: {}", phoneNumber, e.getMessage());
-            throw new RuntimeException("Failed to send SMS", e);
+            log.error("Échec envoi SMS à {} : {}", formatted, e.getMessage());
+            // Ne pas propager l'exception pour ne pas bloquer le flux principal
         }
     }
-    
-    /**
-     * Send bulk SMS notifications
-     */
-    public void sendBulkSMS(java.util.List<String> phoneNumbers, String message) {
-        log.info("Sending bulk SMS to {} recipients", phoneNumbers.size());
-        
-        for (String phoneNumber : phoneNumbers) {
-            try {
-                sendSMS(phoneNumber, message);
-            } catch (Exception e) {
-                log.error("Failed to send SMS to {}: {}", phoneNumber, e.getMessage());
-                // Continue with other recipients
-            }
+
+    /** Envoi en masse — continue même si un destinataire échoue. */
+    public void sendBulkSMS(List<String> phoneNumbers, String messageText) {
+        log.info("Envoi SMS en masse à {} destinataires", phoneNumbers.size());
+        for (String number : phoneNumbers) {
+            sendSMS(number, messageText);
         }
     }
-    
-    /**
-     * Validate phone number format
-     */
+
+    // ── Notifications métier ──────────────────────────────────────────────────
+
+    public void sendScheduleChangeSMS(String phoneNumber, String courseName, String changeDescription) {
+        String text = String.format(
+            "[EduSchedule] Modification cours : %s\n%s",
+            courseName, changeDescription
+        );
+        sendSMS(phoneNumber, text);
+    }
+
+    public void sendReservationSMS(String phoneNumber, String title, String status) {
+        String text = String.format(
+            "[EduSchedule] Réservation \"%s\" : %s",
+            title, status
+        );
+        sendSMS(phoneNumber, text);
+    }
+
+    public void sendReminderSMS(String phoneNumber, String courseName, int minutesBefore) {
+        String text = String.format(
+            "[EduSchedule] Rappel : \"%s\" commence dans %d min.",
+            courseName, minutesBefore
+        );
+        sendSMS(phoneNumber, text);
+    }
+
+    // ── Utilitaires ───────────────────────────────────────────────────────────
+
+    public boolean isServiceAvailable() {
+        return smsEnabled && isConfigured();
+    }
+
     public boolean isValidPhoneNumber(String phoneNumber) {
-        if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
-            return false;
-        }
-        
-        // Basic validation for international format
+        if (phoneNumber == null || phoneNumber.isBlank()) return false;
         String cleaned = phoneNumber.replaceAll("[^0-9+]", "");
         return cleaned.length() >= 10 && cleaned.length() <= 15;
     }
-    
+
     /**
-     * Format phone number for SMS sending
+     * Normalise le numéro au format international.
+     * Ajoute +237 (Cameroun) si aucun indicatif n'est présent.
      */
     public String formatPhoneNumber(String phoneNumber) {
-        if (phoneNumber == null) {
-            return null;
-        }
-        
-        // Remove all non-digit characters except +
+        if (phoneNumber == null) return null;
         String cleaned = phoneNumber.replaceAll("[^0-9+]", "");
-        
-        // Add country code if missing (assuming Cameroon +237)
         if (!cleaned.startsWith("+")) {
             if (cleaned.startsWith("237")) {
                 cleaned = "+" + cleaned;
@@ -100,84 +138,41 @@ public class SMSService {
                 cleaned = "+237" + cleaned;
             }
         }
-        
         return cleaned;
     }
-    
-    /**
-     * Check SMS service status
-     */
-    public boolean isServiceAvailable() {
-        return smsEnabled && apiKey != null && !apiKey.trim().isEmpty();
-    }
-    
-    /**
-     * Get SMS character count and cost estimation
-     */
+
     public SMSInfo getSMSInfo(String message) {
         SMSInfo info = new SMSInfo();
         info.setCharacterCount(message.length());
         info.setMessageCount(calculateMessageCount(message));
-        info.setEstimatedCost(info.getMessageCount() * 0.05); // Example: 0.05€ per SMS
-        
+        info.setEstimatedCost(info.getMessageCount() * 0.05);
         return info;
     }
-    
-    /**
-     * Calculate number of SMS messages needed
-     */
+
+    private boolean isConfigured() {
+        return accountSid != null && !accountSid.isBlank()
+            && authToken  != null && !authToken.isBlank()
+            && fromNumber != null && !fromNumber.isBlank();
+    }
+
     private int calculateMessageCount(String message) {
-        int length = message.length();
-        
-        // Standard SMS: 160 characters
-        // Unicode SMS: 70 characters
         boolean isUnicode = !message.matches("^[\\x00-\\x7F]*$");
         int maxLength = isUnicode ? 70 : 160;
-        
-        return (int) Math.ceil((double) length / maxLength);
+        return (int) Math.ceil((double) message.length() / maxLength);
     }
-    
-    /**
-     * Simulate SMS sending for development/testing
-     */
-    private void simulateSMSSending(String phoneNumber, String message) {
-        // Simulate network delay
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        
-        log.info("✅ SMS simulated successfully to {}", phoneNumber);
-    }
-    
-    /**
-     * SMS Information class
-     */
+
+    // ── DTO interne ───────────────────────────────────────────────────────────
+
     public static class SMSInfo {
         private int characterCount;
         private int messageCount;
         private double estimatedCost;
-        
-        // Getters and setters
-        public int getCharacterCount() { return characterCount; }
-        public void setCharacterCount(int characterCount) { this.characterCount = characterCount; }
-        
-        public int getMessageCount() { return messageCount; }
-        public void setMessageCount(int messageCount) { this.messageCount = messageCount; }
-        
-        public double getEstimatedCost() { return estimatedCost; }
-        public void setEstimatedCost(double estimatedCost) { this.estimatedCost = estimatedCost; }
-    }
-    
-    /**
-     * Send schedule change SMS notification
-     */
-    public void sendScheduleChangeSMS(Long scheduleId, Long userId, String message) {
-        log.info("Sending schedule change SMS for schedule {} to user {}", scheduleId, userId);
-        // In a real implementation, you would fetch the user's phone number from the database
-        // For now, we'll just log the message
-        String phoneNumber = "+237600000000"; // Placeholder
-        sendSMS(phoneNumber, message);
+
+        public int getCharacterCount()              { return characterCount; }
+        public void setCharacterCount(int v)        { this.characterCount = v; }
+        public int getMessageCount()                { return messageCount; }
+        public void setMessageCount(int v)          { this.messageCount = v; }
+        public double getEstimatedCost()            { return estimatedCost; }
+        public void setEstimatedCost(double v)      { this.estimatedCost = v; }
     }
 }

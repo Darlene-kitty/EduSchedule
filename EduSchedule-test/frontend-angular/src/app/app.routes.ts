@@ -7,6 +7,10 @@ export const routes: Routes = [
     path: 'forgot-password',
     loadComponent: () => import('./features/forgot-password/forgot-password').then(m => m.ForgotPasswordComponent)
   },
+  {
+    path: 'reset-password',
+    loadComponent: () => import('./features/reset-password/reset-password').then(m => m.ResetPasswordComponent)
+  },
   // Public routes
   {
     path: '',
@@ -158,7 +162,6 @@ export const routes: Routes = [
       .then(m => m.ExamSchedulingComponent),
     canActivate: [authGuard, roleGuard('ADMIN')]
   },
-
   // Fallback
   {
     path: '**',

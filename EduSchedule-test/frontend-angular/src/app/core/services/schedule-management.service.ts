@@ -9,12 +9,15 @@ export interface ScheduleEntry {
   title?: string;
   teacher?: string;
   room?: string;
-  dayOfWeek?: number;
+  dayOfWeek?: number | string;
   startTime: string;
   endTime: string;
   level?: string;
   group?: string;
+  groupName?: string;
   color?: string;
+  status?: string;
+  course?: string;
   createdAt?: string;
 }
 

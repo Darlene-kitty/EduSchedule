@@ -45,6 +45,14 @@
         </div>
 
         <div class="notifications-list">
+          <div *ngIf="isLoading" class="empty-state">
+            <mat-icon class="spinning">refresh</mat-icon>
+            <p>Chargement des notifications...</p>
+          </div>
+          <div *ngIf="!isLoading && notifications.length === 0" class="empty-state">
+            <mat-icon style="font-size:48px;color:#9CA3AF">notifications_none</mat-icon>
+            <p style="color:#6B7280;margin-top:8px">Aucune notification pour le moment</p>
+          </div>
           <div *ngFor="let notif of notifications" class="notif-card"
                [style.background]="notif.bgColor"
                [style.border-left]="'4px solid ' + notif.borderColor">

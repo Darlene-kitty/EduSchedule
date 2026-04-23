@@ -384,20 +384,49 @@ public class RoomOptimizationService {
     }
     
     private boolean isRoomSuitableForCourseType(Resource room, String courseType) {
-        if (room.getType() == null) return true;
-        
+        if (courseType == null || courseType.isBlank()) return true;
+        String type = room.getType() != null ? room.getType().toUpperCase() : "";
+
         switch (courseType.toUpperCase()) {
+            // Travaux Pratiques → laboratoire, salle info, atelier
             case "TP":
             case "PRACTICAL":
-                return room.getName().toLowerCase().contains("lab") || 
-                       room.getName().toLowerCase().contains("tp");
+                return type.equals("LABORATORY")
+                    || type.equals("COMPUTER_LAB")
+                    || type.equals("WORKSHOP")
+                    // fallback sur le nom si le type n'est pas encore migré
+                    || room.getName().toLowerCase().contains("lab")
+                    || room.getName().toLowerCase().contains("tp")
+                    || room.getName().toLowerCase().contains("info");
+
+            // Cours Magistral / Conférence → amphithéâtre, auditorium (ou grande capacité)
+            case "CM":
             case "COURS":
             case "LECTURE":
-                return room.getName().toLowerCase().contains("amphi") || 
-                       room.getCapacity() > 50;
+            case "CONFERENCE":
+                return type.equals("AMPHITHEATER")
+                    || type.equals("AUDITORIUM")
+                    || type.equals("CONFERENCE_ROOM")
+                    || (room.getCapacity() != null && room.getCapacity() > 50);
+
+            // Travaux Dirigés / Séminaire → salle de classe, salle de réunion
             case "TD":
             case "TUTORIAL":
-                return room.getCapacity() <= 50 && room.getCapacity() >= 15;
+            case "SEMINAR":
+                return type.equals("CLASSROOM")
+                    || type.equals("MEETING_ROOM")
+                    || type.equals("STUDY_ROOM")
+                    || (room.getCapacity() != null
+                        && room.getCapacity() >= 15
+                        && room.getCapacity() <= 60);
+
+            // Examen → salle d'examen, amphithéâtre, ou grande salle de classe
+            case "EXAM":
+                return type.equals("EXAM_ROOM")
+                    || type.equals("AMPHITHEATER")
+                    || type.equals("AUDITORIUM")
+                    || (room.getCapacity() != null && room.getCapacity() >= 30);
+
             default:
                 return true;
         }

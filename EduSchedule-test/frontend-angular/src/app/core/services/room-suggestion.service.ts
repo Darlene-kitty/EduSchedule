@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
+import { ApiService } from './api.service';
 
 export interface RoomSuggestion {
   resourceId: number;
@@ -26,19 +27,19 @@ export interface SuggestionCriteria {
 
 @Injectable({ providedIn: 'root' })
 export class RoomSuggestionService {
-  private http = inject(HttpClient);
-  private base = '/api/room-optimization';
+  private api = inject(ApiService);
 
   suggest(criteria: SuggestionCriteria): Observable<RoomSuggestion[]> {
-    return this.http.post<RoomSuggestion[]>(`${this.base}/suggest`, criteria).pipe(
+    return this.api.post<RoomSuggestion[]>('/room-optimization/suggest', criteria).pipe(
       catchError(() => of([]))
     );
   }
 
   suggestForCourse(courseType: string, startTime: string, endTime: string,
                    capacity: number): Observable<RoomSuggestion[]> {
-    return this.http.get<RoomSuggestion[]>(`${this.base}/suggest-for-course`, {
-      params: { courseType, startTime, endTime, capacity: capacity.toString(), maxSuggestions: '5' }
-    }).pipe(catchError(() => of([])));
+    const params = `?courseType=${encodeURIComponent(courseType)}&startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}&capacity=${capacity}&maxSuggestions=5`;
+    return this.api.get<RoomSuggestion[]>(`/room-optimization/suggest-for-course${params}`).pipe(
+      catchError(() => of([]))
+    );
   }
 }

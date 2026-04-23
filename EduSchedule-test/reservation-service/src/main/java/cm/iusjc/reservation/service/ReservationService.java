@@ -270,6 +270,8 @@ public class ReservationService {
         eventPublisher.publishApproved(approvedReservation);
         // Enregistrer l'usage dans le resource-service pour le suivi d'usure
         notifyEquipmentUsage(approvedReservation);
+        // Allouer automatiquement les équipements requis selon le type de cours
+        allocateEquipments(approvedReservation);
         
         return convertToDTO(approvedReservation);
     }
@@ -328,6 +330,8 @@ public class ReservationService {
         
         // Publier l'événement d'annulation
         eventPublisher.publishCancelled(cancelledReservation, reason);
+        // Libérer les équipements alloués
+        releaseEquipments(cancelledReservation.getId());
         
         return convertToDTO(cancelledReservation);
     }
@@ -485,26 +489,80 @@ public class ReservationService {
     }
 
     /**
+     * Alloue automatiquement les équipements requis pour le type de cours
+     * de la réservation confirmée. Appel non-bloquant vers le resource-service.
+     */
+    private void allocateEquipments(Reservation reservation) {
+        try {
+            String typeCours = mapReservationTypeToCourseType(reservation.getType());
+            java.util.Map<String, Object> body = new java.util.HashMap<>();
+            body.put("reservationId", reservation.getId());
+            body.put("salleId",       reservation.getResourceId());
+            body.put("typeCours",     typeCours);
+            body.put("dateDebut",     reservation.getStartTime().toString());
+            body.put("dateFin",       reservation.getEndTime().toString());
+            restTemplate.postForObject(
+                resourceServiceUrl + "/api/v1/salle-materiels/allouer",
+                body, Map.class
+            );
+            log.info("Équipements alloués pour réservation {} (salle {}, type {})",
+                    reservation.getId(), reservation.getResourceId(), typeCours);
+        } catch (Exception e) {
+            log.warn("Allocation équipements non critique pour réservation {}: {}",
+                    reservation.getId(), e.getMessage());
+        }
+    }
+
+    /**
+     * Libère les équipements alloués lors de l'annulation d'une réservation.
+     */
+    private void releaseEquipments(Long reservationId) {
+        try {
+            restTemplate.postForObject(
+                resourceServiceUrl + "/api/v1/salle-materiels/liberer/" + reservationId,
+                null, Map.class
+            );
+            log.info("Équipements libérés pour réservation {}", reservationId);
+        } catch (Exception e) {
+            log.warn("Libération équipements non critique pour réservation {}: {}",
+                    reservationId, e.getMessage());
+        }
+    }
+
+    /**
+     * Convertit un ReservationType en code CourseType pour le resource-service.
+     */
+    private String mapReservationTypeToCourseType(ReservationType type) {
+        if (type == null) return "CM";
+        return switch (type) {
+            case EXAM        -> "EXAM";
+            case CONFERENCE  -> "CONFERENCE";
+            case SEMINAR     -> "SEMINAR";
+            default          -> "CM";
+        };
+    }
+
+    /**
      * Validation des heures de réservation
      */
     private void validateReservationTimes(LocalDateTime startTime, LocalDateTime endTime) {
         if (startTime == null || endTime == null) {
             throw new RuntimeException("Start time and end time are required");
         }
-        
+
         if (startTime.isAfter(endTime)) {
             throw new RuntimeException("Start time must be before end time");
         }
-        
+
         if (startTime.isBefore(LocalDateTime.now().minus(1, ChronoUnit.HOURS))) {
             throw new RuntimeException("Cannot create reservation in the past");
         }
-        
+
         long durationMinutes = ChronoUnit.MINUTES.between(startTime, endTime);
         if (durationMinutes < 15) {
             throw new RuntimeException("Reservation duration must be at least 15 minutes");
         }
-        
+
         if (durationMinutes > 720) { // 12 heures
             throw new RuntimeException("Reservation duration cannot exceed 12 hours");
         }

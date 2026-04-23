@@ -3,9 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
-import { DashboardService } from '../../core/services/dashboard.service';
-import { ReportingService, ReportDTO, ReportRequest, ReportType, ReportFormat } from '../../core/services/reporting.service';
+import {
+  ReportingService,
+  ReportDTO, ReportRequest, ReportType, ReportFormat,
+  StatisticsDTO, ScheduledReportConfig
+} from '../../core/services/reporting.service';
 import { AuthService } from '../../core/services/auth.service';
+
+type ActiveTab = 'overview' | 'rooms' | 'teachers' | 'schools' | 'export';
 
 @Component({
   selector: 'app-reports',
@@ -15,16 +20,77 @@ import { AuthService } from '../../core/services/auth.service';
   styleUrl: './reports.css'
 })
 export class ReportsComponent implements OnInit, AfterViewInit {
-  private dashboardService = inject(DashboardService);
   private reportingService = inject(ReportingService);
   private authService      = inject(AuthService);
 
   currentDate = ''; currentTime = '';
-  selectedPeriod = 'Cette semaine';
 
-  // Génération
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  activeTab: ActiveTab = 'overview';
+
+  setTab(tab: ActiveTab): void {
+    this.activeTab = tab;
+    setTimeout(() => this.drawAllCharts(), 120);
+  }
+
+  // ── Statistics ────────────────────────────────────────────────────────────
+  isLoading = false;
+  statsData: StatisticsDTO | null = null;
+  scheduledConfigs: ScheduledReportConfig[] = [];
+  isLoadingScheduled = false;
+
+  readonly CHART_COLORS = [
+    '#1D4ED8','#15803D','#F59E0B','#7C3AED',
+    '#EF4444','#06B6D4','#84CC16','#F97316','#EC4899','#6366F1'
+  ];
+
+  @ViewChild('barRoomCanvas')     barRoomCanvas!:     ElementRef<HTMLCanvasElement>;
+  @ViewChild('barTeacherCanvas')  barTeacherCanvas!:  ElementRef<HTMLCanvasElement>;
+  @ViewChild('pieSchoolCanvas')   pieSchoolCanvas!:   ElementRef<HTMLCanvasElement>;
+  @ViewChild('pieRoomTypeCanvas') pieRoomTypeCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('barAvailCanvas')    barAvailCanvas!:    ElementRef<HTMLCanvasElement>;
+
+  get kpiCards(): { label: string; value: string; icon: string; color: string }[] {
+    if (!this.statsData) return [];
+    return [
+      { label: 'Utilisateurs',      value: String(this.statsData.totalUsers),       icon: 'people',          color: '#1D4ED8' },
+      { label: 'Cours',             value: String(this.statsData.totalCourses),      icon: 'menu_book',       color: '#15803D' },
+      { label: 'Réservations',      value: String(this.statsData.totalReservations), icon: 'event_available', color: '#F59E0B' },
+      { label: 'Salles',            value: String(this.statsData.totalRooms || this.statsData.totalResources), icon: 'meeting_room', color: '#7C3AED' },
+      { label: 'Taux occupation',   value: `${Math.round(this.statsData.averageRoomOccupancy || 0)}%`,        icon: 'trending_up',  color: '#EF4444' },
+      { label: 'Utilisation cours', value: `${Math.round(this.statsData.averageCourseUtilization || 0)}%`,   icon: 'bar_chart',    color: '#06B6D4' },
+    ];
+  }
+
+  get topTeachers()    { return (this.statsData?.coursesByTeacher  || []).slice(0, 10); }
+  get roomUsage()      { return (this.statsData?.roomUsageDetails  || []).slice(0, 15); }
+  get schoolStats()    { return  this.statsData?.schoolStatistics  || []; }
+  get teacherWorkload(){ return  this.statsData?.teacherWorkload   || []; }
+
+  workloadClass(s: string): string {
+    if (s === 'overloaded')    return 'badge-red';
+    if (s === 'underutilized') return 'badge-yellow';
+    return 'badge-green';
+  }
+  workloadLabel(s: string): string {
+    if (s === 'overloaded')    return 'Surchargé';
+    if (s === 'underutilized') return 'Sous-utilisé';
+    return 'Normal';
+  }
+  occupancyClass(rate: number): string {
+    if (rate >= 80) return 'badge-red';
+    if (rate >= 50) return 'badge-yellow';
+    return 'badge-green';
+  }
+  mapEntries(obj: Record<string, number> | undefined): { key: string; value: number }[] {
+    if (!obj) return [];
+    return Object.entries(obj).map(([key, value]) => ({ key, value })).sort((a, b) => b.value - a.value);
+  }
+
+  // ── Export ────────────────────────────────────────────────────────────────
   isGenerating = false;
-  showToast = false; toastMsg = ''; toastError = false;
+  isLoadingHistory = false;
+  recentReports: ReportDTO[] = [];
 
   reportForm: ReportRequest = {
     type:      'ROOM_OCCUPANCY',
@@ -51,65 +117,42 @@ export class ReportsComponent implements OnInit, AfterViewInit {
     { value: 'CSV',   label: 'CSV',   icon: 'description' },
   ];
 
-  // Historique
-  recentReports: ReportDTO[] = [];
-  isLoadingHistory = false;
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  showToast = false; toastMsg = ''; toastError = false;
 
-  // Stats dashboard
-  stats: { label: string; value: string; change: string; icon: string }[] = [];
-  barData: { day: string; value: number; max: number }[] = [];
-  pieData: { label: string; value: number; color: string }[] = [];
-  reportRows: { room: string; occupancy: string; courses: number; hours: string; status: string }[] = [];
-
-  @ViewChild('barCanvas') barCanvas!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('pieCanvas') pieCanvas!: ElementRef<HTMLCanvasElement>;
-
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
   ngOnInit(): void {
     this.updateDateTime();
     setInterval(() => this.updateDateTime(), 1000);
-    this.loadDashboardStats();
+    this.loadStatistics();
+    this.loadScheduledConfigs();
     this.loadReportHistory();
   }
 
-  ngAfterViewInit(): void { this.drawBarChart(); this.drawPieChart(); }
+  ngAfterViewInit(): void {
+    setTimeout(() => this.drawAllCharts(), 350);
+  }
 
-  // ── Stats ──────────────────────────────────────────────────────────────────
-
-  loadDashboardStats(): void {
-    this.dashboardService.getStats().subscribe({
+  // ── Data loading ──────────────────────────────────────────────────────────
+  loadStatistics(): void {
+    this.isLoading = true;
+    this.reportingService.getStatistics().subscribe({
       next: (data) => {
-        this.stats = [
-          { label: "Taux d'occupation moyen", value: `${data.occupancyRate}%`,        change: 'Temps réel', icon: 'trending_up' },
-          { label: 'Réservations actives',    value: String(data.activeReservations), change: 'Temps réel', icon: 'calendar_today' },
-          { label: 'Salles actives',          value: String(data.totalRooms),         change: `${data.activeUsers} utilisateurs`, icon: 'meeting_room' },
-        ];
-        this.barData = [
-          { day: 'Lun', value: Math.min(100, Math.round(data.occupancyRate * 0.9)), max: 100 },
-          { day: 'Mar', value: Math.min(100, Math.round(data.occupancyRate * 1.1)), max: 100 },
-          { day: 'Mer', value: Math.min(100, Math.round(data.occupancyRate * 0.8)), max: 100 },
-          { day: 'Jeu', value: Math.min(100, Math.round(data.occupancyRate * 1.2)), max: 100 },
-          { day: 'Ven', value: Math.min(100, Math.round(data.occupancyRate)),       max: 100 },
-        ];
-        setTimeout(() => { this.drawBarChart(); this.drawPieChart(); }, 50);
+        this.statsData = data as StatisticsDTO;
+        this.isLoading = false;
+        setTimeout(() => this.drawAllCharts(), 200);
       },
-      error: () => { this.stats = []; this.barData = []; }
-    });
-    this.dashboardService.getOccupancyByBuilding().subscribe({
-      next: (buildings) => {
-        this.pieData = (buildings || []).map((b, i) => ({
-          label: b.name, value: b.percentage,
-          color: ['#1D4ED8','#15803D','#F59E0B','#3B82F6','#7C3AED'][i % 5]
-        }));
-        this.reportRows = (buildings || []).map(b => ({
-          room: b.name, occupancy: `${b.percentage}%`, courses: 0, hours: '—', status: 'Actif'
-        }));
-        setTimeout(() => this.drawPieChart(), 50);
-      },
-      error: () => { this.pieData = []; this.reportRows = []; }
+      error: () => { this.isLoading = false; this.toast('Impossible de charger les statistiques.', true); }
     });
   }
 
-  // ── Historique ─────────────────────────────────────────────────────────────
+  loadScheduledConfigs(): void {
+    this.isLoadingScheduled = true;
+    this.reportingService.getScheduledConfigs().subscribe({
+      next: (configs) => { this.scheduledConfigs = configs; this.isLoadingScheduled = false; },
+      error: () => { this.scheduledConfigs = []; this.isLoadingScheduled = false; }
+    });
+  }
 
   loadReportHistory(): void {
     this.isLoadingHistory = true;
@@ -121,8 +164,7 @@ export class ReportsComponent implements OnInit, AfterViewInit {
     });
   }
 
-  // ── Génération ─────────────────────────────────────────────────────────────
-
+  // ── Export actions ────────────────────────────────────────────────────────
   generateReport(): void {
     if (this.isGenerating) return;
     this.isGenerating = true;
@@ -154,28 +196,135 @@ export class ReportsComponent implements OnInit, AfterViewInit {
     });
   }
 
-  exportPdf(): void {
-    const printWindow = window.open('', '_blank', 'width=900,height=700');
-    if (!printWindow) return;
-    printWindow.document.write(this.buildPdfHtml());
-    printWindow.document.close();
-    printWindow.onload = () => setTimeout(() => { printWindow.focus(); printWindow.print(); printWindow.close(); }, 500);
+  triggerScheduledReport(config: ScheduledReportConfig): void {
+    const typeMap: Record<string, string> = {
+      MONTHLY_SUMMARY: 'Résumé mensuel', ROOM_OCCUPANCY: 'Occupation des salles',
+      USER_STATISTICS: 'Statistiques utilisateurs', YEARLY_SUMMARY: 'Résumé annuel',
+      COURSE_UTILIZATION: 'Utilisation des cours'
+    };
+    this.reportingService.generate({
+      type: config.reportType as ReportType,
+      format: config.reportFormat as ReportFormat,
+      title: typeMap[config.reportType] || config.name
+    }).subscribe({
+      next: (r) => this.toast(`Rapport "${r.title}" généré avec succès.`),
+      error: () => this.toast('Erreur lors de la génération.', true)
+    });
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // ── Charts ────────────────────────────────────────────────────────────────
+  drawAllCharts(): void {
+    if (this.activeTab === 'overview') {
+      this.drawPieChart(this.pieSchoolCanvas,   this.mapEntries(this.statsData?.coursesBySchool));
+      this.drawPieChart(this.pieRoomTypeCanvas, this.mapEntries(this.statsData?.coursesByRoomType));
+    }
+    if (this.activeTab === 'rooms') {
+      this.drawBarChart(this.barRoomCanvas,
+        (this.statsData?.roomUsageDetails || []).slice(0, 10).map(r => ({ label: r.roomName, value: r.occupancyRate })),
+        '#1D4ED8', '%');
+      this.drawBarChart(this.barAvailCanvas,
+        Object.entries(this.statsData?.roomAvailabilityByHour || {}).map(([k, v]) => ({ label: k, value: v as number })),
+        '#15803D', '%');
+    }
+    if (this.activeTab === 'teachers') {
+      this.drawBarChart(this.barTeacherCanvas,
+        (this.statsData?.coursesByTeacher || []).slice(0, 10).map(t => ({ label: t.teacherName.split(' ')[0], value: t.totalHours })),
+        '#7C3AED', 'h');
+    }
+  }
+
+  private drawBarChart(
+    ref: ElementRef<HTMLCanvasElement> | undefined,
+    data: { label: string; value: number }[],
+    color: string, unit: string
+  ): void {
+    if (!ref?.nativeElement) return;
+    const canvas = ref.nativeElement;
+    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    const w = canvas.width = canvas.offsetWidth || 400;
+    const h = canvas.height = 220;
+    ctx.clearRect(0, 0, w, h);
+    if (!data.length) {
+      ctx.fillStyle = '#9CA3AF'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('Aucune donnée', w / 2, h / 2); return;
+    }
+    const p = { top: 20, bottom: 50, left: 45, right: 10 };
+    const cW = w - p.left - p.right; const cH = h - p.top - p.bottom;
+    const maxVal = Math.max(...data.map(d => d.value), 1);
+    const barW = Math.max(8, (cW / data.length) * 0.55);
+    const gap  = cW / data.length;
+    [0, 0.25, 0.5, 0.75, 1].forEach(frac => {
+      const y = p.top + cH - frac * cH;
+      ctx.strokeStyle = '#E5E7EB'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(p.left, y); ctx.lineTo(w - p.right, y); ctx.stroke();
+      ctx.fillStyle = '#9CA3AF'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+      ctx.fillText(`${Math.round(frac * maxVal)}${unit}`, p.left - 4, y + 3);
+    });
+    data.forEach((d, i) => {
+      const x  = p.left + i * gap + (gap - barW) / 2;
+      const bH = (d.value / maxVal) * cH;
+      const y  = p.top + cH - bH;
+      ctx.fillStyle = '#F3F4F6'; ctx.fillRect(x, p.top, barW, cH);
+      ctx.fillStyle = color;     ctx.fillRect(x, y, barW, bH);
+      ctx.fillStyle = '#6B7280'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+      const lbl = d.label.length > 8 ? d.label.substring(0, 7) + '.' : d.label;
+      ctx.fillText(lbl, x + barW / 2, h - 8);
+      if (bH > 16) {
+        ctx.fillStyle = 'white'; ctx.font = 'bold 9px sans-serif';
+        ctx.fillText(`${Math.round(d.value)}${unit}`, x + barW / 2, y + 12);
+      }
+    });
+  }
+
+  private drawPieChart(
+    ref: ElementRef<HTMLCanvasElement> | undefined,
+    data: { key: string; value: number }[]
+  ): void {
+    if (!ref?.nativeElement) return;
+    const canvas = ref.nativeElement;
+    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    const w = canvas.width = canvas.offsetWidth || 300;
+    const h = canvas.height = 200;
+    ctx.clearRect(0, 0, w, h);
+    if (!data.length) {
+      ctx.fillStyle = '#9CA3AF'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('Aucune donnée', w / 2, h / 2); return;
+    }
+    const total = data.reduce((s, d) => s + d.value, 0) || 1;
+    const cx = w * 0.38; const cy = h / 2; const r = Math.min(cx, cy) - 10;
+    let angle = -Math.PI / 2;
+    data.slice(0, 8).forEach((d, i) => {
+      const slice = (d.value / total) * 2 * Math.PI;
+      ctx.beginPath(); ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, angle, angle + slice); ctx.closePath();
+      ctx.fillStyle = this.CHART_COLORS[i % this.CHART_COLORS.length]; ctx.fill();
+      ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
+      angle += slice;
+    });
+    const legendX = w * 0.72; let legendY = 20;
+    data.slice(0, 8).forEach((d, i) => {
+      ctx.fillStyle = this.CHART_COLORS[i % this.CHART_COLORS.length];
+      ctx.fillRect(legendX - 16, legendY - 8, 10, 10);
+      ctx.fillStyle = '#374151'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left';
+      const lbl = d.key.length > 12 ? d.key.substring(0, 11) + '.' : d.key;
+      ctx.fillText(`${lbl} (${Math.round(d.value / total * 100)}%)`, legendX - 2, legendY);
+      legendY += 18;
+    });
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  typeLabel(t: ReportType): string   { return ReportingService.typeLabel(t); }
+  statusLabel(s: string): string     { return ReportingService.statusLabel(s as any); }
+  statusClass(s: string): string     { return ReportingService.statusClass(s as any); }
+  formatIcon(f: ReportFormat): string {
+    return f === 'PDF' ? 'picture_as_pdf' : f === 'EXCEL' ? 'table_chart' : 'description';
+  }
 
   updateDateTime(): void {
     const now = new Date();
     this.currentDate = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     this.currentDate = this.currentDate.charAt(0).toUpperCase() + this.currentDate.slice(1);
     this.currentTime = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  }
-
-  typeLabel(t: ReportType): string { return ReportingService.typeLabel(t); }
-  statusLabel(s: string): string   { return ReportingService.statusLabel(s as any); }
-  statusClass(s: string): string   { return ReportingService.statusClass(s as any); }
-  formatIcon(f: ReportFormat): string {
-    return f === 'PDF' ? 'picture_as_pdf' : f === 'EXCEL' ? 'table_chart' : 'description';
   }
 
   private toast(msg: string, error = false): void {
@@ -186,61 +335,5 @@ export class ReportsComponent implements OnInit, AfterViewInit {
   private defaultStartDate(): string {
     const d = new Date(); d.setDate(d.getDate() - 7);
     return d.toISOString().split('T')[0];
-  }
-
-  // ── Charts ─────────────────────────────────────────────────────────────────
-
-  drawBarChart(): void {
-    const canvas = this.barCanvas?.nativeElement; if (!canvas) return;
-    const ctx = canvas.getContext('2d'); if (!ctx) return;
-    const w = canvas.width = canvas.offsetWidth; const h = canvas.height = 260;
-    ctx.clearRect(0, 0, w, h);
-    if (!this.barData.length) return;
-    const p = { top: 20, bottom: 40, left: 40, right: 20 };
-    const cW = w - p.left - p.right; const cH = h - p.top - p.bottom;
-    const barW = (cW / this.barData.length) * 0.5; const gap = cW / this.barData.length;
-    [0, 25, 50, 75, 100].forEach(v => {
-      const y = p.top + cH - (v / 100) * cH;
-      ctx.strokeStyle = '#E5E7EB'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(p.left, y); ctx.lineTo(w - p.right, y); ctx.stroke();
-      ctx.fillStyle = '#9CA3AF'; ctx.font = '11px sans-serif'; ctx.fillText(`${v}%`, 0, y + 4);
-    });
-    this.barData.forEach((d, i) => {
-      const x = p.left + i * gap + (gap - barW) / 2;
-      const bH = (d.value / 100) * cH; const y = p.top + cH - bH;
-      ctx.fillStyle = '#E5E7EB'; ctx.beginPath(); (ctx as any).roundRect?.(x, p.top, barW, cH, 4); ctx.fill();
-      ctx.fillStyle = '#15803D'; ctx.beginPath(); (ctx as any).roundRect?.(x, y, barW, bH, 4); ctx.fill();
-      ctx.fillStyle = '#6B7280'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(d.day, x + barW / 2, h - 10);
-    });
-  }
-
-  drawPieChart(): void {
-    const canvas = this.pieCanvas?.nativeElement; if (!canvas) return;
-    const ctx = canvas.getContext('2d'); if (!ctx) return;
-    const w = canvas.width = canvas.offsetWidth; const h = canvas.height = 260;
-    ctx.clearRect(0, 0, w, h);
-    if (!this.pieData.length) return;
-    const cx = w / 2 - 30; const cy = h / 2; const r = Math.min(cx, cy) - 20;
-    const total = this.pieData.reduce((s, d) => s + d.value, 0);
-    let startAngle = -Math.PI / 2;
-    this.pieData.forEach(d => {
-      const angle = (d.value / total) * 2 * Math.PI;
-      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, startAngle, startAngle + angle);
-      ctx.closePath(); ctx.fillStyle = d.color; ctx.fill();
-      ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
-      startAngle += angle;
-    });
-  }
-
-  private buildPdfHtml(): string {
-    const now = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    const rows = this.reportRows.map(r =>
-      `<tr><td>${r.room}</td><td>${r.occupancy}</td><td>${r.courses}</td><td>${r.hours}</td><td style="color:#15803D;font-weight:600">${r.status}</td></tr>`
-    ).join('');
-    const statsHtml = this.stats.map(s =>
-      `<div style="flex:1;background:#F0FDF4;border-radius:10px;padding:16px;text-align:center"><p style="font-size:1.8rem;font-weight:700;color:#15803D;margin:0 0 4px">${s.value}</p><p style="font-size:0.8rem;color:#374151;margin:0 0 4px;font-weight:600">${s.label}</p></div>`
-    ).join('');
-    return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Rapport EduSchedule</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,sans-serif;color:#111827;background:white;padding:40px}table{width:100%;border-collapse:collapse}th{background:#F3F4F6;padding:10px 14px;text-align:left;font-size:0.78rem;text-transform:uppercase;color:#6B7280}td{padding:12px 14px;border-bottom:1px solid #F3F4F6;font-size:0.875rem}@media print{body{padding:20px}}</style></head><body><div style="display:flex;justify-content:space-between;padding-bottom:24px;border-bottom:2px solid #15803D;margin-bottom:28px"><h1 style="font-size:1.6rem;font-weight:700">Rapport — ${this.selectedPeriod}</h1><div style="text-align:right;font-size:0.8rem;color:#6B7280"><p>Généré le ${now}</p></div></div><div style="display:flex;gap:16px;margin-bottom:28px">${statsHtml}</div><div style="background:#F9FAFB;border-radius:12px;padding:20px"><h2 style="font-size:1rem;font-weight:600;margin-bottom:16px">Détail par salle</h2><table><thead><tr><th>Salle</th><th>Occupation</th><th>Cours</th><th>Heures</th><th>Statut</th></tr></thead><tbody>${rows}</tbody></table></div></body></html>`;
   }
 }

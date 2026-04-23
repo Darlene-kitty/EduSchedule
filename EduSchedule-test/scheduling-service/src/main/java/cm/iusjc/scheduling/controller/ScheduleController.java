@@ -1,6 +1,8 @@
 package cm.iusjc.scheduling.controller;
 
 import cm.iusjc.scheduling.dto.ScheduleDTO;
+import cm.iusjc.scheduling.entity.Schedule;
+import cm.iusjc.scheduling.service.NotificationPublisher;
 import cm.iusjc.scheduling.service.ScheduleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +26,7 @@ import java.util.Map;
 public class ScheduleController {
     
     private final ScheduleService scheduleService;
+    private final NotificationPublisher notificationPublisher;
     
     /**
      * Crée un nouveau planning
@@ -34,6 +37,19 @@ public class ScheduleController {
         try {
             log.info("Creating schedule: {}", scheduleDTO.getTitle());
             ScheduleDTO createdSchedule = scheduleService.createSchedule(scheduleDTO);
+
+            // Publier l'événement RabbitMQ pour les notifications
+            try {
+                Schedule s = new Schedule();
+                s.setId(createdSchedule.getId());
+                s.setTitle(createdSchedule.getTitle());
+                s.setTeacher(createdSchedule.getTeacher());
+                s.setGroupName(createdSchedule.getGroupName());
+                s.setStartTime(createdSchedule.getStartTime());
+                notificationPublisher.publishScheduleCreated(s);
+            } catch (Exception ex) {
+                log.warn("Could not publish schedule.created event: {}", ex.getMessage());
+            }
             
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                 "success", true,
@@ -351,6 +367,19 @@ public class ScheduleController {
             @Valid @RequestBody ScheduleDTO scheduleDTO) {
         try {
             ScheduleDTO updatedSchedule = scheduleService.updateSchedule(id, scheduleDTO);
+
+            // Publier l'événement RabbitMQ pour les notifications
+            try {
+                Schedule s = new Schedule();
+                s.setId(updatedSchedule.getId());
+                s.setTitle(updatedSchedule.getTitle());
+                s.setTeacher(updatedSchedule.getTeacher());
+                s.setGroupName(updatedSchedule.getGroupName());
+                s.setStartTime(updatedSchedule.getStartTime());
+                notificationPublisher.publishScheduleUpdated(s);
+            } catch (Exception ex) {
+                log.warn("Could not publish schedule.updated event: {}", ex.getMessage());
+            }
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
@@ -399,6 +428,18 @@ public class ScheduleController {
     public ResponseEntity<Map<String, Object>> cancelSchedule(@PathVariable Long id) {
         try {
             ScheduleDTO cancelledSchedule = scheduleService.cancelSchedule(id);
+
+            // Publier l'événement d'annulation — priorité haute
+            try {
+                notificationPublisher.publishScheduleCancelled(
+                    cancelledSchedule.getId(),
+                    cancelledSchedule.getTitle(),
+                    cancelledSchedule.getTeacher(),
+                    cancelledSchedule.getGroupName()
+                );
+            } catch (Exception ex) {
+                log.warn("Could not publish course.cancelled event: {}", ex.getMessage());
+            }
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
@@ -468,6 +509,13 @@ public class ScheduleController {
     public ResponseEntity<Map<String, Object>> deleteSchedule(@PathVariable Long id) {
         try {
             scheduleService.deleteSchedule(id);
+
+            // Publier l'événement de suppression
+            try {
+                notificationPublisher.publishScheduleDeleted(id);
+            } catch (Exception ex) {
+                log.warn("Could not publish schedule.deleted event: {}", ex.getMessage());
+            }
             
             return ResponseEntity.ok(Map.of(
                 "success", true,

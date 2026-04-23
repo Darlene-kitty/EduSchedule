@@ -50,6 +50,34 @@ public class NotificationPublisher {
         log.info("Published schedule.deleted event for schedule: {}", scheduleId);
     }
     
+    public void publishScheduleCancelled(Long scheduleId, String title, String teacher, String groupName) {
+        Map<String, Object> message = new HashMap<>();
+        message.put("event", "course.cancelled");
+        message.put("scheduleId", scheduleId);
+        message.put("title", title);
+        message.put("teacher", teacher);
+        message.put("groupName", groupName);
+        message.put("changeDescription", "Le cours a été annulé par l'administration.");
+        message.put("reason", "Annulation administrative");
+        
+        rabbitTemplate.convertAndSend(EXCHANGE, "schedule.cancelled", message);
+        log.info("Published course.cancelled event for schedule: {}", scheduleId);
+    }
+    
+    public void publishRoomChanged(Long scheduleId, String title, String teacher, String oldRoom, String newRoom) {
+        Map<String, Object> message = new HashMap<>();
+        message.put("event", "room.changed");
+        message.put("scheduleId", scheduleId);
+        message.put("title", title);
+        message.put("teacher", teacher);
+        message.put("room", newRoom);
+        message.put("oldRoom", oldRoom);
+        message.put("changeDescription", "La salle a été changée de " + oldRoom + " vers " + newRoom);
+        
+        rabbitTemplate.convertAndSend(EXCHANGE, "schedule.room.changed", message);
+        log.info("Published room.changed event for schedule: {}", scheduleId);
+    }
+    
     public void publishNotification(String routingKey, NotificationRequest notificationRequest) {
         Map<String, Object> message = new HashMap<>();
         message.put("event", "notification");

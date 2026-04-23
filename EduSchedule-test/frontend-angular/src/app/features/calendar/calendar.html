@@ -29,8 +29,21 @@
             <button [class.active]="selectedView==='Semaine'" (click)="setView('Semaine')">Semaine</button>
             <button [class.active]="selectedView==='Mois'"    (click)="setView('Mois')">Mois</button>
           </div>
+          <!-- Filtre enseignant (admin seulement) -->
           <select class="select-ctrl" [(ngModel)]="selectedTeacher" *ngIf="!isTeacher">
             <option *ngFor="let t of teachers">{{ t }}</option>
+          </select>
+          <select class="select-ctrl" [(ngModel)]="selectedRoom" *ngIf="!isTeacher">
+            <option *ngFor="let r of rooms">{{ r }}</option>
+          </select>
+          <!-- Filtre salle -->
+          <select class="select-ctrl" [(ngModel)]="selectedRoom">
+            <option *ngFor="let r of rooms">{{ r }}</option>
+          </select>
+          <!-- Filtre école (admin seulement) -->
+          <select class="select-ctrl" [(ngModel)]="selectedSchool" *ngIf="!isTeacher && schools.length > 0">
+            <option value="Toutes les écoles">Toutes les écoles</option>
+            <option *ngFor="let s of schools" [value]="s.name">{{ s.name }}</option>
           </select>
           <button class="btn-sync" (click)="synchronize()" [disabled]="isSyncing">
             <mat-icon [class.spinning]="isSyncing">sync</mat-icon>

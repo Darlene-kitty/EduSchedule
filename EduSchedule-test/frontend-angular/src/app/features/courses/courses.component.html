@@ -49,8 +49,12 @@
 
       <!-- Tabs toggle -->
       <div class="tabs-toggle">
-        <button class="tab-pill" [class.active]="activeTab === 'courses'"  (click)="setTab('courses')">Cours</button>
-        <button class="tab-pill" [class.active]="activeTab === 'groups'"   (click)="setTab('groups')">Groupes d'étudiants</button>
+        <button class="tab-pill" [class.active]="activeTab === 'courses'"   (click)="setTab('courses')">Cours</button>
+        <button class="tab-pill" [class.active]="activeTab === 'groups'"    (click)="setTab('groups')">Groupes d'étudiants</button>
+        <button class="tab-pill" [class.active]="activeTab === 'documents'" (click)="setTab('documents')" *ngIf="selectedCourseForDocs">
+          <mat-icon style="font-size:16px;width:16px;height:16px;vertical-align:middle">folder_open</mat-icon>
+          Supports — {{ selectedCourseForDocs?.name }}
+        </button>
       </div>
 
       <!-- Recherche -->
@@ -112,6 +116,9 @@
           <div class="card-footer">
             <button class="btn-modifier" (click)="openCourseModal(course)">
               <mat-icon>edit</mat-icon> Modifier
+            </button>
+            <button class="btn-docs" (click)="openDocumentsTab(course)" title="Supports de cours">
+              <mat-icon>folder_open</mat-icon>
             </button>
             <button class="btn-trash" (click)="openDeleteModal(course.id, course.name, 'course')">
               <mat-icon>delete</mat-icon>
@@ -211,6 +218,83 @@
   </div>
 </div>
 
+<!-- ═══ ONGLET SUPPORTS DE COURS ═══ -->
+<div *ngIf="activeTab === 'documents' && selectedCourseForDocs" class="docs-overlay">
+  <app-sidebar activePage="courses"></app-sidebar>
+  <div class="main-wrapper">
+    <header class="page-header">
+      <button class="header-menu-btn" (click)="setTab('courses')"><mat-icon>arrow_back</mat-icon></button>
+      <div class="header-right">
+        <div class="header-datetime">
+          <span class="header-date">{{ currentDate }}</span>
+          <span class="header-time">{{ currentTime }}</span>
+        </div>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title">Supports de cours</h1>
+          <p class="page-sub">
+            <span class="course-badge" [style.background]="getLevelBg(selectedCourseForDocs.level)">{{ selectedCourseForDocs.level }}</span>
+            {{ selectedCourseForDocs.name }} — {{ selectedCourseForDocs.code }}
+          </p>
+        </div>
+        <div class="title-actions">
+          <button class="btn-back-courses" (click)="setTab('courses')">
+            <mat-icon>arrow_back</mat-icon> Retour aux cours
+          </button>
+          <button class="btn-new" (click)="openUploadModal()">
+            <mat-icon>upload_file</mat-icon> Ajouter un support
+          </button>
+        </div>
+      </div>
+
+      <!-- Chargement -->
+      <div *ngIf="isLoadingDocs" class="docs-loading">
+        <mat-icon class="spin">sync</mat-icon> Chargement des supports...
+      </div>
+
+      <!-- Vide -->
+      <div *ngIf="!isLoadingDocs && courseDocuments.length === 0" class="docs-empty">
+        <mat-icon>folder_open</mat-icon>
+        <h3>Aucun support de cours</h3>
+        <p>Ajoutez des fichiers PDF, Word, PowerPoint ou autres documents pour ce cours.</p>
+        <button class="btn-new" (click)="openUploadModal()"><mat-icon>upload_file</mat-icon> Ajouter un support</button>
+      </div>
+
+      <!-- Documents groupés par catégorie -->
+      <div *ngIf="!isLoadingDocs && courseDocuments.length > 0">
+        <div *ngFor="let group of docsByCategory" class="docs-category-section">
+          <h3 class="docs-category-title">
+            <mat-icon>label</mat-icon> {{ group.label }}
+            <span class="docs-count">{{ group.docs.length }}</span>
+          </h3>
+          <div class="docs-grid">
+            <div *ngFor="let doc of group.docs" class="doc-card">
+              <div class="doc-icon-wrap" [style.background]="docColorFor(doc.contentType) + '18'">
+                <mat-icon [style.color]="docColorFor(doc.contentType)">{{ docIconFor(doc.contentType) }}</mat-icon>
+              </div>
+              <div class="doc-info">
+                <p class="doc-name" [title]="doc.originalFilename">{{ doc.originalFilename }}</p>
+                <p class="doc-meta">{{ docFormatSize(doc.fileSize) }} · {{ doc.createdAt | date:'dd/MM/yyyy' }}</p>
+              </div>
+              <div class="doc-actions">
+                <button class="doc-btn-dl" (click)="downloadDocument(doc)" title="Télécharger">
+                  <mat-icon>download</mat-icon>
+                </button>
+                <button class="doc-btn-del" (click)="deleteDocument(doc)" title="Supprimer">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
 <!-- ═══ MODAL COURS ═══ -->
 <div *ngIf="isCourseModalOpen" class="modal-overlay" (click)="closeCourseModal()">
   <div class="modal" (click)="$event.stopPropagation()">
@@ -232,7 +316,7 @@
       <div class="form-row">
         <div class="form-group">
           <label>Niveau</label>
-          <select [(ngModel)]="newCourse.level">
+          <select [(ngModel)]="newCourse.level" (ngModelChange)="onLevelChange()">
             <option>L1</option><option>L2</option><option>L3</option><option>M1</option><option>M2</option>
           </select>
         </div>
@@ -248,9 +332,9 @@
       </div>
       <div class="form-group">
         <label>Enseignant</label>
-        <select [(ngModel)]="newCourse.professor">
-          <option value="">— Aucun enseignant —</option>
-          <option *ngFor="let t of teachers" [value]="t.name">{{ t.name }}</option>
+        <select [(ngModel)]="newCourse.teacherId">
+          <option [value]="0">— Aucun enseignant —</option>
+          <option *ngFor="let t of teachers" [value]="t.id">{{ t.name }}</option>
         </select>
       </div>
       <div class="form-row">
@@ -293,6 +377,22 @@
           </select>
         </div>
       </div>
+      <!-- Groupes d'étudiants assignés automatiquement selon le niveau -->
+      <div class="form-group" *ngIf="groupesFiltres.length > 0">
+        <label>Groupes d'étudiants ({{ newCourse.level }})</label>
+        <div class="groups-checkboxes">
+          <label *ngFor="let g of groupesFiltres" class="group-checkbox-item">
+            <input type="checkbox" [checked]="isGroupSelected(g.id)" (change)="toggleGroupSelection(g.id)" />
+            <span>{{ g.name }} <small class="group-cap">({{ g.capacite }} places)</small></span>
+          </label>
+        </div>
+        <p class="groups-hint" *ngIf="selectedGroupIds.length > 0">
+          <mat-icon>check_circle</mat-icon> {{ selectedGroupIds.length }} groupe(s) sélectionné(s)
+        </p>
+      </div>
+      <div class="form-group" *ngIf="groupesFiltres.length === 0">
+        <p class="no-groups-hint"><mat-icon>info</mat-icon> Aucun groupe disponible pour le niveau {{ newCourse.level }}. Créez des groupes dans l'onglet "Groupes d'étudiants".</p>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" (click)="closeCourseModal()">Annuler</button>
@@ -317,9 +417,10 @@
           <input type="text" [(ngModel)]="newGroup.name" placeholder="Ex: L3-G1" />
         </div>
         <div class="form-group">
-          <label>Niveau</label>
-          <select [(ngModel)]="newGroup.level">
-            <option>L1</option><option>L2</option><option>L3</option><option>M1</option><option>M2</option>
+          <label>Niveau <span class="req">*</span></label>
+          <select [(ngModel)]="newGroup.niveauId">
+            <option [value]="0">— Choisir un niveau —</option>
+            <option *ngFor="let n of niveaux" [value]="n.id">{{ n.name }} ({{ n.filiereName }})</option>
           </select>
         </div>
       </div>
@@ -454,6 +555,100 @@
           <mat-icon>upload</mat-icon> Importer {{ validImportRows.length }} élément(s)
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL UPLOAD SUPPORT DE COURS ═══ -->
+<div *ngIf="isUploadModalOpen" class="modal-overlay" (click)="closeUploadModal()">
+  <div class="modal modal-upload" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="upload-modal-icon"><mat-icon>upload_file</mat-icon></div>
+        <div>
+          <h2>Ajouter un support de cours</h2>
+          <p class="modal-header-sub">PDF, Word, PowerPoint, Excel, image — max 50 Mo</p>
+        </div>
+      </div>
+      <button class="modal-close" (click)="closeUploadModal()"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Zone de dépôt -->
+      <div class="doc-drop-zone"
+           [class.dragging]="isDraggingDoc"
+           [class.has-file]="uploadFile"
+           (dragover)="onDocDragOver($event)"
+           (dragleave)="onDocDragLeave()"
+           (drop)="onDocDrop($event)"
+           (click)="docFileInput.click()">
+        <input #docFileInput type="file"
+               accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.jpg,.jpeg,.png"
+               style="display:none"
+               (change)="onDocFileSelected($event)" />
+
+        <div *ngIf="!uploadFile" class="drop-content">
+          <div class="drop-icon-circle"><mat-icon>cloud_upload</mat-icon></div>
+          <p class="drop-title">Glissez votre fichier ici</p>
+          <p class="drop-sub">ou <span class="drop-link">cliquez pour sélectionner</span></p>
+          <p class="drop-formats">PDF · DOC · DOCX · PPT · PPTX · XLS · XLSX · TXT · JPG · PNG</p>
+        </div>
+
+        <div *ngIf="uploadFile" class="file-selected">
+          <mat-icon class="file-icon" [style.color]="docColorFor(uploadFile.type)">
+            {{ docIconFor(uploadFile.type) }}
+          </mat-icon>
+          <div class="file-info">
+            <p class="file-name">{{ uploadFile.name }}</p>
+            <p class="file-size">{{ docFormatSize(uploadFile.size) }}</p>
+          </div>
+          <button class="file-remove" (click)="$event.stopPropagation(); uploadFile = null">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <!-- Erreur fichier -->
+      <div *ngIf="uploadError" class="error-banner">
+        <mat-icon>error</mat-icon><span>{{ uploadError }}</span>
+      </div>
+
+      <!-- Succès -->
+      <div *ngIf="uploadSuccess" class="success-banner">
+        <mat-icon>check_circle</mat-icon><span>Fichier uploadé avec succès !</span>
+      </div>
+
+      <!-- Métadonnées -->
+      <div class="form-row" *ngIf="uploadFile && !uploadSuccess">
+        <div class="form-group">
+          <label>Catégorie</label>
+          <select [(ngModel)]="uploadCategory">
+            <option *ngFor="let cat of docCategories" [value]="cat.value">{{ cat.label }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Description (optionnel)</label>
+          <input type="text" [(ngModel)]="uploadDescription" placeholder="Ex: Chapitre 3 — Algorithmique" />
+        </div>
+      </div>
+
+      <!-- Barre de progression -->
+      <div *ngIf="isUploading" class="upload-progress-wrap">
+        <div class="upload-progress-bar">
+          <div class="upload-progress-fill" [style.width.%]="uploadProgress"></div>
+        </div>
+        <span class="upload-progress-label">{{ uploadProgress }}%</span>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeUploadModal()" [disabled]="isUploading">Annuler</button>
+      <button class="btn-save"
+              [disabled]="!uploadFile || isUploading || uploadSuccess"
+              (click)="submitUpload()">
+        <mat-icon>{{ isUploading ? 'sync' : 'upload' }}</mat-icon>
+        {{ isUploading ? 'Upload en cours...' : 'Uploader' }}
+      </button>
     </div>
   </div>
 </div>

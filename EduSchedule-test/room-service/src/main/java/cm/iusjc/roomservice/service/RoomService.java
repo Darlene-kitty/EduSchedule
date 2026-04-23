@@ -2,6 +2,7 @@ package cm.iusjc.roomservice.service;
 
 import cm.iusjc.roomservice.dto.RoomDTO;
 import cm.iusjc.roomservice.entity.Room;
+import cm.iusjc.roomservice.entity.RoomType;
 import cm.iusjc.roomservice.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -136,9 +137,15 @@ public class RoomService {
      */
     public List<RoomDTO> getRoomsByType(String type) {
         log.debug("Fetching rooms by type: {}", type);
-        return roomRepository.findByType(type).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        try {
+            RoomType roomType = RoomType.valueOf(type.toUpperCase());
+            return roomRepository.findByType(roomType).stream()
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
+        } catch (IllegalArgumentException e) {
+            log.warn("Unknown room type '{}', returning empty list", type);
+            return List.of();
+        }
     }
     
     /**
@@ -388,7 +395,11 @@ public class RoomService {
      * Compte les salles par type
      */
     public long countRoomsByType(String type) {
-        return roomRepository.countByType(type);
+        try {
+            return roomRepository.countByType(RoomType.valueOf(type.toUpperCase()));
+        } catch (IllegalArgumentException e) {
+            return 0;
+        }
     }
     
     /**

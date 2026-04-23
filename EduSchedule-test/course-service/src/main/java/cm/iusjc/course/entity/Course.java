@@ -52,7 +52,15 @@ public class Course {
     
     @Column(name = "max_students")
     private Integer maxStudents; // Nombre maximum d'étudiants
-    
+
+    /**
+     * Type de cours : CM, TD, TP, CONFERENCE, SEMINAR, EXAM…
+     * Utilisé pour l'assignation automatique du type de salle.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "course_type", length = 20)
+    private CourseType courseType;
+
     @Column(nullable = false)
     private boolean active = true;
     

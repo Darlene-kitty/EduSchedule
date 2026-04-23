@@ -30,6 +30,22 @@
         <button class="btn-add" (click)="openAddModal()"><mat-icon>add</mat-icon> Nouveau matériel</button>
       </div>
 
+      <!-- Onglets -->
+      <div class="tabs-row">
+        <button class="tab-btn" [class.active]="activeTab === 'inventaire'" (click)="activeTab = 'inventaire'">
+          <mat-icon>inventory_2</mat-icon> Inventaire global
+        </button>
+        <button class="tab-btn" [class.active]="activeTab === 'salle'" (click)="activeTab = 'salle'">
+          <mat-icon>meeting_room</mat-icon> Inventaire par salle
+        </button>
+        <button class="tab-btn" [class.active]="activeTab === 'disponibilite'" (click)="activeTab = 'disponibilite'">
+          <mat-icon>event_available</mat-icon> Disponibilité équipements
+        </button>
+      </div>
+
+      <!-- ═══ ONGLET INVENTAIRE GLOBAL ═══ -->
+      <ng-container *ngIf="activeTab === 'inventaire'">
+
       <!-- Stats état -->
       <div class="etat-stats">
         <div class="etat-card" [class.active]="filterEtat === ''" (click)="filterEtat = ''" style="--c:#6B7280">
@@ -114,6 +130,197 @@
           </table>
         </div>
       </div>
+
+      </ng-container>
+
+      <!-- ═══ ONGLET INVENTAIRE PAR SALLE ═══ -->
+      <ng-container *ngIf="activeTab === 'salle'">
+        <div class="salle-inv-header">
+          <div class="salle-select-row">
+            <label class="salle-label"><mat-icon>meeting_room</mat-icon> Sélectionner une salle</label>
+            <select class="filter-select salle-select" [(ngModel)]="selectedSalleId" (ngModelChange)="onSalleChange()">
+              <option [ngValue]="null">— Choisir une salle —</option>
+              <option *ngFor="let s of salleItems" [ngValue]="s.id">{{ s.name }} ({{ s.type }})</option>
+            </select>
+            <button class="btn-add" *ngIf="selectedSalleId" (click)="openAddSalleMateriel()">
+              <mat-icon>add</mat-icon> Ajouter un équipement
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="!selectedSalleId" class="empty-state">
+          <mat-icon>meeting_room</mat-icon>
+          <p>Sélectionnez une salle pour voir son inventaire d'équipements</p>
+        </div>
+
+        <div *ngIf="selectedSalleId && isLoadingInventaire" class="loading-state">
+          <mat-icon class="spin">refresh</mat-icon> Chargement...
+        </div>
+
+        <div *ngIf="selectedSalleId && !isLoadingInventaire">
+          <!-- Résumé -->
+          <div class="inv-summary" *ngIf="inventaireSalle.length > 0">
+            <div class="inv-stat-card">
+              <mat-icon>inventory_2</mat-icon>
+              <div><p class="inv-stat-num">{{ inventaireSalle.length }}</p><p class="inv-stat-lbl">Types d'équipements</p></div>
+            </div>
+            <div class="inv-stat-card green">
+              <mat-icon>check_circle</mat-icon>
+              <div>
+                <p class="inv-stat-num">{{ totalDisponible() }}</p>
+                <p class="inv-stat-lbl">Disponibles</p>
+              </div>
+            </div>
+            <div class="inv-stat-card orange">
+              <mat-icon>lock</mat-icon>
+              <div>
+                <p class="inv-stat-num">{{ totalReserve() }}</p>
+                <p class="inv-stat-lbl">Réservés</p>
+              </div>
+            </div>
+            <div class="inv-stat-card blue">
+              <mat-icon>star</mat-icon>
+              <div>
+                <p class="inv-stat-num">{{ totalRequis() }}</p>
+                <p class="inv-stat-lbl">Requis</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tableau inventaire salle -->
+          <div class="table-card" *ngIf="inventaireSalle.length > 0">
+            <div class="table-card-header">
+              <h2 class="table-title">Équipements de la salle</h2>
+              <p class="table-sub">{{ inventaireSalle.length }} équipement(s)</p>
+            </div>
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Équipement</th><th>Type</th><th>État</th>
+                    <th>Total</th><th>Disponible</th><th>Réservé</th>
+                    <th>Requis</th><th>Notes</th><th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let sm of inventaireSalle" class="table-row">
+                    <td>
+                      <div class="mat-cell">
+                        <div class="mat-icon" [style.background]="sm.materiel.typeMateriel?.couleur || '#6B7280'">
+                          <mat-icon>{{ sm.materiel.typeMateriel?.icone || 'devices' }}</mat-icon>
+                        </div>
+                        <div>
+                          <div class="mat-nom">{{ sm.materiel.nom }}</div>
+                          <div class="mat-code">{{ sm.materiel.code }}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="type-badge"
+                        [style.background]="(sm.materiel.typeMateriel?.couleur || '#6B7280') + '18'"
+                        [style.color]="sm.materiel.typeMateriel?.couleur || '#6B7280'">
+                        {{ sm.materiel.typeMateriel?.nom || '—' }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="etat-badge"
+                        [style.background]="getEtatColor(mapEtatDisplay(sm.materiel.etat)) + '18'"
+                        [style.color]="getEtatColor(mapEtatDisplay(sm.materiel.etat))">
+                        <span class="etat-dot" [style.background]="getEtatColor(mapEtatDisplay(sm.materiel.etat))"></span>
+                        {{ mapEtatDisplay(sm.materiel.etat) }}
+                      </span>
+                    </td>
+                    <td class="text-center"><strong>{{ sm.quantiteTotale }}</strong></td>
+                    <td class="text-center">
+                      <span class="qty-badge" [style.color]="getDispoColor(sm)">{{ sm.quantiteDisponible }}</span>
+                    </td>
+                    <td class="text-center">
+                      <span class="qty-badge orange">{{ sm.quantiteReservee }}</span>
+                    </td>
+                    <td class="text-center">
+                      <mat-icon *ngIf="sm.requis" style="color:#15803D">check_circle</mat-icon>
+                      <mat-icon *ngIf="!sm.requis" style="color:#9CA3AF">radio_button_unchecked</mat-icon>
+                    </td>
+                    <td class="notes-cell">{{ sm.notes || '—' }}</td>
+                    <td>
+                      <button class="action-btn delete-btn" (click)="retirerDeSalle(sm)" title="Retirer de la salle">
+                        <mat-icon>remove_circle_outline</mat-icon>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div *ngIf="inventaireSalle.length === 0" class="empty-state">
+            <mat-icon>inventory_2</mat-icon>
+            <p>Aucun équipement enregistré pour cette salle</p>
+            <button class="btn-add" (click)="openAddSalleMateriel()"><mat-icon>add</mat-icon> Ajouter un équipement</button>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ═══ ONGLET DISPONIBILITÉ ═══ -->
+      <ng-container *ngIf="activeTab === 'disponibilite'">
+        <div class="table-card">
+          <div class="table-card-header">
+            <h2 class="table-title">Vérifier la disponibilité des équipements</h2>
+            <p class="table-sub">Contrôlez si une salle dispose des équipements requis pour un type de cours sur une plage horaire</p>
+          </div>
+          <div class="modal-body" style="padding:1.5rem">
+            <div class="form-row">
+              <div class="form-group">
+                <label><mat-icon>meeting_room</mat-icon> Salle</label>
+                <select class="filter-select" [(ngModel)]="dispSalleId">
+                  <option [ngValue]="null">— Choisir —</option>
+                  <option *ngFor="let s of salleItems" [ngValue]="s.id">{{ s.name }}</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label><mat-icon>school</mat-icon> Type de cours</label>
+                <select class="filter-select" [(ngModel)]="dispTypeCours">
+                  <option *ngFor="let t of typesCours" [value]="t">{{ t }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label><mat-icon>schedule</mat-icon> Début</label>
+                <input type="datetime-local" class="filter-select" [(ngModel)]="dispDateDebut" />
+              </div>
+              <div class="form-group">
+                <label><mat-icon>schedule</mat-icon> Fin</label>
+                <input type="datetime-local" class="filter-select" [(ngModel)]="dispDateFin" />
+              </div>
+            </div>
+            <button class="btn-add" (click)="checkDisponibilite()" [disabled]="!dispSalleId || isCheckingDisp">
+              <mat-icon>{{ isCheckingDisp ? 'refresh' : 'search' }}</mat-icon>
+              {{ isCheckingDisp ? 'Vérification...' : 'Vérifier la disponibilité' }}
+            </button>
+          </div>
+
+          <!-- Résultat -->
+          <div *ngIf="dispResult" class="disp-result" style="padding:1.5rem;border-top:1px solid #E5E7EB">
+            <div class="disp-status" [class.ok]="dispResult.toutDisponible" [class.ko]="!dispResult.toutDisponible">
+              <mat-icon>{{ dispResult.toutDisponible ? 'check_circle' : 'warning' }}</mat-icon>
+              <span>{{ dispResult.toutDisponible ? 'Tous les équipements requis sont disponibles' : 'Certains équipements manquent ou sont indisponibles' }}</span>
+            </div>
+            <div class="disp-equip-list">
+              <div *ngFor="let eq of dispResult.equipements" class="disp-equip-item"
+                   [class.available]="eq.disponible" [class.unavailable]="!eq.disponible">
+                <mat-icon>{{ eq.disponible ? 'check_circle' : 'cancel' }}</mat-icon>
+                <div>
+                  <p class="disp-equip-name">{{ eq.typeEquipement }}</p>
+                  <p class="disp-equip-qty">{{ eq.disponible ? eq.quantiteDisponible + ' disponible(s)' : 'Indisponible' }}</p>
+                </div>
+                <span class="disp-requis-badge" *ngIf="eq.requis">Requis</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+
     </main>
   </div>
 </div>
@@ -309,6 +516,49 @@
     <div class="modal-footer">
       <button class="btn-cancel" (click)="closeEditModal()">Annuler</button>
       <button class="btn-save" (click)="handleEdit()"><mat-icon>save</mat-icon> Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL AJOUT MATÉRIEL DANS SALLE ═══ -->
+<div *ngIf="isAddSalleMaterielOpen" class="modal-overlay" (click)="isAddSalleMaterielOpen = false">
+  <div class="modal modal-form" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <h2>Ajouter un équipement à la salle</h2>
+      <button class="modal-close" (click)="isAddSalleMaterielOpen = false"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Matériel *</label>
+        <select [(ngModel)]="newSalleMateriel.materielId">
+          <option [ngValue]="0">— Choisir un matériel —</option>
+          <option *ngFor="let m of materiels" [ngValue]="m.id">{{ m.nom }} ({{ m.code }})</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Quantité</label>
+          <input type="number" [(ngModel)]="newSalleMateriel.quantite" min="1" />
+        </div>
+        <div class="form-group toggle-group">
+          <label>Requis pour ce type de salle</label>
+          <label class="toggle">
+            <input type="checkbox" [(ngModel)]="newSalleMateriel.requis" />
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label">{{ newSalleMateriel.requis ? 'Oui' : 'Non' }}</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea [(ngModel)]="newSalleMateriel.notes" rows="2" placeholder="Ex: Fixé au plafond, poste étudiant 3..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="isAddSalleMaterielOpen = false">Annuler</button>
+      <button class="btn-save" (click)="handleAddSalleMateriel()" [disabled]="!newSalleMateriel.materielId">
+        <mat-icon>save</mat-icon> Ajouter
+      </button>
     </div>
   </div>
 </div>

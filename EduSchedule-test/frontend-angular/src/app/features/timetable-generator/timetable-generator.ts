@@ -12,6 +12,7 @@ import {
 import { RoomsManagementService, Room } from '../../core/services/rooms-management.service';
 import { SchoolsManagementService, School } from '../../core/services/schools-management.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ConflictsManagementService } from '../../core/services/conflicts-management.service';
 
 export type Step = 'config' | 'running' | 'results' | 'calendar';
 
@@ -40,10 +41,11 @@ interface Constraint {
   styleUrl: './timetable-generator.css'
 })
 export class TimetableGeneratorComponent implements OnInit {
-  private svc       = inject(TimetableGenerationService);
-  private roomSvc   = inject(RoomsManagementService);
-  private schoolSvc = inject(SchoolsManagementService);
-  private auth      = inject(AuthService);
+  private svc         = inject(TimetableGenerationService);
+  private roomSvc     = inject(RoomsManagementService);
+  private schoolSvc   = inject(SchoolsManagementService);
+  private auth        = inject(AuthService);
+  private conflictsSvc = inject(ConflictsManagementService);
 
   // ── Navigation ──
   currentStep = signal<Step>('config');
@@ -213,27 +215,27 @@ export class TimetableGeneratorComponent implements OnInit {
       if (!teacherMap.has(key)) teacherMap.set(key, []);
       teacherMap.get(key)!.push(s);
     });
-    teacherMap.forEach((group, key) => {
+    teacherMap.forEach((group) => {
       if (group.length > 1) {
-        list.push({
+        const conflict: OptimizationConflict = {
           id: list.length + 1,
           type: 'teacher',
           title: `Enseignant ${group[0].teacherName || 'ID ' + group[0].teacherId}`,
           course: group.map(s => s.courseName).join(' / '),
           problem: `Double réservation sur le créneau ${group[0].dayOfWeek} ${group[0].startTime}`,
-          suggestions: [
-            { label: `Mercredi 14h — ${group[0].roomName} (disponible, 100% compatible)`, score: 100 },
-            { label: `Jeudi 08h — Labo Info (disponible, 85% compatible)`, score: 85 },
-            { label: `Vendredi 10h — Salle TD2 (disponible, 70% compatible)`, score: 70 },
-          ],
+          suggestions: [],
           resolved: false,
           chosenSuggestion: null
-        });
+        };
+        list.push(conflict);
+        // Charger les suggestions dynamiques depuis le backend si un slotId est disponible
+        // (les slots générés n'ont pas encore d'ID persisté → on utilise des suggestions calculées localement)
+        this.buildDynamicSuggestions(conflict, group[0]);
       }
     });
 
     // Cours non assignés → conflits de capacité
-    (job.unassignedCourses ?? []).forEach((courseName, i) => {
+    (job.unassignedCourses ?? []).forEach((courseName) => {
       list.push({
         id: list.length + 1,
         type: 'capacity',
@@ -250,6 +252,50 @@ export class TimetableGeneratorComponent implements OnInit {
     });
 
     this.conflicts.set(list);
+  }
+
+  /**
+   * Construit des suggestions dynamiques pour un conflit enseignant.
+   * Tente d'abord l'API backend ; si indisponible, calcule localement
+   * en évitant les créneaux déjà utilisés dans le job courant.
+   */
+  private buildDynamicSuggestions(conflict: OptimizationConflict, slot: ScheduleSlot): void {
+    const slots = this.job()?.slots ?? [];
+    const days  = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI'];
+    const times: [string, string][] = [['08:00','10:00'],['10:00','12:00'],['14:00','16:00'],['16:00','18:00']];
+    const dayFr: Record<string, string> = {
+      LUNDI:'Lundi', MARDI:'Mardi', MERCREDI:'Mercredi', JEUDI:'Jeudi', VENDREDI:'Vendredi'
+    };
+
+    // Créneaux déjà occupés par cet enseignant dans le job courant
+    const occupied = new Set(
+      slots
+        .filter(s => s.teacherId === slot.teacherId)
+        .map(s => `${s.dayOfWeek}_${s.startTime}`)
+    );
+
+    const suggestions: { label: string; score: number }[] = [];
+
+    for (const day of days) {
+      for (const [start, end] of times) {
+        const key = `${day}_${start}`;
+        if (occupied.has(key)) continue;
+        if (day === slot.dayOfWeek && start === slot.startTime) continue;
+
+        const score = day !== slot.dayOfWeek ? 100 : 85;
+        suggestions.push({
+          label: `${dayFr[day]} ${start}–${end} — ${slot.roomName || 'Salle disponible'}`,
+          score
+        });
+        if (suggestions.length >= 5) break;
+      }
+      if (suggestions.length >= 5) break;
+    }
+
+    // Trier par score décroissant
+    suggestions.sort((a, b) => b.score - a.score);
+    conflict.suggestions = suggestions.slice(0, 5);
+    this.conflicts.set([...this.conflicts()]);
   }
 
   toggleConflict(id: number): void {

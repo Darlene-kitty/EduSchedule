@@ -1,5 +1,6 @@
 package cm.iusjc.roomservice.dto;
 
+import cm.iusjc.roomservice.entity.RoomType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -25,9 +26,8 @@ public class RoomDTO {
     @Size(max = 20, message = "Room code cannot exceed 20 characters")
     private String code;
     
-    @NotBlank(message = "Room type is required")
-    @Size(max = 50, message = "Room type cannot exceed 50 characters")
-    private String type; // CLASSROOM, LABORATORY, AMPHITHEATER, OFFICE, etc.
+    @NotNull(message = "Room type is required")
+    private RoomType type; // CLASSROOM, LABORATORY, AMPHITHEATER, etc.
     
     @NotNull(message = "Capacity is required")
     @Min(value = 1, message = "Capacity must be at least 1")

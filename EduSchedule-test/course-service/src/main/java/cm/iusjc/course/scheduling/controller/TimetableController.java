@@ -174,4 +174,23 @@ public class TimetableController {
                         ? "Aucun conflit détecté"
                         : conflicts.size() + " conflit(s) détecté(s)"));
     }
+
+    /**
+     * Retourne des suggestions de créneaux alternatifs pour un créneau en conflit.
+     * Calcule dynamiquement les alternatives en tenant compte des disponibilités
+     * de l'enseignant et de l'occupation des salles.
+     *
+     * @param slotId ID du GeneratedSchedule en conflit ou relaxé
+     */
+    @GetMapping("/adjustments/{slotId}/suggestions")
+    public ResponseEntity<Map<String, Object>> getSuggestions(@PathVariable Long slotId) {
+        List<TimetableAdjustmentService.AlternativeSuggestion> suggestions =
+                adjustmentService.getAlternativeSuggestions(slotId);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "slotId", slotId,
+                "suggestions", suggestions,
+                "total", suggestions.size()
+        ));
+    }
 }

@@ -1,6 +1,7 @@
 package cm.iusjc.roomservice;
 
 import cm.iusjc.roomservice.entity.Room;
+import cm.iusjc.roomservice.entity.RoomType;
 import cm.iusjc.roomservice.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,7 +51,7 @@ public class DataInitializer implements ApplicationRunner {
         Room r = new Room();
         r.setName(name);
         r.setCode(code);
-        r.setType(type);
+        r.setType(RoomType.valueOf(type));
         r.setCapacity(capacity);
         r.setBuilding(building);
         r.setFloor(floor);

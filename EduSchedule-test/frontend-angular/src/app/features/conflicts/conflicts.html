@@ -69,16 +69,28 @@
         <!-- Solutions -->
         <div class="conflict-section">
           <p class="conflict-section-title">Solutions proposées:</p>
+          <div *ngIf="conflict.loadingSuggestions" class="suggestions-loading">
+            <mat-icon class="spin">autorenew</mat-icon> Calcul des alternatives…
+          </div>
           <div *ngFor="let solution of conflict.solutions" class="solution-row">
             <div class="solution-left">
               <mat-icon>meeting_room</mat-icon>
               <span>{{ solution.room }}</span>
-              <span class="solution-badge">Disponible</span>
+              <span class="solution-badge" [class.partial]="!solution.available">
+                {{ solution.available ? 'Disponible' : 'Partiel' }}
+              </span>
+              <span *ngIf="solution.score !== undefined" class="solution-score"
+                    [style.color]="solution.score >= 90 ? '#15803d' : solution.score >= 70 ? '#b45309' : '#991b1b'">
+                {{ solution.score }}%
+              </span>
             </div>
             <button class="btn-apply" (click)="applySolution(conflict, solution)">
               Appliquer <mat-icon>arrow_forward</mat-icon>
             </button>
           </div>
+          <p *ngIf="!conflict.loadingSuggestions && conflict.solutions.length === 0" class="no-suggestions">
+            <mat-icon>info</mat-icon> Aucune alternative disponible — intervention manuelle requise.
+          </p>
         </div>
       </div>
 

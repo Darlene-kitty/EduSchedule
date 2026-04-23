@@ -399,3 +399,50 @@
 .btn-delete-confirm { display: flex; align-items: center; gap: 7px; background: #EF4444; color: white; border: none; padding: 10px 22px; border-radius: 9px; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
 .btn-delete-confirm:hover { background: #DC2626; }
 .btn-delete-confirm mat-icon { font-size: 16px !important; width: 16px !important; height: 16px !important; }
+
+/* ── Onglets ── */
+.tabs-row { display:flex; gap:.5rem; margin-bottom:1.5rem; border-bottom:2px solid #E5E7EB; padding-bottom:.5rem; }
+.tab-btn { display:flex; align-items:center; gap:.4rem; padding:.5rem 1rem; border:none; background:transparent; border-radius:.5rem .5rem 0 0; cursor:pointer; font-size:.875rem; color:#6B7280; transition:all .2s; }
+.tab-btn:hover { background:#F3F4F6; color:#1D4ED8; }
+.tab-btn.active { background:#EFF6FF; color:#1D4ED8; font-weight:600; border-bottom:2px solid #1D4ED8; margin-bottom:-2px; }
+.tab-btn mat-icon { font-size:1.1rem; width:1.1rem; height:1.1rem; }
+
+/* ── Inventaire salle ── */
+.salle-inv-header { margin-bottom:1.5rem; }
+.salle-select-row { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+.salle-label { display:flex; align-items:center; gap:.4rem; font-weight:600; color:#374151; white-space:nowrap; }
+.salle-select { min-width:280px; }
+.inv-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+.inv-stat-card { display:flex; align-items:center; gap:.75rem; background:#fff; border:1px solid #E5E7EB; border-radius:.75rem; padding:1rem; }
+.inv-stat-card mat-icon { font-size:1.5rem; width:1.5rem; height:1.5rem; color:#6B7280; }
+.inv-stat-card.green mat-icon { color:#15803D; }
+.inv-stat-card.orange mat-icon { color:#EA580C; }
+.inv-stat-card.blue mat-icon { color:#1D4ED8; }
+.inv-stat-num { font-size:1.5rem; font-weight:700; color:#111827; margin:0; }
+.inv-stat-lbl { font-size:.75rem; color:#6B7280; margin:0; }
+.text-center { text-align:center; }
+.qty-badge { font-weight:700; font-size:1rem; }
+.qty-badge.orange { color:#EA580C; }
+.notes-cell { font-size:.8rem; color:#6B7280; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ── Disponibilité ── */
+.disp-status { display:flex; align-items:center; gap:.75rem; padding:1rem; border-radius:.75rem; margin-bottom:1rem; font-weight:600; }
+.disp-status.ok { background:#DCFCE7; color:#15803D; }
+.disp-status.ko { background:#FEF2F2; color:#DC2626; }
+.disp-equip-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:.75rem; }
+.disp-equip-item { display:flex; align-items:center; gap:.75rem; padding:.75rem 1rem; border-radius:.75rem; border:1px solid #E5E7EB; background:#fff; }
+.disp-equip-item.available { border-color:#BBF7D0; background:#F0FDF4; }
+.disp-equip-item.unavailable { border-color:#FECACA; background:#FFF5F5; }
+.disp-equip-item mat-icon { font-size:1.25rem; width:1.25rem; height:1.25rem; }
+.disp-equip-item.available mat-icon { color:#15803D; }
+.disp-equip-item.unavailable mat-icon { color:#DC2626; }
+.disp-equip-name { font-weight:600; font-size:.875rem; color:#111827; margin:0; }
+.disp-equip-qty { font-size:.75rem; color:#6B7280; margin:0; }
+.disp-requis-badge { margin-left:auto; font-size:.7rem; background:#EFF6FF; color:#1D4ED8; border:1px solid #BFDBFE; border-radius:999px; padding:.15rem .5rem; white-space:nowrap; }
+
+/* ── Empty / Loading states ── */
+.empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:3rem; color:#9CA3AF; gap:.75rem; }
+.empty-state mat-icon { font-size:3rem; width:3rem; height:3rem; }
+.loading-state { display:flex; align-items:center; gap:.5rem; padding:2rem; color:#6B7280; justify-content:center; }
+.spin { animation:spin 1s linear infinite; }
+@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }

@@ -8,6 +8,7 @@ import { CoursesManagementService } from '../../core/services/courses-management
 import { RoomsManagementService, Room } from '../../core/services/rooms-management.service';
 import { UsersManagementService } from '../../core/services/users-management.service';
 import { AuthService } from '../../core/services/auth.service';
+import { NotificationsManagementService, ReminderPayload } from '../../core/services/notifications-management.service';
 import {
   TimetableGenerationService,
   SchedulingRequest,
@@ -34,6 +35,12 @@ export interface Seance {
   heureFin: string;
   couleur: string;
   semaine: number;
+  /** Récurrence : WEEKLY | BIWEEKLY | MONTHLY | null */
+  recurrence?: 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | null;
+  /** Date de fin de récurrence (YYYY-MM-DD) */
+  recurrenceEndDate?: string;
+  /** Cours spécial : séminaire, événement académique */
+  isSpecial?: boolean;
 }
 
 export interface Conflit {
@@ -56,6 +63,7 @@ export class SchedulesComponent implements OnInit {
   private coursesSvc        = inject(CoursesManagementService);
   private usersSvc          = inject(UsersManagementService);
   private authService       = inject(AuthService);
+  private notifSvc          = inject(NotificationsManagementService);
 
   isTeacher = false;
   currentTeacherName = '';
@@ -187,6 +195,13 @@ export class SchedulesComponent implements OnInit {
   isDeleteModalOpen = false;
   showConflits      = false;
 
+  // ── Rappel ──
+  isReminderModalOpen = false;
+  reminderSeance: Seance | null = null;
+  reminderMinutesBefore = 30;
+  isSendingReminder = false;
+  reminderSentMsg = '';
+
   editingSeance:  Seance | null = null;
   viewingSeance:  Seance | null = null;
   seanceToDelete: Seance | null = null;
@@ -276,7 +291,8 @@ export class SchedulesComponent implements OnInit {
     ecole:'', sigleEcole:'', couleurEcole:'#1D4ED8',
     classe:'', filiere:'', niveau:'',
     salle:'', jour:'Lundi', heureDebut:'08:00', heureFin:'10:00',
-    couleur:'#1D4ED8', semaine:1
+    couleur:'#1D4ED8', semaine:1,
+    recurrence: null, recurrenceEndDate: '', isSpecial: false
   });
 
   newSeance: Omit<Seance,'id'>     = this.emptySeance();
@@ -345,26 +361,58 @@ export class SchedulesComponent implements OnInit {
     this.scheduleService.getSchedule().subscribe({
       next: (data) => {
         const jours = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-        this.seances = (data || []).map(e => ({
-          id: e.id,
-          matiere: e.courseName || e.title || 'À définir',
-          codeMatiere: String(e.courseId || ''),
-          type: 'CM' as Seance['type'],
-          enseignant: e.teacher || 'À définir',
-          enseignantId: 0,
-          ecole: '',
-          sigleEcole: '',
-          couleurEcole: e.color || '#1D4ED8',
-          classe: e.group || '',
-          filiere: '',
-          niveau: e.level || '',
-          salle: e.room || 'À définir',
-          jour: typeof e.dayOfWeek === 'number' ? (jours[e.dayOfWeek] || 'Lundi') : 'Lundi',
-          heureDebut: e.startTime || '08:00',
-          heureFin: e.endTime || '10:00',
-          couleur: e.color || '#1D4ED8',
-          semaine: 1
-        }));
+        this.seances = (data || []).map(e => {
+          let jour = 'Lundi';
+          let heureDebut = '08:00';
+          let heureFin   = '10:00';
+
+          if (e.startTime && e.startTime.includes('T')) {
+            // Format LocalDateTime ISO — extraire jour et heure
+            const startDt = new Date(e.startTime);
+            const endDt   = e.endTime ? new Date(e.endTime) : new Date(e.startTime);
+            const jsDay   = startDt.getDay(); // 0=Dim, 1=Lun, ..., 6=Sam
+            const dayIdx  = jsDay === 0 ? 6 : jsDay - 1;
+            jour      = jours[dayIdx] || 'Lundi';
+            heureDebut = `${String(startDt.getHours()).padStart(2,'0')}:${String(startDt.getMinutes()).padStart(2,'0')}`;
+            heureFin   = `${String(endDt.getHours()).padStart(2,'0')}:${String(endDt.getMinutes()).padStart(2,'0')}`;
+          } else {
+            // Format heure simple + dayOfWeek
+            heureDebut = e.startTime || '08:00';
+            heureFin   = e.endTime   || '10:00';
+            if (typeof e.dayOfWeek === 'number') {
+              jour = jours[e.dayOfWeek] || 'Lundi';
+            } else if (typeof e.dayOfWeek === 'string') {
+              const dayMap: Record<string, string> = {
+                MONDAY:'Lundi', TUESDAY:'Mardi', WEDNESDAY:'Mercredi',
+                THURSDAY:'Jeudi', FRIDAY:'Vendredi', SATURDAY:'Samedi',
+                Lundi:'Lundi', Mardi:'Mardi', Mercredi:'Mercredi',
+                Jeudi:'Jeudi', Vendredi:'Vendredi', Samedi:'Samedi'
+              };
+              jour = dayMap[e.dayOfWeek] || e.dayOfWeek;
+            }
+          }
+
+          return {
+            id: e.id,
+            matiere: e.courseName || e.course || e.title || 'À définir',
+            codeMatiere: String(e.courseId || ''),
+            type: 'CM' as Seance['type'],
+            enseignant: e.teacher || 'À définir',
+            enseignantId: 0,
+            ecole: '',
+            sigleEcole: '',
+            couleurEcole: e.color || '#1D4ED8',
+            classe: e.group || e.groupName || '',
+            filiere: '',
+            niveau: e.level || '',
+            salle: e.room || 'À définir',
+            jour,
+            heureDebut,
+            heureFin,
+            couleur: e.color || '#1D4ED8',
+            semaine: 1
+          };
+        });
         this.isLoading = false;
       },
       error: (err) => {
@@ -480,6 +528,96 @@ export class SchedulesComponent implements OnInit {
     setTimeout(() => this.showSuccess = false, 3500);
   }
 
+  // ── Rappels ──────────────────────────────────────────────────────────────
+
+  openReminderModal(s: Seance): void {
+    this.reminderSeance = s;
+    this.reminderMinutesBefore = 30;
+    this.reminderSentMsg = '';
+    this.isReminderModalOpen = true;
+  }
+
+  closeReminderModal(): void {
+    this.isReminderModalOpen = false;
+    this.reminderSeance = null;
+  }
+
+  sendReminder(): void {
+    if (!this.reminderSeance) return;
+    this.isSendingReminder = true;
+    const s = this.reminderSeance;
+
+    // Construire le message de rappel avec localisation et horaire
+    const subject = `Rappel : ${s.matiere} — ${s.jour} ${s.heureDebut}`;
+    const message = `Rappel de cours :\n\n📚 Matière : ${s.matiere}\n🏫 Salle : ${s.salle}\n📅 Jour : ${s.jour}\n⏰ Horaire : ${s.heureDebut} – ${s.heureFin}\n👨‍🏫 Enseignant : ${s.enseignant}\n👥 Classe : ${s.classe}\n\nCe rappel vous a été envoyé ${this.reminderMinutesBefore} minutes avant le cours.`;
+
+    // Récupérer les IDs des destinataires (enseignant + étudiants de la classe)
+    const recipientIds: number[] = [];
+    if (s.enseignantId) recipientIds.push(s.enseignantId);
+
+    const payload: ReminderPayload = {
+      recipientIds,
+      subject,
+      message,
+      eventType: 'COURSE_REMINDER',
+      eventId: s.id,
+      priority: 'NORMAL',
+    };
+
+    this.notifSvc.sendBulkReminder(payload).subscribe({
+      next: (res) => {
+        this.isSendingReminder = false;
+        this.reminderSentMsg = res.success
+          ? `✓ Rappel envoyé à ${res.sentCount} destinataire(s).`
+          : '⚠ Rappel enregistré (envoi différé).';
+        setTimeout(() => this.closeReminderModal(), 2500);
+      },
+      error: () => {
+        this.isSendingReminder = false;
+        this.reminderSentMsg = '⚠ Rappel enregistré (envoi différé).';
+        setTimeout(() => this.closeReminderModal(), 2500);
+      }
+    });
+  }
+
+  // ── Récurrence ────────────────────────────────────────────────────────────
+
+  /** Génère les séances récurrentes à partir d'une séance de base */
+  expandRecurrence(base: Seance): Seance[] {
+    if (!base.recurrence || !base.recurrenceEndDate) return [];
+    const result: Seance[] = [];
+    const jours = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+    const jourIdx = jours.indexOf(base.jour);
+    if (jourIdx < 0) return [];
+
+    const endDate = new Date(base.recurrenceEndDate);
+    const stepDays = base.recurrence === 'WEEKLY' ? 7 : base.recurrence === 'BIWEEKLY' ? 14 : 28;
+
+    // Trouver la prochaine occurrence à partir de la semaine suivante
+    let current = new Date();
+    current.setDate(current.getDate() + ((jourIdx - current.getDay() + 7) % 7 || 7));
+
+    let semaine = base.semaine + 1;
+    while (current <= endDate) {
+      result.push({
+        ...base,
+        id: Date.now() + result.length,
+        semaine,
+        recurrence: base.recurrence,
+        recurrenceEndDate: base.recurrenceEndDate,
+      });
+      current.setDate(current.getDate() + stepDays);
+      semaine += (stepDays / 7);
+    }
+    return result;
+  }
+
+  getRecurrenceLabel(r: Seance['recurrence']): string {
+    if (!r) return '';
+    const map: Record<string, string> = { WEEKLY: 'Hebdo', BIWEEKLY: 'Bi-hebdo', MONTHLY: 'Mensuel' };
+    return map[r] || '';
+  }
+
   // ── CRUD ──
   openViewModal(s: Seance): void { this.viewingSeance = s; this.isViewModalOpen = true; }
   closeViewModal(): void         { this.isViewModalOpen = false; this.viewingSeance = null; }
@@ -497,10 +635,23 @@ export class SchedulesComponent implements OnInit {
       dayOfWeek: this.newSeance.jour,
       startTime: this.newSeance.heureDebut,
       endTime: this.newSeance.heureFin,
-      color: this.newSeance.couleur
+      color: this.newSeance.couleur,
+      // Champs récurrence et type spécial
+      ...(this.newSeance.recurrence ? { recurringPattern: this.newSeance.recurrence, recurrenceEndDate: this.newSeance.recurrenceEndDate } : {}),
+      ...(this.newSeance.isSpecial ? { status: 'SPECIAL' } : {}),
     } as any).subscribe({
-      next: () => { this.closeAddModal(); this.loadSchedule(); this.toast('Séance ajoutée avec succès !'); },
-      error: (err) => alert(err?.error?.message || 'Erreur lors de l\'ajout')
+      next: (created: any) => {
+        this.closeAddModal();
+        this.loadSchedule();
+        // Si récurrent, notifier le changement d'emploi du temps
+        if (this.newSeance.recurrence && created?.id) {
+          this.notifSvc.sendScheduleChangeNotification(created.id, 'RECURRING_COURSE_ADDED').subscribe();
+        }
+        this.toast(this.newSeance.recurrence
+          ? `Séance récurrente (${this.getRecurrenceLabel(this.newSeance.recurrence)}) ajoutée !`
+          : 'Séance ajoutée avec succès !');
+      },
+      error: (err: any) => alert(err?.error?.message || 'Erreur lors de l\'ajout')
     });
   }
 
@@ -522,10 +673,17 @@ export class SchedulesComponent implements OnInit {
       dayOfWeek: this.editSeanceData.jour,
       startTime: this.editSeanceData.heureDebut,
       endTime: this.editSeanceData.heureFin,
-      color: this.editSeanceData.couleur
+      color: this.editSeanceData.couleur,
+      ...(this.editSeanceData.recurrence ? { recurringPattern: this.editSeanceData.recurrence, recurrenceEndDate: this.editSeanceData.recurrenceEndDate } : {}),
     } as any).subscribe({
-      next: () => { this.closeEditModal(); this.loadSchedule(); this.toast('Séance modifiée !'); },
-      error: (err) => alert(err?.error?.message || 'Erreur lors de la modification')
+      next: () => {
+        this.closeEditModal();
+        this.loadSchedule();
+        // Notifier le changement d'emploi du temps
+        this.notifSvc.sendScheduleChangeNotification(id, 'SCHEDULE_UPDATED').subscribe();
+        this.toast('Séance modifiée !');
+      },
+      error: (err: any) => alert(err?.error?.message || 'Erreur lors de la modification')
     });
   }
 

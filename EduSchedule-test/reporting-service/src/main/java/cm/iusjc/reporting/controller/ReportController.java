@@ -2,7 +2,10 @@ package cm.iusjc.reporting.controller;
 
 import cm.iusjc.reporting.dto.ReportDTO;
 import cm.iusjc.reporting.dto.ReportRequest;
+import cm.iusjc.reporting.dto.ScheduledReportConfigDTO;
 import cm.iusjc.reporting.dto.StatisticsDTO;
+import cm.iusjc.reporting.entity.ReportFormat;
+import cm.iusjc.reporting.entity.ReportType;
 import cm.iusjc.reporting.service.ReportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
+import java.util.List;
 import java.util.Optional;
 
 @RestController
@@ -196,5 +200,25 @@ public class ReportController {
     @GetMapping("/test")
     public ResponseEntity<String> test() {
         return ResponseEntity.ok("Reporting Service is running!");
+    }
+    
+    /**
+     * Liste les rapports planifiés configurés
+     */
+    @GetMapping("/scheduled")
+    public ResponseEntity<List<ScheduledReportConfigDTO>> getScheduledReports() {
+        List<ScheduledReportConfigDTO> configs = List.of(
+                new ScheduledReportConfigDTO("Résumé mensuel", "0 0 6 1 * *", 
+                        "Généré le 1er de chaque mois à 06:00", ReportType.MONTHLY_SUMMARY, ReportFormat.PDF, true, "Prochain: 1er du mois à 06:00"),
+                new ScheduledReportConfigDTO("Occupation salles hebdomadaire", "0 0 7 * * MON", 
+                        "Généré chaque lundi à 07:00", ReportType.ROOM_OCCUPANCY, ReportFormat.PDF, true, "Prochain: Lundi à 07:00"),
+                new ScheduledReportConfigDTO("Disponibilité enseignants", "0 0 18 * * FRI", 
+                        "Généré chaque vendredi à 18:00", ReportType.USER_STATISTICS, ReportFormat.PDF, true, "Prochain: Vendredi à 18:00"),
+                new ScheduledReportConfigDTO("Résumé annuel", "0 0 5 1 1 *", 
+                        "Généré le 1er janvier à 05:00", ReportType.YEARLY_SUMMARY, ReportFormat.PDF, true, "Prochain: 1er janvier à 05:00"),
+                new ScheduledReportConfigDTO("Utilisation cours quotidienne", "0 30 23 * * MON-FRI", 
+                        "Généré chaque jour ouvré à 23:30", ReportType.COURSE_UTILIZATION, ReportFormat.CSV, true, "Prochain: Aujourd'hui à 23:30")
+        );
+        return ResponseEntity.ok(configs);
     }
 }

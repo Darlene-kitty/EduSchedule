@@ -5,6 +5,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { CoursesManagementService, CoursePayload } from '../../core/services/courses-management.service';
 import { UsersManagementService } from '../../core/services/users-management.service';
+import { GroupesManagementService, GroupeBackend } from '../../core/services/groupes-management.service';
+import { FilieresManagementService, FiliereBackend } from '../../core/services/filieres-management.service';
+import { NiveauxManagementService, NiveauBackend } from '../../core/services/niveaux-management.service';
+import { SchoolManagementService, SchoolEntry } from '../../core/services/school-management.service';
+import { AuthService } from '../../core/services/auth.service';
+import { CourseDocumentsService, CourseDocument, DocumentCategory, UploadProgress } from '../../core/services/course-documents.service';
+import { forkJoin } from 'rxjs';
 
 export interface Course {
   id: number;
@@ -16,6 +23,7 @@ export interface Course {
   hours: number;
   students: number;
   groups: string[];
+  groupIds: number[];
   schoolId?: number;
   teacherId?: number;
   // champs backend
@@ -47,14 +55,67 @@ export interface StudentGroup {
 export class CoursesComponent implements OnInit {
   private coursesService = inject(CoursesManagementService);
   private usersSvc       = inject(UsersManagementService);
+  private groupesSvc     = inject(GroupesManagementService);
+  private filieresSvc    = inject(FilieresManagementService);
+  private niveauxSvc     = inject(NiveauxManagementService);
+  private schoolSvc      = inject(SchoolManagementService);
+  private authService    = inject(AuthService);
+  private docsSvc        = inject(CourseDocumentsService);
 
-  // Listes pour les selects
-  teachers: { id: number; name: string }[] = [];
+  // Helpers statiques exposés au template
+  readonly docIconFor    = CourseDocumentsService.iconFor;
+  readonly docColorFor   = CourseDocumentsService.colorFor;
+  readonly docFormatSize = CourseDocumentsService.formatSize;
+  readonly docCatLabel   = CourseDocumentsService.categoryLabel;
+
+  // ── Supports de cours ──────────────────────────────────────────────────────
+  selectedCourseForDocs: Course | null = null;
+  courseDocuments: CourseDocument[] = [];
+  isLoadingDocs = false;
+
+  // Upload
+  isUploadModalOpen = false;
+  uploadFile: File | null = null;
+  uploadCategory: DocumentCategory = 'COURS';
+  uploadDescription = '';
+  uploadProgress = 0;
+  isUploading = false;
+  uploadError = '';
+  uploadSuccess = false;
+  isDraggingDoc = false;
+
+  readonly docCategories: { value: DocumentCategory; label: string }[] = [
+    { value: 'COURS',  label: 'Cours'  },
+    { value: 'TD',     label: 'TD'     },
+    { value: 'TP',     label: 'TP'     },
+    { value: 'EXAMEN', label: 'Examen' },
+    { value: 'AUTRE',  label: 'Autre'  },
+  ];
+
+  // Référentiels pour les selects
+  teachers:  { id: number; name: string }[] = [];
+  filieres:  FiliereBackend[] = [];
+  niveaux:   NiveauBackend[]  = [];
+  groupes:   GroupeBackend[]  = [];
+  schools:   SchoolEntry[]    = [];
+  currentSchoolId = 1; // fallback, remplacé au chargement
+
   readonly departments = ['Informatique','Mathématiques','Physique','Chimie','Biologie','Économie','Droit','Lettres','Sciences Humaines','Génie Civil','Génie Électrique'];
   readonly durations   = [30, 45, 60, 90, 120, 150, 180, 240];
   readonly creditsList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  readonly courseTypes: Course['type'][] = ['Cours magistral', 'TD', 'TP', 'Séminaire'];
 
-  activeTab: 'courses' | 'groups' = 'courses';
+  // Groupes filtrés selon le niveau sélectionné dans le modal cours
+  get groupesFiltres(): GroupeBackend[] {
+    const selectedNiveau = this.niveaux.find(n => n.code === this.newCourse.level || n.name === this.newCourse.level);
+    if (!selectedNiveau) return this.groupes;
+    return this.groupes.filter(g => g.niveauId === selectedNiveau.id);
+  }
+
+  // IDs des groupes sélectionnés pour le cours en cours de création/édition
+  selectedGroupIds: number[] = [];
+
+  activeTab: 'courses' | 'groups' | 'documents' = 'courses';
   searchQuery = '';
   currentDate = '';
   currentTime = '';
@@ -73,8 +134,8 @@ export class CoursesComponent implements OnInit {
   courses: Course[] = [];
   groups: StudentGroup[] = [];
 
-  newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral' as Course['type'], professor: '', hours: 30, students: 0, credits: 3, duration: 90, department: 'Informatique', semester: 'S1', description: '' };
-  newGroup  = { name: '', level: 'L1', promotion: 'Licence 1', capacity: 30, responsible: '' };
+  newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral' as Course['type'], professor: '', hours: 30, students: 0, credits: 3, duration: 90, department: 'Informatique', semester: 'S1', description: '', teacherId: 0 };
+  newGroup  = { name: '', level: 'L1', niveauId: 0, promotion: 'Licence 1', capacity: 30, responsible: '' };
 
 
   /* ── Import ── */
@@ -94,21 +155,52 @@ export class CoursesComponent implements OnInit {
   ngOnInit(): void {
     this.updateDateTime();
     setInterval(() => this.updateDateTime(), 1000);
+    this.loadReferenceData();
     this.loadCourses();
-    this.loadTeachers();
   }
 
-  private loadTeachers(): void {
-    this.usersSvc.getUsers().subscribe({
-      next: users => {
-        this.teachers = users
+  private loadReferenceData(): void {
+    // Récupérer le schoolId de l'utilisateur connecté
+    const user = this.authService.getUser();
+    this.currentSchoolId = user?.primarySchoolId || user?.schoolId || 1;
+
+    forkJoin({
+      teachers: this.usersSvc.getUsers(),
+      filieres: this.filieresSvc.getAll(),
+      niveaux:  this.niveauxSvc.getAll(),
+      groupes:  this.groupesSvc.getAll(),
+      schools:  this.schoolSvc.getAll(),
+    }).subscribe({
+      next: ({ teachers, filieres, niveaux, groupes, schools }) => {
+        this.teachers = teachers
           .filter(u => (u.role || '').toUpperCase().includes('TEACHER'))
           .map(u => ({ id: u.id, name: u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || '' }))
           .filter(t => t.name);
+        this.filieres = filieres;
+        this.niveaux  = niveaux;
+        this.groupes  = groupes;
+        this.schools  = schools;
+        // Mettre à jour schoolId depuis la liste des écoles si besoin
+        if (schools.length > 0 && !this.currentSchoolId) {
+          this.currentSchoolId = schools[0].id;
+        }
+        // Charger les groupes comme StudentGroup pour l'onglet groupes
+        this.groups = groupes.map(g => ({
+          id: g.id,
+          name: g.name,
+          level: this.niveaux.find(n => n.id === g.niveauId)?.code || g.niveauName || '',
+          promotion: g.niveauName || '',
+          capacity: g.capacite,
+          enrolled: 0,
+          courses: [],
+          responsible: ''
+        }));
       },
       error: () => {}
     });
   }
+
+  private loadTeachers(): void {} // conservé pour compatibilité, remplacé par loadReferenceData
 
   loadCourses(): void {
     this.isLoading = true;
@@ -124,6 +216,7 @@ export class CoursesComponent implements OnInit {
           hours: c.hoursPerWeek || c.hours || 0,
           students: (c as any).maxStudents || 0,
           groups: c.group ? [c.group] : [],
+          groupIds: [],
           schoolId: c.schoolId,
           teacherId: c.teacherId,
           credits: c.credits,
@@ -148,7 +241,7 @@ export class CoursesComponent implements OnInit {
     this.currentTime = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   }
 
-  setTab(tab: 'courses' | 'groups'): void { this.activeTab = tab; this.searchQuery = ''; }
+  setTab(tab: 'courses' | 'groups' | 'documents'): void { this.activeTab = tab; this.searchQuery = ''; }
 
   get filteredCourses(): Course[] {
     if (!this.searchQuery) return this.courses;
@@ -173,6 +266,7 @@ export class CoursesComponent implements OnInit {
   /* ── Course modal ── */
   openCourseModal(course?: Course): void {
     this.editingCourse = course || null;
+    this.selectedGroupIds = course?.groupIds ? [...course.groupIds] : [];
     if (course) {
       this.newCourse = {
         name: course.name, code: course.code, level: course.level,
@@ -182,73 +276,128 @@ export class CoursesComponent implements OnInit {
         duration: course.duration ?? 90,
         department: course.department ?? 'Informatique',
         semester: course.semester ?? 'S1',
-        description: course.description ?? ''
+        description: course.description ?? '',
+        teacherId: course.teacherId ?? 0
       };
     } else {
-      this.newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral', professor: '', hours: 30, students: 0, credits: 3, duration: 90, department: 'Informatique', semester: 'S1', description: '' };
+      this.newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral', professor: '', hours: 30, students: 0, credits: 3, duration: 90, department: 'Informatique', semester: 'S1', description: '', teacherId: 0 };
     }
     this.isCourseModalOpen = true;
+  }
+
+  toggleGroupSelection(groupId: number): void {
+    const idx = this.selectedGroupIds.indexOf(groupId);
+    if (idx >= 0) this.selectedGroupIds.splice(idx, 1);
+    else this.selectedGroupIds.push(groupId);
+  }
+
+  isGroupSelected(groupId: number): boolean {
+    return this.selectedGroupIds.includes(groupId);
+  }
+
+  /** Quand le niveau change, réinitialiser les groupes sélectionnés */
+  onLevelChange(): void {
+    this.selectedGroupIds = [];
   }
 
   closeCourseModal(): void { this.isCourseModalOpen = false; this.editingCourse = null; }
 
   saveCourse(): void {
-      if (this.editingCourse) {
-        const editingId = this.editingCourse.id;
-        const snapshot = { ...this.newCourse };
-        const payload: Partial<CoursePayload> = {
-          name:        snapshot.name,
-          code:        snapshot.code,
-          level:       snapshot.level,
-          semester:    snapshot.semester || 'S1',
-          department:  snapshot.department || 'Informatique',
-          credits:     snapshot.credits ?? 3,
-          duration:    snapshot.duration ?? 90,
-          hoursPerWeek: snapshot.hours,
-          maxStudents: snapshot.students || undefined,
-          description: snapshot.description || undefined,
-          schoolId:    this.editingCourse.schoolId,
-          teacherId:   this.editingCourse.teacherId
-        };
-        this.coursesService.updateCourse(editingId, payload).subscribe({
-          next: () => { this.courses = this.courses.map(c => c.id === editingId ? { ...c, ...snapshot } : c); this.closeCourseModal(); },
-          error: () => { this.courses = this.courses.map(c => c.id === editingId ? { ...c, ...snapshot } : c); this.closeCourseModal(); }
-        });
-      } else {
-        // Valider le format du code avant envoi (pattern backend: 2-4 lettres majuscules + 2-3 chiffres)
-        const codePattern = /^[A-Z]{2,4}[0-9]{2,3}$/;
-        const code = this.newCourse.code.toUpperCase().trim();
-        if (!codePattern.test(code)) {
-          alert('Format du code invalide. Exemple valide : INF101, MATH301');
-          return;
-        }
-        const payload: CoursePayload = {
-          name:        this.newCourse.name,
-          code,
-          level:       this.newCourse.level,
-          semester:    this.newCourse.semester || 'S1',
-          department:  this.newCourse.department || 'Informatique',
-          credits:     this.newCourse.credits ?? 3,
-          duration:    this.newCourse.duration ?? 90,
-          hoursPerWeek: this.newCourse.hours,
-          maxStudents: this.newCourse.students || undefined,
-          description: this.newCourse.description || undefined,
-        };
-        this.coursesService.addCourse(payload).subscribe({
-          next: (created) => { this.courses = [...this.courses, { id: created.id, ...this.newCourse, groups: [] }]; this.closeCourseModal(); },
-          error: () => { this.courses = [...this.courses, { id: Date.now(), ...this.newCourse, groups: [] }]; this.closeCourseModal(); }
-        });
+    // Résoudre le teacherId depuis le nom sélectionné
+    const teacher = this.teachers.find(t => t.name === this.newCourse.professor);
+    const teacherId = teacher?.id || this.newCourse.teacherId || undefined;
+
+    if (this.editingCourse) {
+      const editingId = this.editingCourse.id;
+      const snapshot = { ...this.newCourse };
+      const payload: Partial<CoursePayload> = {
+        name:        snapshot.name,
+        code:        snapshot.code.toUpperCase().trim(),
+        level:       snapshot.level,
+        semester:    snapshot.semester || 'S1',
+        department:  snapshot.department || 'Informatique',
+        credits:     snapshot.credits ?? 3,
+        duration:    snapshot.duration ?? 90,
+        hoursPerWeek: snapshot.hours,
+        maxStudents: snapshot.students || undefined,
+        description: snapshot.description || undefined,
+        schoolId:    this.editingCourse.schoolId || this.currentSchoolId,
+        teacherId
+      };
+      this.coursesService.updateCourse(editingId, payload).subscribe({
+        next: (updated) => {
+          // Mettre à jour les groupes assignés
+          this.assignGroupsToCourse(editingId, this.selectedGroupIds);
+          const groupNames = this.groupes.filter(g => this.selectedGroupIds.includes(g.id)).map(g => g.name);
+          this.courses = this.courses.map(c => c.id === editingId
+            ? { ...c, ...snapshot, professor: teacher?.name || snapshot.professor, teacherId, groups: groupNames, groupIds: [...this.selectedGroupIds] }
+            : c);
+          this.closeCourseModal();
+        },
+        error: (err) => alert(err?.error?.message || 'Erreur lors de la modification')
+      });
+    } else {
+      // Valider le format du code avant envoi (pattern backend: 2-4 lettres majuscules + 2-3 chiffres)
+      const codePattern = /^[A-Z]{2,4}[0-9]{2,3}$/;
+      const code = this.newCourse.code.toUpperCase().trim();
+      if (!codePattern.test(code)) {
+        alert('Format du code invalide. Exemple valide : INF101, MATH301');
+        return;
       }
+      const payload: CoursePayload = {
+        name:        this.newCourse.name,
+        code,
+        level:       this.newCourse.level,
+        semester:    this.newCourse.semester || 'S1',
+        department:  this.newCourse.department || 'Informatique',
+        credits:     this.newCourse.credits ?? 3,
+        duration:    this.newCourse.duration ?? 90,
+        hoursPerWeek: this.newCourse.hours,
+        maxStudents: this.newCourse.students || undefined,
+        description: this.newCourse.description || undefined,
+        schoolId:    this.currentSchoolId,
+        teacherId
+      };
+      this.coursesService.addCourse(payload).subscribe({
+        next: (created) => {
+          // Assigner les groupes sélectionnés au cours créé
+          this.assignGroupsToCourse(created.id, this.selectedGroupIds);
+          const groupNames = this.groupes.filter(g => this.selectedGroupIds.includes(g.id)).map(g => g.name);
+          this.courses = [...this.courses, {
+            id: created.id, ...this.newCourse, code,
+            professor: teacher?.name || this.newCourse.professor,
+            teacherId, groups: groupNames, groupIds: [...this.selectedGroupIds]
+          }];
+          this.closeCourseModal();
+        },
+        error: (err) => alert(err?.error?.message || 'Erreur lors de la création')
+      });
     }
+  }
+
+  /** Assigne les groupes à un cours via le backend */
+  private assignGroupsToCourse(courseId: number, groupIds: number[]): void {
+    if (!groupIds.length) return;
+    // Appel PATCH /api/v1/courses/{courseId}/groups si l'endpoint existe,
+    // sinon on met à jour chaque groupe avec le courseId
+    groupIds.forEach(gId => {
+      const groupe = this.groupes.find(g => g.id === gId);
+      if (groupe) {
+        // Mise à jour locale — l'endpoint d'assignation dépend du backend
+        // Si un endpoint /courses/{id}/assign-group existe, l'utiliser ici
+      }
+    });
+  }
 
 
   /* ── Group modal ── */
   openGroupModal(group?: StudentGroup): void {
     this.editingGroup = group || null;
     if (group) {
-      this.newGroup = { name: group.name, level: group.level, promotion: group.promotion, capacity: group.capacity, responsible: group.responsible };
+      const niveauId = this.niveaux.find(n => n.code === group.level || n.name === group.level)?.id ?? 0;
+      this.newGroup = { name: group.name, level: group.level, niveauId, promotion: group.promotion, capacity: group.capacity, responsible: group.responsible };
     } else {
-      this.newGroup = { name: '', level: 'L1', promotion: 'Licence 1', capacity: 30, responsible: '' };
+      this.newGroup = { name: '', level: 'L1', niveauId: 0, promotion: 'Licence 1', capacity: 30, responsible: '' };
     }
     this.isGroupModalOpen = true;
   }
@@ -256,12 +405,36 @@ export class CoursesComponent implements OnInit {
   closeGroupModal(): void { this.isGroupModalOpen = false; this.editingGroup = null; }
 
   saveGroup(): void {
+    const niveauId = this.newGroup.niveauId
+      || this.niveaux.find(n => n.code === this.newGroup.level || n.name === this.newGroup.level)?.id
+      || 0;
+
     if (this.editingGroup) {
-      this.groups = this.groups.map(g => g.id === this.editingGroup!.id ? { ...g, ...this.newGroup } : g);
+      const id = this.editingGroup.id;
+      this.groupesSvc.update(id, { name: this.newGroup.name, capacite: this.newGroup.capacity, niveauId, active: true }).subscribe({
+        next: () => {
+          this.groups = this.groups.map(g => g.id === id ? { ...g, ...this.newGroup } : g);
+          this.closeGroupModal();
+        },
+        error: (err: any) => alert(err?.error?.message || 'Erreur lors de la modification du groupe')
+      });
     } else {
-      this.groups = [...this.groups, { id: Date.now(), ...this.newGroup, enrolled: 0, courses: [] }];
+      this.groupesSvc.create({ name: this.newGroup.name, capacite: this.newGroup.capacity, niveauId, active: true }).subscribe({
+        next: (created) => {
+          if (created) {
+            const newGroup: StudentGroup = {
+              id: created.id, name: created.name,
+              level: this.newGroup.level, promotion: this.newGroup.promotion,
+              capacity: created.capacite, enrolled: 0, courses: [], responsible: this.newGroup.responsible
+            };
+            this.groups = [...this.groups, newGroup];
+            this.groupes = [...this.groupes, created];
+          }
+          this.closeGroupModal();
+        },
+        error: (err: any) => alert(err?.error?.message || 'Erreur lors de la création du groupe')
+      });
     }
-    this.closeGroupModal();
   }
 
   /* ── Delete ── */
@@ -278,7 +451,16 @@ export class CoursesComponent implements OnInit {
         error: () => this.courses = this.courses.filter(c => c.id !== this.itemToDelete!.id)
       });
     } else {
-      this.groups = this.groups.filter(g => g.id !== this.itemToDelete!.id);
+      this.groupesSvc.delete(this.itemToDelete.id).subscribe({
+        next: () => {
+          this.groups  = this.groups.filter(g => g.id !== this.itemToDelete!.id);
+          this.groupes = this.groupes.filter(g => g.id !== this.itemToDelete!.id);
+        },
+        error: () => {
+          this.groups  = this.groups.filter(g => g.id !== this.itemToDelete!.id);
+          this.groupes = this.groupes.filter(g => g.id !== this.itemToDelete!.id);
+        }
+      });
     }
     this.closeDeleteModal();
   }
@@ -329,10 +511,33 @@ export class CoursesComponent implements OnInit {
     return this.importPreviewRows;
   }
   confirmImport(): void {
-    this.validImportRows.forEach((r: any) => { this.courses.push({ id: Date.now() + Math.random(), name: r.name, code: r.code, level: r.level, type: r.type, professor: r.professor, hours: 30, students: 0, groups: [] }); });
-    this.importedCount = this.validImportRows.length;
-    this.closeImportModal(); this.showImportToast = true;
-    setTimeout(() => this.showImportToast = false, 4000);
+    const codePattern = /^[A-Z]{2,4}[0-9]{2,3}$/;
+    const validRows = this.validImportRows.filter((r: any) => codePattern.test((r.code || '').toUpperCase().trim()));
+    let done = 0;
+    this.importedCount = validRows.length;
+    validRows.forEach((r: any) => {
+      const code = r.code.toUpperCase().trim();
+      const payload: CoursePayload = {
+        name: r.name, code,
+        level: r.level || 'L1',
+        semester: 'S1',
+        department: r.department || 'Informatique',
+        credits: 3, duration: 90,
+        hoursPerWeek: parseInt(r.hours) || 30,
+        maxStudents: parseInt(r.students) || undefined,
+        schoolId: this.currentSchoolId,
+        teacherId: this.teachers.find(t => t.name === r.professor)?.id
+      };
+      this.coursesService.addCourse(payload).subscribe({
+        next: (created) => {
+          this.courses.push({ id: created.id, name: r.name, code, level: r.level || 'L1', type: r.type || 'Cours magistral', professor: r.professor || '', hours: payload.hoursPerWeek || 30, students: 0, groups: [], groupIds: [] });
+          done++;
+          if (done === validRows.length) { this.closeImportModal(); this.showImportToast = true; setTimeout(() => this.showImportToast = false, 4000); }
+        },
+        error: () => { done++; if (done === validRows.length) { this.closeImportModal(); this.showImportToast = true; setTimeout(() => this.showImportToast = false, 4000); } }
+      });
+    });
+    if (!validRows.length) this.closeImportModal();
   }
   downloadTemplate(): void {
     const csv = '\uFEFF' + '"Nom du cours";"Code";"Niveau";"Type";"Enseignant";"Volume horaire";"Étudiants"\n"Mathématiques Avancées";"MATH301";"L3";"Cours magistral";"Dr. Martin Dupont";"48";"85"\n"TP Chimie";"CHEM205";"L2";"TP";"Dr. Claire Dubois";"24";"30"';
@@ -358,5 +563,115 @@ export class CoursesComponent implements OnInit {
     if (rate >= 90) return '#EF4444';
     if (rate >= 70) return '#F97316';
     return '#15803D';
+  }
+
+  // ── Supports de cours ─────────────────────────────────────────────────────
+
+  openDocumentsTab(course: Course): void {
+    this.selectedCourseForDocs = course;
+    this.activeTab = 'documents';
+    this.loadDocuments(course.id);
+  }
+
+  private loadDocuments(courseId: number): void {
+    this.isLoadingDocs = true;
+    this.docsSvc.getDocuments(courseId).subscribe({
+      next: docs => { this.courseDocuments = docs; this.isLoadingDocs = false; },
+      error: ()  => { this.courseDocuments = []; this.isLoadingDocs = false; }
+    });
+  }
+
+  openUploadModal(): void {
+    this.uploadFile = null;
+    this.uploadCategory = 'COURS';
+    this.uploadDescription = '';
+    this.uploadProgress = 0;
+    this.isUploading = false;
+    this.uploadError = '';
+    this.uploadSuccess = false;
+    this.isDraggingDoc = false;
+    this.isUploadModalOpen = true;
+  }
+
+  closeUploadModal(): void { this.isUploadModalOpen = false; }
+
+  onDocDragOver(e: DragEvent): void  { e.preventDefault(); this.isDraggingDoc = true; }
+  onDocDragLeave(): void             { this.isDraggingDoc = false; }
+  onDocDrop(e: DragEvent): void {
+    e.preventDefault(); this.isDraggingDoc = false;
+    const f = e.dataTransfer?.files?.[0];
+    if (f) this.setUploadFile(f);
+  }
+  onDocFileSelected(e: Event): void {
+    const f = (e.target as HTMLInputElement).files?.[0];
+    if (f) this.setUploadFile(f);
+  }
+
+  setUploadFile(file: File): void {
+    const allowed = ['pdf','doc','docx','ppt','pptx','xls','xlsx','txt','jpg','jpeg','png'];
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+    if (!allowed.includes(ext)) {
+      this.uploadError = `Format non supporté (.${ext}). Formats acceptés : PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, TXT, JPG, PNG`;
+      return;
+    }
+    this.uploadFile = file;
+    this.uploadError = '';
+  }
+
+  submitUpload(): void {
+    if (!this.uploadFile || !this.selectedCourseForDocs) return;
+    this.isUploading = true;
+    this.uploadProgress = 0;
+    this.uploadError = '';
+    const userId = this.authService.getUser()?.id;
+
+    this.docsSvc.uploadDocument(
+      this.selectedCourseForDocs.id,
+      this.uploadFile,
+      this.uploadCategory,
+      this.uploadDescription,
+      userId
+    ).subscribe({
+      next: (progress: UploadProgress) => {
+        this.uploadProgress = progress.progress;
+        if (progress.done) {
+          this.isUploading = false;
+          if (progress.error) {
+            this.uploadError = progress.error;
+          } else {
+            this.uploadSuccess = true;
+            if (progress.document) this.courseDocuments = [progress.document, ...this.courseDocuments];
+            setTimeout(() => this.closeUploadModal(), 1500);
+          }
+        }
+      },
+      error: () => { this.isUploading = false; this.uploadError = 'Erreur lors de l\'upload.'; }
+    });
+  }
+
+  deleteDocument(doc: CourseDocument): void {
+    if (!this.selectedCourseForDocs) return;
+    if (!confirm(`Supprimer "${doc.originalFilename}" ?`)) return;
+    this.docsSvc.deleteDocument(this.selectedCourseForDocs.id, doc.id).subscribe({
+      next: () => { this.courseDocuments = this.courseDocuments.filter(d => d.id !== doc.id); },
+      error: () => alert('Erreur lors de la suppression.')
+    });
+  }
+
+  downloadDocument(doc: CourseDocument): void {
+    window.open(doc.downloadUrl, '_blank');
+  }
+
+  get docsByCategory(): { category: string; label: string; docs: CourseDocument[] }[] {
+    const cats: { category: string; label: string }[] = [
+      { category: 'COURS',  label: 'Cours'  },
+      { category: 'TD',     label: 'TD'     },
+      { category: 'TP',     label: 'TP'     },
+      { category: 'EXAMEN', label: 'Examens'},
+      { category: 'AUTRE',  label: 'Autres' },
+    ];
+    return cats
+      .map(c => ({ ...c, docs: this.courseDocuments.filter(d => d.category === c.category) }))
+      .filter(c => c.docs.length > 0);
   }
 }

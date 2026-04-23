@@ -36,6 +36,12 @@ export class TeacherAvailabilityManagementService {
     );
   }
 
+  getByTeacher(teacherId: number): Observable<TeacherAvailabilityEntry[]> {
+    return this.api.get<TeacherAvailabilityEntry[]>(`/teacher-availability/teacher/${teacherId}`).pipe(
+      catchError(() => of([]))
+    );
+  }
+
   getById(id: number): Observable<TeacherAvailabilityEntry> {
     return this.api.get<ApiWrapped<TeacherAvailabilityEntry>>(`/teacher-availability/${id}`).pipe(
       map(res => res?.data ?? (res as any))
@@ -56,5 +62,11 @@ export class TeacherAvailabilityManagementService {
 
   delete(id: number): Observable<void> {
     return this.api.delete<void>(`/teacher-availability/${id}`);
+  }
+
+  checkAvailability(teacherId: number, startDateTime: string, endDateTime: string): Observable<boolean> {
+    return this.api.get<boolean>(
+      `/teacher-availability/teacher/${teacherId}/check?startDateTime=${encodeURIComponent(startDateTime)}&endDateTime=${encodeURIComponent(endDateTime)}`
+    ).pipe(catchError(() => of(false)));
   }
 }
