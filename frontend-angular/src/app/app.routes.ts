@@ -79,11 +79,6 @@ export const routes: Routes = [
     canActivate: [authGuard, roleGuard('ADMIN', 'TEACHER')]
   },
   {
-    path: 'statistics',
-    loadComponent: () => import('./features/statistics/statistics').then(m => m.StatisticsComponent),
-    canActivate: [authGuard, roleGuard('ADMIN', 'TEACHER')]
-  },
-  {
     path: 'rooms',
     loadComponent: () => import('./features/rooms/rooms').then(m => m.Rooms),
     canActivate: [authGuard, roleGuard('ADMIN', 'TEACHER')]
