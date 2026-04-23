@@ -1,8 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
-import { environment } from '../../../environments/environment';
+import { catchError, map } from 'rxjs/operators';
+import { ApiService } from './api.service';
 
 export type ReportType =
   | 'USER_STATISTICS' | 'COURSE_UTILIZATION' | 'ROOM_OCCUPANCY'
@@ -116,62 +115,62 @@ export interface StatisticsDTO {
 
 @Injectable({ providedIn: 'root' })
 export class ReportingService {
-  private http = inject(HttpClient);
-  private base = `${environment.apiUrl || 'http://localhost:8080/api'}/v1/reports`;
+  private api = inject(ApiService);
+  private readonly base = '/v1/reports';
 
   /** Génère un rapport côté serveur et retourne le ReportDTO */
   generate(request: ReportRequest): Observable<ReportDTO> {
-    return this.http.post<ReportDTO>(`${this.base}/generate`, request).pipe(
+    return this.api.post<ReportDTO>(`${this.base}/generate`, request).pipe(
       catchError(() => of({ id: 0, title: request.title ?? '', type: request.type, format: request.format, status: 'FAILED' as ReportStatus }))
     );
   }
 
   /** Génération asynchrone (retourne immédiatement, polling nécessaire) */
   generateAsync(request: ReportRequest): Observable<ReportDTO> {
-    return this.http.post<ReportDTO>(`${this.base}/generate-async`, request);
+    return this.api.post<ReportDTO>(`${this.base}/generate-async`, request);
   }
 
   /** Récupère un rapport par ID */
   getById(id: number): Observable<ReportDTO> {
-    return this.http.get<ReportDTO>(`${this.base}/${id}`);
+    return this.api.get<ReportDTO>(`${this.base}/${id}`);
   }
 
   /** Historique des rapports de l'utilisateur courant */
   getMyReports(userId: number): Observable<{ content: ReportDTO[] }> {
-    return this.http.get<{ content: ReportDTO[] }>(`${this.base}/user/${userId}`).pipe(
+    return this.api.get<{ content: ReportDTO[] }>(`${this.base}/user/${userId}`).pipe(
       catchError(() => of({ content: [] }))
     );
   }
 
   /** Tous les rapports (admin) */
   getAll(): Observable<{ content: ReportDTO[] }> {
-    return this.http.get<{ content: ReportDTO[] }>(this.base).pipe(
+    return this.api.get<{ content: ReportDTO[] }>(this.base).pipe(
       catchError(() => of({ content: [] }))
     );
   }
 
   /** Statistiques système */
   getStatistics(): Observable<StatisticsDTO> {
-    return this.http.get<StatisticsDTO>(`${this.base}/statistics`).pipe(
+    return this.api.get<StatisticsDTO>(`${this.base}/statistics`).pipe(
       catchError(() => of({} as StatisticsDTO))
     );
   }
 
   /** Liste les rapports planifiés configurés */
   getScheduledConfigs(): Observable<ScheduledReportConfig[]> {
-    return this.http.get<ScheduledReportConfig[]>(`${this.base}/scheduled`).pipe(
+    return this.api.get<ScheduledReportConfig[]>(`${this.base}/scheduled`).pipe(
       catchError(() => of([]))
     );
   }
 
   /** Supprime un rapport */
   delete(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.base}/${id}`);
+    return this.api.delete<void>(`${this.base}/${id}`);
   }
 
   /** URL de téléchargement d'un rapport */
   downloadUrl(id: number): string {
-    return `${this.base}/${id}/download`;
+    return `/api${this.base}/${id}/download`;
   }
 
   /** Déclenche le téléchargement du fichier dans le navigateur */

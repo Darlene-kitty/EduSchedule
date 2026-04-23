@@ -68,6 +68,20 @@ export class ConflictsManagementService {
   }
 
   /**
+   * Applique une solution de résolution de conflit.
+   * POST /api/v1/timetable/adjustments/{slotId}/resolve
+   */
+  resolveAdjustment(slotId: number, slotKey: string): Observable<{ success: boolean; message: string }> {
+    return this.api.post<any>(
+      `/v1/timetable/adjustments/${slotId}/resolve`,
+      { slotKey }
+    ).pipe(
+      map(res => ({ success: true, message: res?.message ?? 'Résolu' })),
+      catchError(() => of({ success: false, message: 'Erreur lors de la résolution' }))
+    );
+  }
+
+  /**
    * Déclenche une vérification de cohérence planning ↔ réservations.
    * POST /api/v1/timetable/sync-check
    */

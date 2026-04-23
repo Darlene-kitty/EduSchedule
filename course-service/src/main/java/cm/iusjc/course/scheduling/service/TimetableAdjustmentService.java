@@ -263,6 +263,49 @@ public class TimetableAdjustmentService {
     }
 
     /**
+     * Résout manuellement un conflit en appliquant le créneau alternatif choisi.
+     * Met à jour le GeneratedSchedule avec le nouveau jour/heure et repasse en ACTIVE.
+     *
+     * @param slotId  ID du créneau en conflit
+     * @param slotKey clé du créneau choisi, ex: "LUNDI_08:00"
+     */
+    @Transactional
+    public void resolveConflict(Long slotId, String slotKey) {
+        GeneratedSchedule slot = scheduleRepo.findById(slotId)
+                .orElseThrow(() -> new IllegalArgumentException("Créneau introuvable : " + slotId));
+
+        String[] parts = slotKey.split("_");
+        if (parts.length < 2) {
+            throw new IllegalArgumentException("Format slotKey invalide : " + slotKey);
+        }
+        String day   = parts[0];
+        String start = parts[1];
+        // Calculer l'heure de fin (+2h par défaut)
+        String end   = computeEndTime(start, 2);
+
+        slot.setDayOfWeek(day);
+        slot.setStartTime(start);
+        slot.setEndTime(end);
+        slot.setStatus("ACTIVE");
+        slot.setConflictReason(null);
+        scheduleRepo.save(slot);
+
+        log.info("Conflict resolved for slot {} (course={}): moved to {} {}–{}",
+                slotId, slot.getCourseCode(), day, start, end);
+    }
+
+    private String computeEndTime(String startTime, int durationHours) {
+        try {
+            String[] parts = startTime.split(":");
+            int hour = Integer.parseInt(parts[0]) + durationHours;
+            int min  = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
+            return String.format("%02d:%02d", hour, min);
+        } catch (Exception e) {
+            return startTime; // fallback
+        }
+    }
+
+    /**
      * Retourne tous les créneaux en état CONFLICT ou RELAXED pour un enseignant.
      * Utilisé par le frontend pour afficher les alertes.
      */

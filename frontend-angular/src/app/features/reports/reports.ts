@@ -137,7 +137,7 @@ export class ReportsComponent implements OnInit, AfterViewInit {
   loadStatistics(): void {
     this.isLoading = true;
     this.reportingService.getStatistics().subscribe({
-      next: (data) => {
+      next: (data: StatisticsDTO) => {
         this.statsData = data as StatisticsDTO;
         this.isLoading = false;
         setTimeout(() => this.drawAllCharts(), 200);
@@ -149,7 +149,7 @@ export class ReportsComponent implements OnInit, AfterViewInit {
   loadScheduledConfigs(): void {
     this.isLoadingScheduled = true;
     this.reportingService.getScheduledConfigs().subscribe({
-      next: (configs) => { this.scheduledConfigs = configs; this.isLoadingScheduled = false; },
+      next: (configs: ScheduledReportConfig[]) => { this.scheduledConfigs = configs; this.isLoadingScheduled = false; },
       error: () => { this.scheduledConfigs = []; this.isLoadingScheduled = false; }
     });
   }
@@ -159,7 +159,7 @@ export class ReportsComponent implements OnInit, AfterViewInit {
     const userId = this.authService.getUser()?.id;
     const obs = userId ? this.reportingService.getMyReports(userId) : this.reportingService.getAll();
     obs.subscribe({
-      next: (res) => { this.recentReports = (res.content ?? []).slice(0, 10); this.isLoadingHistory = false; },
+      next: (res: { content: ReportDTO[] }) => { this.recentReports = (res.content ?? []).slice(0, 10); this.isLoadingHistory = false; },
       error: () => { this.recentReports = []; this.isLoadingHistory = false; }
     });
   }
@@ -173,7 +173,7 @@ export class ReportsComponent implements OnInit, AfterViewInit {
       title: this.reportForm.title || ReportingService.typeLabel(this.reportForm.type),
     };
     this.reportingService.generate(request).subscribe({
-      next: (report) => {
+      next: (report: ReportDTO) => {
         this.isGenerating = false;
         if (report.status === 'FAILED') { this.toast('Erreur lors de la génération.', true); return; }
         this.toast(`Rapport "${report.title}" généré.`);
@@ -207,7 +207,7 @@ export class ReportsComponent implements OnInit, AfterViewInit {
       format: config.reportFormat as ReportFormat,
       title: typeMap[config.reportType] || config.name
     }).subscribe({
-      next: (r) => this.toast(`Rapport "${r.title}" généré avec succès.`),
+      next: (r: ReportDTO) => this.toast(`Rapport "${r.title}" généré avec succès.`),
       error: () => this.toast('Erreur lors de la génération.', true)
     });
   }

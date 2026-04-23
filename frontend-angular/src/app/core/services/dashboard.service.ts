@@ -58,14 +58,19 @@ export class DashboardService {
       reservations: this.api.get<any>('/v1/reservations').pipe(catchError(() => of([]))),
       schedules:    this.api.get<any>('/v1/schedules').pipe(catchError(() => of([]))),
       courses:      this.api.get<any>('/v1/courses').pipe(catchError(() => of([]))),
+      adjustments:  this.api.get<any>('/v1/timetable/adjustments').pipe(catchError(() => of([]))),
     }).pipe(
-      map(({ users, salles, reservations, schedules, courses }) => {
+      map(({ users, salles, reservations, schedules, courses, adjustments }) => {
         // Normaliser les listes
         const usersList: any[]  = Array.isArray(users?.data) ? users.data : (Array.isArray(users) ? users : []);
         const sallesList: any[] = Array.isArray(salles?.data) ? salles.data : (Array.isArray(salles) ? salles : []);
         const resList: any[]    = Array.isArray(reservations?.data) ? reservations.data : (Array.isArray(reservations) ? reservations : []);
         const schedList: any[]  = Array.isArray(schedules?.data) ? schedules.data : (Array.isArray(schedules) ? schedules : []);
         const coursesList: any[]= Array.isArray(courses?.data) ? courses.data : (Array.isArray(courses) ? courses : []);
+
+        // Conflits actifs depuis le timetable-service
+        const adjList: any[] = Array.isArray(adjustments?.data) ? adjustments.data : (Array.isArray(adjustments) ? adjustments : []);
+        const activeConflicts = adjList.filter((a: any) => a.status === 'CONFLICT').length;
 
         const activeUsers = usersList.filter((u: any) => u.enabled !== false).length;
         const activeRes   = resList.filter((r: any) => ['approved','APPROVED','pending','PENDING','CONFIRMED'].includes(r.status));
@@ -102,7 +107,7 @@ export class DashboardService {
           occupancyRate,
           efficiencyScore,
           coursesToday,
-          activeConflicts: 0, // calculé côté conflicts-service si disponible
+          activeConflicts,
           trends: {
             users:        activeUsers > 0 ? `${activeUsers} actifs` : '—',
             reservations: resTrend >= 0 ? `+${resTrend}%` : `${resTrend}%`,

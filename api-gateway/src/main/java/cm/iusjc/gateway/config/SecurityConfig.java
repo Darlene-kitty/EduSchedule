@@ -33,8 +33,11 @@ public class SecurityConfig {
             "http://localhost:*",
             "http://127.0.0.1:*",
             "http://frontend:*",
+            "http://frontend-angular:*",
             "https://*.app.github.dev",      // GitHub Codespaces
-            "https://*.githubpreview.dev"    // GitHub Codespaces (ancien)
+            "https://*.githubpreview.dev",   // GitHub Codespaces (ancien)
+            "https://*.onrender.com",        // Render.com
+            "https://*.railway.app"          // Railway
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));

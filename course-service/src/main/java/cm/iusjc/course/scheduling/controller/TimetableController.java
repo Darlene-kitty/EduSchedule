@@ -176,6 +176,35 @@ public class TimetableController {
     }
 
     /**
+     * Résout un conflit en appliquant le créneau alternatif choisi par l'admin.
+     * POST /api/v1/timetable/adjustments/{slotId}/resolve
+     *
+     * @param slotId  ID du GeneratedSchedule en conflit/relaxé
+     * @param body    { "slotKey": "LUNDI_08:00" }
+     */
+    @PostMapping("/adjustments/{slotId}/resolve")
+    public ResponseEntity<Map<String, Object>> resolveAdjustment(
+            @PathVariable Long slotId,
+            @RequestBody Map<String, String> body) {
+        try {
+            String slotKey = body.get("slotKey");
+            if (slotKey == null || slotKey.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false, "message", "slotKey requis"));
+            }
+            adjustmentService.resolveConflict(slotId, slotKey);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Conflit résolu — créneau mis à jour"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to resolve adjustment {}: {}", slotId, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    /**
      * Retourne des suggestions de créneaux alternatifs pour un créneau en conflit.
      * Calcule dynamiquement les alternatives en tenant compte des disponibilités
      * de l'enseignant et de l'occupation des salles.

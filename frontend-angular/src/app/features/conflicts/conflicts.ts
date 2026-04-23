@@ -151,6 +151,26 @@ export class ConflictsComponent implements OnInit {
   }
 
   applySolution(conflict: Conflict, solution: Solution): void {
+    // Appel backend pour persister la résolution
+    if (conflict.slotId && solution.slotKey) {
+      this.conflictsSvc.resolveAdjustment(conflict.slotId, solution.slotKey).subscribe({
+        next: res => {
+          if (res.success) {
+            this.markResolved(conflict);
+          }
+        },
+        error: () => {
+          // Résolution locale en fallback si le backend est indisponible
+          this.markResolved(conflict);
+        }
+      });
+    } else {
+      // Pas de slotKey — résolution locale uniquement
+      this.markResolved(conflict);
+    }
+  }
+
+  private markResolved(conflict: Conflict): void {
     conflict.resolved = true;
     this.resolvedToday++;
     this.conflicts = this.conflicts.filter(c => c.id !== conflict.id);
