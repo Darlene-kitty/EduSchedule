@@ -1,0 +1,26 @@
+# ============================================================
+# Cloudflare Tunnel — EduSchedule
+# ============================================================
+# Remplacer :
+#   - <TUNNEL_UUID>  par l'UUID retourné par "cloudflared tunnel create"
+#   - tondomaine.com par ton vrai domaine
+# ============================================================
+
+tunnel: <TUNNEL_UUID>
+credentials-file: ~/.cloudflared/<TUNNEL_UUID>.json
+
+ingress:
+  # Frontend Angular
+  - hostname: app.tondomaine.com
+    service: http://localhost:4200
+
+  # API Gateway (tous les microservices passent par là)
+  - hostname: api.tondomaine.com
+    service: http://localhost:8080
+
+  # WebSocket pour les notifications temps réel
+  - hostname: ws.tondomaine.com
+    service: ws://localhost:8087
+
+  # Fallback obligatoire
+  - service: http_status:404

@@ -34,6 +34,7 @@ public class SecurityConfig {
             "http://127.0.0.1:*",
             "http://frontend:*",
             "http://frontend-angular:*",
+            "https://*.tondomaine.com",      // Cloudflare Tunnel — remplacer par ton domaine
             "https://*.app.github.dev",      // GitHub Codespaces
             "https://*.githubpreview.dev",   // GitHub Codespaces (ancien)
             "https://*.onrender.com",        // Render.com
