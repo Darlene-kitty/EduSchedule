@@ -91,6 +91,8 @@ services:
     image: ${DOCKER_REGISTRY}/eduschedule-user-service:latest
     container_name: eduschedule-user-service
     restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 384m
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
