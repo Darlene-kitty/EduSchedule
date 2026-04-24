@@ -7,6 +7,13 @@
 set -e
 
 APP_DIR="/opt/eduschedule"
+
+if [ ! -d "$APP_DIR" ]; then
+  sudo mkdir -p "$APP_DIR"
+  sudo chown ubuntu:ubuntu "$APP_DIR"
+  git clone https://github.com/Darlene-kitty/EduSchedule.git "$APP_DIR"
+fi
+
 cd "$APP_DIR"
 
 echo "=== [1/4] Pull des dernières modifications ==="

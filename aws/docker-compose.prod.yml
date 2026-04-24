@@ -1,9 +1,10 @@
 # ============================================================
 # docker-compose.prod.yml — Production AWS EC2
-# Usage: docker compose -f docker-compose.prod.yml up -d
+# Usage: docker compose -f aws/docker-compose.prod.yml up -d
 # ============================================================
 # Les images sont tirées depuis Docker Hub (buildées par CI/CD)
-# Variables d'environnement dans .env
+# DOCKER_IMAGE_PREFIX = <dockerhub_username>/eduschedule
+# Variables d'environnement dans /opt/eduschedule/.env
 
 services:
   # ── Infrastructure ──────────────────────────────────────────────────────
@@ -46,7 +47,7 @@ services:
 
   # ── Core Services ───────────────────────────────────────────────────────
   eureka-server:
-    image: ${DOCKER_REGISTRY}/eduschedule-eureka-server:latest
+    image: ${DOCKER_IMAGE_PREFIX}-eureka-server:latest
     container_name: eduschedule-eureka
     restart: unless-stopped
     environment:
@@ -61,7 +62,7 @@ services:
       - eduschedule-network
 
   config-server:
-    image: ${DOCKER_REGISTRY}/eduschedule-config-server:latest
+    image: ${DOCKER_IMAGE_PREFIX}-config-server:latest
     container_name: eduschedule-config-server
     restart: unless-stopped
     environment:
@@ -73,7 +74,7 @@ services:
       - eduschedule-network
 
   api-gateway:
-    image: ${DOCKER_REGISTRY}/eduschedule-api-gateway:latest
+    image: ${DOCKER_IMAGE_PREFIX}-api-gateway:latest
     container_name: eduschedule-api-gateway
     restart: unless-stopped
     ports:
@@ -88,7 +89,7 @@ services:
 
   # ── Business Services ───────────────────────────────────────────────────
   user-service:
-    image: ${DOCKER_REGISTRY}/eduschedule-user-service:latest
+    image: ${DOCKER_IMAGE_PREFIX}-user-service:latest
     container_name: eduschedule-user-service
     restart: unless-stopped
     mem_limit: 256m
@@ -111,7 +112,7 @@ services:
       - eduschedule-network
 
   resource-service:
-    image: ${DOCKER_REGISTRY}/eduschedule-resource-service:latest
+    image: ${DOCKER_IMAGE_PREFIX}-resource-service:latest
     container_name: eduschedule-resource-service
     restart: unless-stopped
     environment:
@@ -129,7 +130,7 @@ services:
       - eduschedule-network
 
   school-service:
-    image: ${DOCKER_REGISTRY}/eduschedule-school-service:latest
+    image: ${DOCKER_IMAGE_PREFIX}-school-service:latest
     container_name: eduschedule-school-service
     restart: unless-stopped
     environment:
@@ -146,7 +147,7 @@ services:
       - eduschedule-network
 
   course-service:
-    image: ${DOCKER_REGISTRY}/eduschedule-course-service:latest
+    image: ${DOCKER_IMAGE_PREFIX}-course-service:latest
     container_name: eduschedule-course-service
     restart: unless-stopped
     environment:
@@ -168,7 +169,7 @@ services:
       - eduschedule-network
 
   reservation-service:
-    image: ${DOCKER_REGISTRY}/eduschedule-reservation-service:latest
+    image: ${DOCKER_IMAGE_PREFIX}-reservation-service:latest
     container_name: eduschedule-reservation-service
     restart: unless-stopped
     environment:
@@ -188,7 +189,7 @@ services:
       - eduschedule-network
 
   notification-service:
-    image: ${DOCKER_REGISTRY}/eduschedule-notification-service:latest
+    image: ${DOCKER_IMAGE_PREFIX}-notification-service:latest
     container_name: eduschedule-notification-service
     restart: unless-stopped
     ports:
@@ -217,7 +218,7 @@ services:
       - eduschedule-network
 
   scheduling-service:
-    image: ${DOCKER_REGISTRY}/eduschedule-scheduling-service:latest
+    image: ${DOCKER_IMAGE_PREFIX}-scheduling-service:latest
     container_name: eduschedule-scheduling-service
     restart: unless-stopped
     environment:
@@ -238,7 +239,7 @@ services:
       - eduschedule-network
 
   room-service:
-    image: ${DOCKER_REGISTRY}/eduschedule-room-service:latest
+    image: ${DOCKER_IMAGE_PREFIX}-room-service:latest
     container_name: eduschedule-room-service
     restart: unless-stopped
     environment:
@@ -255,7 +256,7 @@ services:
       - eduschedule-network
 
   calendar-service:
-    image: ${DOCKER_REGISTRY}/eduschedule-calendar-service:latest
+    image: ${DOCKER_IMAGE_PREFIX}-calendar-service:latest
     container_name: eduschedule-calendar-service
     restart: unless-stopped
     environment:
@@ -272,7 +273,7 @@ services:
       - eduschedule-network
 
   reporting-service:
-    image: ${DOCKER_REGISTRY}/eduschedule-reporting-service:latest
+    image: ${DOCKER_IMAGE_PREFIX}-reporting-service:latest
     container_name: eduschedule-reporting-service
     restart: unless-stopped
     environment:
@@ -289,7 +290,7 @@ services:
       - eduschedule-network
 
   event-service:
-    image: ${DOCKER_REGISTRY}/eduschedule-event-service:latest
+    image: ${DOCKER_IMAGE_PREFIX}-event-service:latest
     container_name: eduschedule-event-service
     restart: unless-stopped
     environment:
@@ -306,7 +307,7 @@ services:
       - eduschedule-network
 
   teacher-availability-service:
-    image: ${DOCKER_REGISTRY}/eduschedule-teacher-availability-service:latest
+    image: ${DOCKER_IMAGE_PREFIX}-teacher-availability-service:latest
     container_name: eduschedule-teacher-availability-service
     restart: unless-stopped
     environment:
@@ -323,7 +324,7 @@ services:
       - eduschedule-network
 
   ai-service:
-    image: ${DOCKER_REGISTRY}/eduschedule-ai-service:latest
+    image: ${DOCKER_IMAGE_PREFIX}-ai-service:latest
     container_name: eduschedule-ai-service
     restart: unless-stopped
     environment:
@@ -340,7 +341,7 @@ services:
       - eduschedule-network
 
   maintenance-service:
-    image: ${DOCKER_REGISTRY}/eduschedule-maintenance-service:latest
+    image: ${DOCKER_IMAGE_PREFIX}-maintenance-service:latest
     container_name: eduschedule-maintenance-service
     restart: unless-stopped
     environment:
@@ -357,7 +358,7 @@ services:
       - eduschedule-network
 
   ent-integration-service:
-    image: ${DOCKER_REGISTRY}/eduschedule-ent-integration-service:latest
+    image: ${DOCKER_IMAGE_PREFIX}-ent-integration-service:latest
     container_name: eduschedule-ent-integration-service
     restart: unless-stopped
     environment:
@@ -374,14 +375,11 @@ services:
       - eduschedule-network
 
   frontend-angular:
-    image: ${DOCKER_REGISTRY}/eduschedule-frontend-angular:latest
+    image: ${DOCKER_IMAGE_PREFIX}-frontend-angular:latest
     container_name: eduschedule-frontend-angular
     restart: unless-stopped
     ports:
-      - "4200:4200"
-    environment:
-      - PORT=4200
-      - API_GATEWAY_URL=http://api-gateway:8080
+      - "80:80"
     depends_on:
       - api-gateway
     networks:

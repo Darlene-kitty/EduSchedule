@@ -247,6 +247,13 @@ jobs:
             fi
             cd /opt/eduschedule
             git pull origin main
+
+            # Install Docker Compose plugin v2 if not available
+            if ! docker compose version &>/dev/null; then
+              sudo apt-get update -y
+              sudo apt-get install -y docker-compose-plugin
+            fi
+
             docker compose -f aws/docker-compose.prod.yml pull
             docker compose -f aws/docker-compose.prod.yml up -d --remove-orphans
             docker image prune -f
