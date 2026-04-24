@@ -248,8 +248,13 @@ jobs:
             cd /opt/eduschedule
             git pull origin main
 
+            # Ensure ubuntu user is in docker group
+            if ! groups ubuntu | grep -q docker; then
+              sudo usermod -aG docker ubuntu
+            fi
+
             # Install Docker Compose plugin v2 if not available
-            if ! docker compose version &>/dev/null; then
+            if ! sudo docker compose version &>/dev/null; then
               sudo apt-get update -y
               sudo apt-get install -y ca-certificates curl gnupg
               sudo install -m 0755 -d /etc/apt/keyrings
@@ -260,7 +265,13 @@ jobs:
               sudo apt-get install -y docker-compose-plugin
             fi
 
-            docker compose -f aws/docker-compose.prod.yml pull
-            docker compose -f aws/docker-compose.prod.yml up -d --remove-orphans
-            docker image prune -f
+            # Verify .env exists
+            if [ ! -f /opt/eduschedule/.env ]; then
+              echo "ERROR: /opt/eduschedule/.env not found. Please create it manually."
+              exit 1
+            fi
+
+            sudo docker compose --env-file /opt/eduschedule/.env -f aws/docker-compose.prod.yml pull
+            sudo docker compose --env-file /opt/eduschedule/.env -f aws/docker-compose.prod.yml up -d --remove-orphans
+            sudo docker image prune -f
             echo "Deployed at $(date)"
