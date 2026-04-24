@@ -259,6 +259,7 @@ jobs:
           host: ${{ secrets.AWS_EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.AWS_EC2_SSH_KEY }}
+          command_timeout: 30m
           script: |
             set -e
             # Create app directory and clone if first deploy
