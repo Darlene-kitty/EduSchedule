@@ -3,15 +3,15 @@ import { Observable, of, shareReplay } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 import { ApiService } from './api.service';
 
-export interface SessionType  { value: string; label: string; }
-export interface EventType    { value: string; label: string; }
-export interface WorkDay      { key: string;   label: string; }
+export interface SessionType    { value: string; label: string; }
+export interface AppEventType   { value: string; label: string; }
+export interface WorkDay        { key: string;   label: string; }
 
 export interface AppConfig {
   academicLevels: string[];
   semesters:      string[];
   sessionTypes:   SessionType[];
-  eventTypes:     EventType[];
+  eventTypes:     AppEventType[];
   departments:    string[];
   courseDurations: number[];
   creditValues:   number[];
@@ -43,7 +43,7 @@ const DEFAULTS: AppConfig = {
     { value: 'TRAINING',    label: 'Formation'   },
     { value: 'COMPETITION', label: 'Compétition' },
     { value: 'OTHER',       label: 'Autre'       },
-  ],
+  ] as AppEventType[],
   departments: [
     'Informatique', 'Mathématiques', 'Physique', 'Chimie',
     'Biologie', 'Économie', 'Droit', 'Lettres',

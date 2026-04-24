@@ -7,7 +7,7 @@ import { EventsManagementService, EventType, EventStatus } from '../../core/serv
 import { RoomsManagementService } from '../../core/services/rooms-management.service';
 import { UsersManagementService } from '../../core/services/users-management.service';
 import { NotificationsManagementService, ReminderPayload } from '../../core/services/notifications-management.service';
-import { AppConfigService } from '../../core/services/app-config.service';
+import { AppConfigService, AppEventType } from '../../core/services/app-config.service';
 
 export interface AppEvent {
   id: number; title: string; description: string;
@@ -43,7 +43,6 @@ export class EventsComponent implements OnInit {
 
   /** Peuplé depuis le backend via AppConfigService */
   eventTypes: { value: EventType; label: string }[] = [];
-
   currentDate = ''; currentTime = '';
   searchQuery = '';
 
@@ -88,7 +87,7 @@ export class EventsComponent implements OnInit {
 
     // Charger les types d'événements depuis le backend
     this.configSvc.getConfig().subscribe(cfg => {
-      this.eventTypes = (cfg.eventTypes ?? []).map(e => ({
+      this.eventTypes = (cfg.eventTypes ?? []).map((e: AppEventType) => ({
         value: e.value as EventType,
         label: e.label
       }));

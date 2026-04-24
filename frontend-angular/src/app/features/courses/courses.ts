@@ -71,7 +71,6 @@ export class CoursesComponent implements OnInit {
   newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral' as Course['type'], professor: '', hours: 30, students: 0, credits: 3, duration: 90, department: 'Informatique', semester: 'S1' };
   newGroup  = { name: '', level: 'L1', promotion: 'Licence 1', capacity: 30, responsible: '' };
   professors: string[] = [];
-  semesters: string[] = [];
 
    ngOnInit(): void { 
     this.updateDateTime(); 
