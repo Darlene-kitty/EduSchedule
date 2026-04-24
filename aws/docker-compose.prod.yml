@@ -379,7 +379,7 @@ services:
     container_name: eduschedule-frontend-angular
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "80:4200"
     depends_on:
       - api-gateway
     networks:
