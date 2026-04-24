@@ -1,10 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { FilieresManagementService } from '../../core/services/filieres-management.service';
 import { SchoolManagementService, SchoolEntry } from '../../core/services/school-management.service';
+import { NiveauxManagementService } from '../../core/services/niveaux-management.service';
+import { AppConfigService } from '../../core/services/app-config.service';
 
 export interface Filiere {
   id: number;
@@ -46,12 +48,16 @@ export class FilieresComponent implements OnInit {
 
   constructor(private filieresService: FilieresManagementService, private schoolService: SchoolManagementService) {}
 
+  private configSvc   = inject(AppConfigService);
+  private niveauxSvc  = inject(NiveauxManagementService);
+
   ecoles: SchoolEntry[] = [];
 
   // Fallback colors for schools without a color
   private schoolColors = ['#1D4ED8', '#15803D', '#DC2626', '#7C3AED', '#EA580C'];
 
-  allNiveaux = ['L1', 'L2', 'L3', 'M1', 'M2', 'Prépa 1', 'Prépa 2', 'CPGE 1', 'CPGE 2'];
+  /** Peuplé depuis le backend (NiveauxManagementService + AppConfigService) */
+  allNiveaux: string[] = [];
 
   filieres: Filiere[] = [];
 
@@ -68,6 +74,26 @@ export class FilieresComponent implements OnInit {
     setInterval(() => this.updateDateTime(), 1000);
     this.loadFilieres();
     this.schoolService.getAll().subscribe(data => { this.ecoles = data ?? []; });
+
+    // Charger les niveaux depuis le backend
+    this.niveauxSvc.getAll().subscribe({
+      next: data => {
+        const fromBackend = (data ?? []).map(n => n.code || n.name).filter(Boolean);
+        if (fromBackend.length > 0) {
+          this.allNiveaux = [...new Set(fromBackend)].sort();
+        } else {
+          // Fallback sur la config applicative
+          this.configSvc.getConfig().subscribe(cfg => {
+            this.allNiveaux = cfg.academicLevels ?? [];
+          });
+        }
+      },
+      error: () => {
+        this.configSvc.getConfig().subscribe(cfg => {
+          this.allNiveaux = cfg.academicLevels ?? [];
+        });
+      }
+    });
   }
 
   loadFilieres(): void {

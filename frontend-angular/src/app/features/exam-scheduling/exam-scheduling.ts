@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { ExamSchedulingService, ExamSchedulingRequest, ExamSchedulingResult, ExamSlot } from '../../core/services/exam-scheduling.service';
+import { AppConfigService } from '../../core/services/app-config.service';
 
 @Component({
   selector: 'app-exam-scheduling',
@@ -13,7 +14,8 @@ import { ExamSchedulingService, ExamSchedulingRequest, ExamSchedulingResult, Exa
   styleUrl: './exam-scheduling.css'
 })
 export class ExamSchedulingComponent implements OnInit {
-  private service = inject(ExamSchedulingService);
+  private service   = inject(ExamSchedulingService);
+  private configSvc = inject(AppConfigService);
 
   currentDate = ''; currentTime = '';
   isGenerating = false;
@@ -32,20 +34,35 @@ export class ExamSchedulingComponent implements OnInit {
     respectTeacherAvailability: true
   };
 
-  allLevels = ['L1', 'L2', 'L3', 'M1', 'M2'];
-  allSemesters = ['S1', 'S2'];
-
-  defaultSlots = ['08:00-10:00', '10:30-12:30', '14:00-16:00', '16:30-18:30'];
-  selectedSlots = new Set<string>(['08:00-10:00', '10:30-12:30', '14:00-16:00']);
+  /** Peuplés depuis le backend */
+  allLevels:    string[] = [];
+  allSemesters: string[] = [];
+  defaultSlots: string[] = [];
+  selectedSlots = new Set<string>();
 
   ngOnInit(): void {
     this.updateDateTime();
     setInterval(() => this.updateDateTime(), 1000);
+
     // Dates par défaut : 3 semaines à partir d'aujourd'hui
     const start = new Date(); start.setDate(start.getDate() + 21);
     const end   = new Date(start); end.setDate(end.getDate() + 14);
     this.request.sessionStart = start.toISOString().split('T')[0];
     this.request.sessionEnd   = end.toISOString().split('T')[0];
+
+    // Charger les listes depuis le backend
+    this.configSvc.getConfig().subscribe(cfg => {
+      this.allLevels    = cfg.academicLevels ?? [];
+      this.allSemesters = cfg.semesters?.slice(0, 2) ?? ['S1', 'S2'];
+      this.defaultSlots = cfg.examSlots ?? [];
+
+      // Sélectionner les 3 premiers créneaux par défaut
+      this.selectedSlots = new Set(this.defaultSlots.slice(0, 3));
+      this.request.availableSlots = Array.from(this.selectedSlots);
+
+      // Niveaux par défaut : les 3 premiers
+      this.request.levels = this.allLevels.slice(0, 3);
+    });
   }
 
   toggleLevel(level: string): void {

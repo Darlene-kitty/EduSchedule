@@ -1,10 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { NiveauxManagementService } from '../../core/services/niveaux-management.service';
 import { FilieresManagementService, FiliereBackend } from '../../core/services/filieres-management.service';
+import { AppConfigService } from '../../core/services/app-config.service';
+import { SchoolManagementService, SchoolEntry } from '../../core/services/school-management.service';
 
 export interface Niveau {
   id: number;
@@ -27,6 +29,9 @@ export interface Niveau {
 })
 export class NiveauxComponent implements OnInit {
 
+  private configSvc   = inject(AppConfigService);
+  private schoolSvc   = inject(SchoolManagementService);
+
   searchQuery  = '';
   filterType   = '';
   filterEcole  = '';
@@ -46,14 +51,13 @@ export class NiveauxComponent implements OnInit {
 
   constructor(private niveauxService: NiveauxManagementService, private filieresService: FilieresManagementService) {}
 
-  types: Niveau['type'][] = ['Licence', 'Master', 'Doctorat', 'Préparatoire', 'CPGE'];
+  /** Peuplé depuis le backend via AppConfigService */
+  types: Niveau['type'][] = [];
 
-  ecoles = [
-    { sigle: 'SJI',       nom: 'Saint Jean Ingénieur',                     couleur: '#1D4ED8' },
-    { sigle: 'SJM',       nom: 'Saint Jean Management',                    couleur: '#15803D' },
-    { sigle: 'PRÉPAVOGT', nom: 'Prépavogt',                                 couleur: '#DC2626' },
-    { sigle: 'CPGE',      nom: 'Classes Préparatoires aux Grandes Écoles',  couleur: '#7C3AED' },
-  ];
+  /** Peuplé depuis school-service */
+  ecoles: { sigle: string; nom: string; couleur: string }[] = [];
+
+  private readonly schoolColors = ['#1D4ED8', '#15803D', '#DC2626', '#7C3AED', '#EA580C'];
 
   allFilieres: FiliereBackend[] = [];
 
@@ -75,6 +79,20 @@ export class NiveauxComponent implements OnInit {
     setInterval(() => this.updateDateTime(), 1000);
     this.loadNiveaux();
     this.filieresService.getAll().subscribe(data => { this.allFilieres = data ?? []; });
+
+    // Charger les types depuis le backend
+    this.configSvc.getConfig().subscribe(cfg => {
+      this.types = (cfg.levelTypes ?? []) as Niveau['type'][];
+    });
+
+    // Charger les écoles depuis school-service
+    this.schoolSvc.getAll().subscribe(schools => {
+      this.ecoles = (schools ?? []).map((s, i) => ({
+        sigle: s.sigle || s.code || s.name || '',
+        nom:   s.nom   || s.name || '',
+        couleur: s.couleur || this.schoolColors[i % this.schoolColors.length]
+      }));
+    });
   }
 
   loadNiveaux(): void {

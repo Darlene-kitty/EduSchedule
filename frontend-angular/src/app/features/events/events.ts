@@ -7,6 +7,7 @@ import { EventsManagementService, EventType, EventStatus } from '../../core/serv
 import { RoomsManagementService } from '../../core/services/rooms-management.service';
 import { UsersManagementService } from '../../core/services/users-management.service';
 import { NotificationsManagementService, ReminderPayload } from '../../core/services/notifications-management.service';
+import { AppConfigService } from '../../core/services/app-config.service';
 
 export interface AppEvent {
   id: number; title: string; description: string;
@@ -34,23 +35,14 @@ export class EventsComponent implements OnInit {
   private roomsSvc      = inject(RoomsManagementService);
   private usersSvc      = inject(UsersManagementService);
   private notifSvc      = inject(NotificationsManagementService);
+  private configSvc     = inject(AppConfigService);
 
   // Listes pour les selects
   availableRooms: { id: number; name: string; building: string }[] = [];
   availableOrganizers: { id: number; name: string }[] = [];
 
-  readonly eventTypes: { value: EventType; label: string }[] = [
-    { value: 'CONFERENCE',  label: 'Conférence'  },
-    { value: 'SEMINAR',     label: 'Séminaire'   },
-    { value: 'WORKSHOP',    label: 'Atelier'     },
-    { value: 'MEETING',     label: 'Réunion'     },
-    { value: 'EXAM',        label: 'Examen'      },
-    { value: 'DEFENSE',     label: 'Soutenance'  },
-    { value: 'CEREMONY',    label: 'Cérémonie'   },
-    { value: 'TRAINING',    label: 'Formation'   },
-    { value: 'COMPETITION', label: 'Compétition' },
-    { value: 'OTHER',       label: 'Autre'       },
-  ];
+  /** Peuplé depuis le backend via AppConfigService */
+  eventTypes: { value: EventType; label: string }[] = [];
 
   currentDate = ''; currentTime = '';
   searchQuery = '';
@@ -93,6 +85,14 @@ export class EventsComponent implements OnInit {
     this.loadEvents();
     this.loadRooms();
     this.loadOrganizers();
+
+    // Charger les types d'événements depuis le backend
+    this.configSvc.getConfig().subscribe(cfg => {
+      this.eventTypes = (cfg.eventTypes ?? []).map(e => ({
+        value: e.value as EventType,
+        label: e.label
+      }));
+    });
   }
 
   private loadRooms(): void {

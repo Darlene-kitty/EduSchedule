@@ -13,6 +13,7 @@ import { RoomsManagementService, Room } from '../../core/services/rooms-manageme
 import { SchoolsManagementService, School } from '../../core/services/schools-management.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConflictsManagementService } from '../../core/services/conflicts-management.service';
+import { AppConfigService } from '../../core/services/app-config.service';
 
 export type Step = 'config' | 'running' | 'results' | 'calendar';
 
@@ -41,11 +42,12 @@ interface Constraint {
   styleUrl: './timetable-generator.css'
 })
 export class TimetableGeneratorComponent implements OnInit {
-  private svc         = inject(TimetableGenerationService);
-  private roomSvc     = inject(RoomsManagementService);
-  private schoolSvc   = inject(SchoolsManagementService);
-  private auth        = inject(AuthService);
+  private svc          = inject(TimetableGenerationService);
+  private roomSvc      = inject(RoomsManagementService);
+  private schoolSvc    = inject(SchoolsManagementService);
+  private auth         = inject(AuthService);
   private conflictsSvc = inject(ConflictsManagementService);
+  private configSvc    = inject(AppConfigService);
 
   // ── Navigation ──
   currentStep = signal<Step>('config');
@@ -67,8 +69,9 @@ export class TimetableGeneratorComponent implements OnInit {
   ];
   maxConsecutiveHours = 4;
 
-  readonly levels    = ['L1', 'L2', 'L3', 'M1', 'M2'];
-  readonly semesters = ['S1', 'S2'];
+  /** Peuplés depuis le backend via AppConfigService */
+  levels:    string[] = [];
+  semesters: string[] = [];
 
   // ── Génération ──
   job          = signal<GenerationJob | null>(null);
@@ -83,12 +86,12 @@ export class TimetableGeneratorComponent implements OnInit {
 
   // ── Calendrier ──
   calendarView: 'all' | 'teacher' | 'room' | 'school' = 'all';
-  readonly days    = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
+  /** Peuplés depuis le backend */
+  days:      string[] = [];
+  timeSlots: string[] = [];
   readonly daysMap: Record<string, string> = {
     LUNDI:'Lundi', MARDI:'Mardi', MERCREDI:'Mercredi', JEUDI:'Jeudi', VENDREDI:'Vendredi', SAMEDI:'Samedi'
   };
-  // Créneaux alignés sur les plages backend (tranches de 2h)
-  readonly timeSlots = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'];
 
   // ── Toast ──
   showToast   = false;
@@ -140,6 +143,26 @@ export class TimetableGeneratorComponent implements OnInit {
     this.roomSvc.getAvailableRooms().subscribe({
       next: data => { this.rooms.set(data); this.selectedRooms.set(data.map(r => r.id)); },
       error: () => {}
+    });
+
+    // Charger niveaux, semestres, jours et créneaux depuis le backend
+    this.configSvc.getConfig().subscribe(cfg => {
+      this.levels    = cfg.academicLevels ?? [];
+      this.semesters = cfg.semesters?.slice(0, 2) ?? ['S1', 'S2'];
+      this.days      = (cfg.workDays ?? []).map(d => d.label);
+      // Créneaux de 2h alignés sur les plages backend
+      this.timeSlots = (cfg.workHours ?? [])
+        .filter(h => h >= '08:00' && h <= '18:00')
+        .filter((_, i) => i % 2 === 0); // toutes les 2h
+
+      // Mettre à jour le daysMap dynamiquement
+      (cfg.workDays ?? []).forEach(d => {
+        this.daysMap[d.key] = d.label;
+      });
+
+      // Valeurs par défaut du formulaire
+      if (this.levels.length)    this.request.level    = this.levels[0];
+      if (this.semesters.length) this.request.semester = this.semesters[0];
     });
   }
 

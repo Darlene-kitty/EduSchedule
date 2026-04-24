@@ -6,6 +6,7 @@ import { SidebarComponent } from '../../shared/components/sidebar/sidebar.compon
 import { TeacherAvailabilityManagementService, TeacherAvailabilityEntry } from '../../core/services/teacher-availability-management.service';
 import { AuthService } from '../../core/services/auth.service';
 import { UsersManagementService } from '../../core/services/users-management.service';
+import { AppConfigService } from '../../core/services/app-config.service';
 
 export type TimeSlot = import('../../core/services/teacher-availability-management.service').TimeSlot;
 export type TeacherAvailability = TeacherAvailabilityEntry;
@@ -21,6 +22,7 @@ export class TeacherAvailabilityComponent implements OnInit {
   private availabilityService = inject(TeacherAvailabilityManagementService);
   private authService         = inject(AuthService);
   private usersSvc            = inject(UsersManagementService);
+  private configSvc           = inject(AppConfigService);
 
   // Liste des enseignants pour le select admin
   teacherList: { id: number; name: string }[] = [];
@@ -31,21 +33,15 @@ export class TeacherAvailabilityComponent implements OnInit {
   currentDate = ''; currentTime = '';
   searchQuery = '';
   selectedDay = 'all';
-  selectedTeacher = 'all';   // filtre admin par enseignant
+  selectedTeacher = 'all';
   viewMode: 'calendar' | 'list' = 'calendar';
   isAddModalOpen = false;
   isLoading = false;
   editingAvailability: TeacherAvailability | null = null;
 
-  days = [
-    { key: 'MONDAY',    label: 'Lundi'    },
-    { key: 'TUESDAY',   label: 'Mardi'    },
-    { key: 'WEDNESDAY', label: 'Mercredi' },
-    { key: 'THURSDAY',  label: 'Jeudi'    },
-    { key: 'FRIDAY',    label: 'Vendredi' },
-  ];
-
-  hours = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
+  /** Peuplés depuis le backend via AppConfigService */
+  days:  { key: string; label: string }[] = [];
+  hours: string[] = [];
 
   availabilities: TeacherAvailability[] = [];
 
@@ -61,6 +57,13 @@ export class TeacherAvailabilityComponent implements OnInit {
     this.currentTeacherName = user?.name || user?.username || '';
 
     this.loadAvailabilities();
+
+    // Charger jours et heures depuis le backend
+    this.configSvc.getConfig().subscribe(cfg => {
+      this.days  = cfg.workDays ?? [];
+      // Filtrer les heures pour n'afficher que 08:00–18:00 (sans 07:00 et 19:00)
+      this.hours = (cfg.workHours ?? []).filter(h => h >= '08:00' && h <= '18:00');
+    });
 
     // Charger la liste des enseignants pour le select (admin uniquement)
     if (!this.isTeacher) {

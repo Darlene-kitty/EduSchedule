@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { CoursesManagementService } from '../../core/services/courses-management.service';
 import { UsersManagementService } from '../../core/services/users-management.service';
+import { AppConfigService } from '../../core/services/app-config.service';
 
 export interface Course {
   id: number;
@@ -39,12 +40,14 @@ export interface StudentGroup {
 export class CoursesComponent implements OnInit {
   private coursesManagementService = inject(CoursesManagementService);
   private usersSvc                 = inject(UsersManagementService);
+  private configSvc                = inject(AppConfigService);
 
-  // Listes pour les selects
-  teachers: { id: number; name: string }[] = [];
-  readonly departments = ['Informatique','Mathématiques','Physique','Chimie','Biologie','Économie','Droit','Lettres','Sciences Humaines','Génie Civil','Génie Électrique'];
-  readonly durations   = [30, 45, 60, 90, 120, 150, 180, 240];
-  readonly creditsList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  // Listes pour les selects — peuplées depuis le backend
+  teachers:    { id: number; name: string }[] = [];
+  departments: string[] = [];
+  durations:   number[] = [];
+  creditsList: number[] = [];
+  semesters:   string[] = [];
 
   activeTab: 'courses' | 'groups' = 'courses';
   searchQuery = '';
@@ -68,13 +71,25 @@ export class CoursesComponent implements OnInit {
   newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral' as Course['type'], professor: '', hours: 30, students: 0, credits: 3, duration: 90, department: 'Informatique', semester: 'S1' };
   newGroup  = { name: '', level: 'L1', promotion: 'Licence 1', capacity: 30, responsible: '' };
   professors: string[] = [];
-  semesters = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10'];
+  semesters: string[] = [];
 
    ngOnInit(): void { 
     this.updateDateTime(); 
     setInterval(() => this.updateDateTime(), 1000);
     this.loadCourses();
     this.loadTeachers();
+
+    // Charger les listes de référence depuis le backend
+    this.configSvc.getConfig().subscribe(cfg => {
+      this.departments = cfg.departments ?? [];
+      this.durations   = cfg.courseDurations ?? [];
+      this.creditsList = cfg.creditValues ?? [];
+      this.semesters   = cfg.semesters ?? [];
+      // Mettre à jour les valeurs par défaut du formulaire
+      if (this.departments.length) this.newCourse.department = this.departments[0];
+      if (this.semesters.length)   this.newCourse.semester   = this.semesters[0];
+      if (this.durations.length)   this.newCourse.duration   = this.durations[3] ?? 90;
+    });
   }
 
   private loadTeachers(): void {

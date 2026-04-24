@@ -6,6 +6,8 @@ import { SidebarComponent } from '../../shared/components/sidebar/sidebar.compon
 import { EquipmentManagementService } from '../../core/services/equipment-management.service';
 import { RoomsManagementService } from '../../core/services/rooms-management.service';
 import { SalleMaterielService, SalleMateriel, DisponibiliteEquipement } from '../../core/services/salle-materiel.service';
+import { AppConfigService } from '../../core/services/app-config.service';
+import { SchoolManagementService } from '../../core/services/school-management.service';
 
 export interface Materiel {
   id: number;
@@ -44,8 +46,10 @@ export interface SalleItem {
 export class EquipmentComponent implements OnInit {
 
   constructor(private equipmentService: EquipmentManagementService) {}
-  private roomsSvc = inject(RoomsManagementService);
-  private salleSvc = inject(SalleMaterielService);
+  private roomsSvc   = inject(RoomsManagementService);
+  private salleSvc   = inject(SalleMaterielService);
+  private configSvc  = inject(AppConfigService);
+  private schoolsSvc = inject(SchoolManagementService);
 
   // ── Onglets ───────────────────────────────────────────────────────────────
   activeTab: 'inventaire' | 'salle' | 'disponibilite' = 'inventaire';
@@ -77,7 +81,7 @@ export class EquipmentComponent implements OnInit {
   dispDateFin   = '';
   dispResult: DisponibiliteEquipement | null = null;
   isCheckingDisp = false;
-  typesCours = ['CM', 'TD', 'TP', 'EXAM', 'CONFERENCE', 'SEMINAR'];
+  typesCours: string[] = [];
 
   editingMat:  Materiel | null = null;
   viewingMat:  Materiel | null = null;
@@ -131,6 +135,13 @@ export class EquipmentComponent implements OnInit {
     this.loadSalles();
     this.loadTypes();
     this.loadEcoles();
+
+    // Charger les types de cours depuis le backend
+    this.configSvc.getConfig().subscribe(cfg => {
+      this.typesCours = cfg.courseTypes ?? [];
+      if (this.typesCours.length) this.dispTypeCours = this.typesCours[1] ?? 'TD';
+    });
+
     const now = new Date();
     this.dispDateDebut = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0).toISOString().slice(0, 16);
     this.dispDateFin   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0).toISOString().slice(0, 16);
@@ -158,12 +169,27 @@ export class EquipmentComponent implements OnInit {
   }
 
   private loadEcoles(): void {
+    // Charger les écoles depuis school-service en priorité
+    this.schoolsSvc.getAll().subscribe({
+      next: schools => {
+        const names = (schools ?? []).map(s => s.sigle || s.code || s.name || '').filter(Boolean);
+        if (names.length > 0) {
+          this.ecoles = names;
+        } else {
+          this.loadEcolesFromMateriels();
+        }
+      },
+      error: () => this.loadEcolesFromMateriels()
+    });
+  }
+
+  private loadEcolesFromMateriels(): void {
     this.equipmentService.getAllMateriels().subscribe({
       next: data => {
         const unique = [...new Set((data || []).map((m: any) => m.ecole).filter(Boolean))].sort() as string[];
-        this.ecoles = unique.length > 0 ? unique : ['SJI', 'SJM', 'PRÉPAVOGT', 'CPGE', 'Commun'];
+        this.ecoles = unique.length > 0 ? unique : [];
       },
-      error: () => { this.ecoles = ['SJI', 'SJM', 'PRÉPAVOGT', 'CPGE', 'Commun']; }
+      error: () => { this.ecoles = []; }
     });
   }
 

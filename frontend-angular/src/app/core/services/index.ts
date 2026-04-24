@@ -34,3 +34,4 @@ export * from './students-management.service';
 export * from './toast.service';
 export * from './course-documents.service';
 export * from './conflicts-management.service';
+export * from './app-config.service';
