@@ -19,8 +19,8 @@ if %errorlevel%==0 (
 )
 
 echo.
-echo [User Service - 8081]
-netstat -an | findstr :8081 >nul
+echo [User Service - 8096]
+netstat -an | findstr :8096 >nul
 if %errorlevel%==0 (
     echo   Status: ACTIF
 ) else (

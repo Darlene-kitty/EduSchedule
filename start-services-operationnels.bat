@@ -45,9 +45,9 @@ set EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://localhost:8761/eureka/
 set SPRING_PROFILES_ACTIVE=dev
 
 REM ── 3. USER SERVICE ────────────────────────────────────────────────────────
-echo [3/16] User Service (port 8081)...
+echo [3/16] User Service (port 8096)...
 cd user-service
-start "User Service :8081" cmd /k "%MVN_RUN%"
+start "User Service :8096" cmd /k "%MVN_RUN%"
 cd ..
 timeout /t 20 /nobreak > nul
 
@@ -152,8 +152,8 @@ echo Infrastructure:
 echo   Eureka Dashboard : http://localhost:8761
 echo   API Gateway      : http://localhost:8080/actuator/health
 echo.
-echo Backend (ports 8081-8092):
-echo   User Service         : http://localhost:8081/actuator/health
+echo Backend (ports 8082-8096):
+echo   User Service         : http://localhost:8096/actuator/health
 echo   Resource Service     : http://localhost:8082/actuator/health
 echo   School Service       : http://localhost:8083/actuator/health
 echo   Course Service       : http://localhost:8084/actuator/health

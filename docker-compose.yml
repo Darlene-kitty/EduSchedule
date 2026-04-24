@@ -122,13 +122,13 @@ services:
       dockerfile: Dockerfile
     container_name: eduschedule-user-service
     ports:
-      - "8081:8081"
+      - "8096:8096"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iusjcdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=iusjc
       - SPRING_DATASOURCE_PASSWORD=iusjc2025
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - SERVER_PORT=8081
+      - SERVER_PORT=8096
     depends_on:
       mysql:
         condition: service_healthy

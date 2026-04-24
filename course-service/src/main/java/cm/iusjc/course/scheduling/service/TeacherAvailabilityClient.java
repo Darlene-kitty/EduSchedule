@@ -24,7 +24,7 @@ public class TeacherAvailabilityClient {
 
     private final RestTemplate restTemplate;
 
-    @Value("${app.user-service.url:http://localhost:8081}")
+    @Value("${app.user-service.url:http://localhost:8096}")
     private String userServiceUrl;
 
     // Types de disponibilité qui autorisent un cours

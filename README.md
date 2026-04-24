@@ -61,7 +61,7 @@ npm start
 | eureka-server | 8761 | Service Discovery |
 | config-server | 8888 | Configuration centralisée |
 | api-gateway | 8080 | Point d'entrée API, routage, CORS, JWT |
-| user-service | 8081 | Authentification & gestion des utilisateurs |
+| user-service | 8096 | Authentification & gestion des utilisateurs |
 | resource-service | 8082 | Ressources matérielles + suivi maintenance |
 | school-service | 8083 | Établissements, filières, niveaux, groupes |
 | course-service | 8084 | Cours, emplois du temps & planning examens |
@@ -329,7 +329,7 @@ eduschedule/
 ├── api-gateway/                      # Point d'entrée API (8080)
 ├── eureka-server/                    # Service Discovery (8761)
 ├── config-server/                    # Configuration centralisée (8888)
-├── user-service/                     # Auth & Utilisateurs (8081)
+├── user-service/                     # Auth & Utilisateurs (8096)
 ├── resource-service/                 # Ressources + suivi maintenance (8082)
 ├── school-service/                   # Établissements, filières, groupes (8083)
 ├── course-service/                   # Cours, EDT & planning examens (8084)

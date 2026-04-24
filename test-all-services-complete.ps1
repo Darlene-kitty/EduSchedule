@@ -12,7 +12,7 @@ $services = @(
     @{Name="Eureka Server"; Url="http://localhost:8761"; Port=8761},
     @{Name="Config Server"; Url="http://localhost:8888/actuator/health"; Port=8888},
     @{Name="API Gateway"; Url="http://localhost:8080/actuator/health"; Port=8080},
-    @{Name="User Service"; Url="http://localhost:8081/actuator/health"; Port=8081},
+    @{Name="User Service"; Url="http://localhost:8096/actuator/health"; Port=8096},
     @{Name="Resource Service"; Url="http://localhost:8082/actuator/health"; Port=8082},
     @{Name="School Service"; Url="http://localhost:8083/actuator/health"; Port=8083},
     @{Name="Course Service"; Url="http://localhost:8084/actuator/health"; Port=8084},

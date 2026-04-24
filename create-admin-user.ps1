@@ -23,7 +23,7 @@ try {
     # Essayer de créer via le User Service directement
     Write-Host "Tentative via User Service directement..." -ForegroundColor Yellow
     try {
-        $response = Invoke-RestMethod -Uri "http://localhost:8081/api/users" -Method POST -Body $adminUser -ContentType "application/json"
+        $response = Invoke-RestMethod -Uri "http://localhost:8096/api/users" -Method POST -Body $adminUser -ContentType "application/json"
         Write-Host "✅ Utilisateur admin créé via User Service!" -ForegroundColor Green
     } catch {
         Write-Host "❌ Échec également via User Service:" -ForegroundColor Red

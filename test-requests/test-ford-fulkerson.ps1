@@ -7,7 +7,7 @@
 # ============================================================
 
 $GATEWAY  = "http://localhost:8080"
-$USER_SVC = "http://localhost:8081"   # user-service direct (teacher-availability)
+$USER_SVC = "http://localhost:8096"   # user-service direct (teacher-availability)
 $TMP      = "$env:TEMP\ff_test"
 New-Item -ItemType Directory -Force -Path $TMP | Out-Null
 

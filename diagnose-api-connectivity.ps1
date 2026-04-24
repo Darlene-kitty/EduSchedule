@@ -72,7 +72,7 @@ Write-Host ""
 Write-Host "2. Test des services métier..." -ForegroundColor Cyan
 
 # Test des services individuels
-$userServiceOK = Test-Service -ServiceName "User Service" -BaseUrl "http://localhost:8081" -Endpoints @(
+$userServiceOK = Test-Service -ServiceName "User Service" -BaseUrl "http://localhost:8096" -Endpoints @(
     "/actuator/health",
     "/api/auth/health"
 )

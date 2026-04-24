@@ -35,9 +35,9 @@ echo Attente 35s pour Eureka...
 timeout /t 35 /nobreak > nul
 
 REM ── 3. USER SERVICE ────────────────────────────────────────────────────────
-echo [3/7] User Service (port 8081)...
+echo [3/7] User Service (port 8096)...
 cd user-service
-start "User :8081" cmd /k "%MVN_RUN%"
+start "User :8096" cmd /k "%MVN_RUN%"
 cd ..
 timeout /t 25 /nobreak > nul
 

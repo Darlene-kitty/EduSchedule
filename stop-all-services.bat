@@ -20,7 +20,7 @@ taskkill /FI "WINDOWTITLE:Frontend React*" /T /F >nul 2>&1
 :: Fermer les processus Java sur les ports specifiques
 echo Arret des processus Java...
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8761') do taskkill /PID %%a /F >nul 2>&1
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8081') do taskkill /PID %%a /F >nul 2>&1
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8096') do taskkill /PID %%a /F >nul 2>&1
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8082') do taskkill /PID %%a /F >nul 2>&1
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8083') do taskkill /PID %%a /F >nul 2>&1
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8084') do taskkill /PID %%a /F >nul 2>&1
@@ -37,7 +37,7 @@ echo ========================================
 echo.
 echo Ports liberes:
 echo - 8761 (Eureka)
-echo - 8081 (User Service)
+echo - 8096 (User Service)
 echo - 8082 (Notification)
 echo - 8083 (Resource)
 echo - 8084 (Course)
