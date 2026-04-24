@@ -1,5 +1,64 @@
 #!/bin/bash
 # ============================================================
+# EduSchedule — Setup initial EC2 (Ubuntu)
+# Usage: bash aws/setup-ec2.sh
+# À exécuter UNE SEULE FOIS après création de l'instance
+# ============================================================
+
+set -e
+
+echo "=== [1/5] Mise à jour système ==="
+sudo apt-get update -y && sudo apt-get upgrade -y
+
+echo "=== [2/5] Installation Docker ==="
+if ! command -v docker &>/dev/null; then
+  sudo apt-get install -y ca-certificates curl gnupg
+  sudo install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  sudo chmod a+r /etc/apt/keyrings/docker.gpg
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+    https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
+    | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  sudo apt-get update -y
+  sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+  sudo usermod -aG docker ubuntu
+  sudo systemctl enable docker
+  sudo systemctl start docker
+  echo "Docker installé."
+else
+  echo "Docker déjà installé."
+fi
+
+echo "=== [3/5] Configuration swap 4GB ==="
+if [ ! -f /swapfile ]; then
+  sudo fallocate -l 4G /swapfile
+  sudo chmod 600 /swapfile
+  sudo mkswap /swapfile
+  sudo swapon /swapfile
+  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+  # Réduire swappiness pour préférer la RAM
+  echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+  sudo sysctl -p
+  echo "Swap 4GB activé."
+else
+  echo "Swap déjà configuré."
+fi
+
+echo "=== [4/5] Création répertoire application ==="
+sudo mkdir -p /opt/eduschedule
+sudo chown ubuntu:ubuntu /opt/eduschedule
+
+echo "=== [5/5] Vérification ==="
+echo "RAM disponible :"
+free -h
+echo ""
+echo "Docker version :"
+docker --version
+docker compose version
+echo ""
+echo "=== Setup terminé ==="
+echo "Prochaine étape : créer /opt/eduschedule/.env avec les variables d'environnement"
+# ============================================================
 # EduSchedule — Setup initial EC2 Ubuntu
 # Exécuter une seule fois après création de l'instance
 # Usage: bash setup-ec2.sh
