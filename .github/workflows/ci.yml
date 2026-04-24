@@ -239,6 +239,12 @@ jobs:
           key: ${{ secrets.AWS_EC2_SSH_KEY }}
           script: |
             set -e
+            # Create app directory and clone if first deploy
+            if [ ! -d /opt/eduschedule ]; then
+              sudo mkdir -p /opt/eduschedule
+              sudo chown ubuntu:ubuntu /opt/eduschedule
+              git clone https://github.com/${{ github.repository }}.git /opt/eduschedule
+            fi
             cd /opt/eduschedule
             git pull origin main
             docker compose -f aws/docker-compose.prod.yml pull
