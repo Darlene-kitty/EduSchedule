@@ -78,6 +78,8 @@ jobs:
 
       - name: Set up QEMU (multi-arch)
         uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -96,7 +98,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./eureka-server
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-eureka-server:latest,${{ env.DOCKER_IMAGE_PREFIX }}-eureka-server:${{ steps.tag.outputs.TAG }}
 
@@ -104,7 +106,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./config-server
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-config-server:latest,${{ env.DOCKER_IMAGE_PREFIX }}-config-server:${{ steps.tag.outputs.TAG }}
 
@@ -112,7 +114,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./api-gateway
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-api-gateway:latest,${{ env.DOCKER_IMAGE_PREFIX }}-api-gateway:${{ steps.tag.outputs.TAG }}
 
@@ -120,7 +122,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./user-service
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-user-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-user-service:${{ steps.tag.outputs.TAG }}
 
@@ -128,7 +130,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./resource-service
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-resource-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-resource-service:${{ steps.tag.outputs.TAG }}
 
@@ -136,7 +138,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./reservation-service
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-reservation-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-reservation-service:${{ steps.tag.outputs.TAG }}
 
@@ -144,7 +146,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./course-service
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-course-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-course-service:${{ steps.tag.outputs.TAG }}
 
@@ -152,7 +154,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./school-service
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-school-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-school-service:${{ steps.tag.outputs.TAG }}
 
@@ -160,7 +162,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./notification-service
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-notification-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-notification-service:${{ steps.tag.outputs.TAG }}
 
@@ -168,7 +170,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./scheduling-service
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-scheduling-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-scheduling-service:${{ steps.tag.outputs.TAG }}
 
@@ -176,7 +178,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./room-service
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-room-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-room-service:${{ steps.tag.outputs.TAG }}
 
@@ -184,7 +186,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./calendar-service
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-calendar-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-calendar-service:${{ steps.tag.outputs.TAG }}
 
@@ -192,7 +194,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./reporting-service
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-reporting-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-reporting-service:${{ steps.tag.outputs.TAG }}
 
@@ -200,7 +202,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./event-service
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-event-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-event-service:${{ steps.tag.outputs.TAG }}
 
@@ -208,7 +210,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./teacher-availability-service
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-teacher-availability-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-teacher-availability-service:${{ steps.tag.outputs.TAG }}
 
@@ -216,7 +218,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./ai-service
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-ai-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-ai-service:${{ steps.tag.outputs.TAG }}
 
@@ -224,7 +226,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./maintenance-service
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-maintenance-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-maintenance-service:${{ steps.tag.outputs.TAG }}
 
@@ -232,7 +234,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./ent-integration-service
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-ent-integration-service:latest,${{ env.DOCKER_IMAGE_PREFIX }}-ent-integration-service:${{ steps.tag.outputs.TAG }}
 
@@ -240,7 +242,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./frontend-angular
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_IMAGE_PREFIX }}-frontend-angular:latest,${{ env.DOCKER_IMAGE_PREFIX }}-frontend-angular:${{ steps.tag.outputs.TAG }}
 
