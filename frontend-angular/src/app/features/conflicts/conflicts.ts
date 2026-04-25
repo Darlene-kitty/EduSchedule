@@ -1,3 +1,4 @@
+import { AuthService } from '../../core/services/auth.service';
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -36,8 +37,10 @@ export interface Conflict {
 export class ConflictsComponent implements OnInit {
   private conflictsSvc  = inject(ConflictsManagementService);
   private wsSvc         = inject(WebSocketService);
+  private authService = inject(AuthService);
 
   currentDate = ''; currentTime = '';
+  currentUserName = ''; currentUserInitials = ''; unreadCount = 0;
   isLoading = false;
 
   stats = [
@@ -52,6 +55,7 @@ export class ConflictsComponent implements OnInit {
 
   ngOnInit(): void {
     this.updateDateTime();
+    const u = this.authService.getUser(); if (u) { const n = u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Utilisateur'; this.currentUserName = n; const p = n.trim().split(' ').filter((x: string) => x); this.currentUserInitials = p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : n.substring(0, 2).toUpperCase(); }
     setInterval(() => this.updateDateTime(), 1000);
     this.loadConflicts();
     this.subscribeToLiveAlerts();

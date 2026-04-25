@@ -1,4 +1,4 @@
-<div class="page-layout">
+﻿<div class="page-layout">
   <app-sidebar activePage="courses"></app-sidebar>
   <div class="main-wrapper">
 
@@ -12,11 +12,11 @@
         </div>
         <button class="header-notif-btn">
           <mat-icon>notifications</mat-icon>
-          <span class="notif-dot">2</span>
+          <span class="notif-dot" *ngIf="unreadCount > 0">{{ unreadCount }}</span>
         </button>
         <div class="header-user">
-          <div class="header-avatar">AS</div>
-          <span class="header-username">Admin</span>
+          <div class="header-avatar">{{ currentUserInitials }}</div>
+          <span class="header-username">{{ currentUserName }}</span>
           <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
         </div>
       </div>
@@ -317,7 +317,12 @@
         <div class="form-group">
           <label>Niveau</label>
           <select [(ngModel)]="newCourse.level" (ngModelChange)="onLevelChange()">
-            <option>L1</option><option>L2</option><option>L3</option><option>M1</option><option>M2</option>
+            <option *ngFor="let n of niveaux" [value]="n.code">{{ n.code }} — {{ n.filiereName }}</option>
+            <option *ngIf="niveaux.length === 0" value="L1">L1</option>
+            <option *ngIf="niveaux.length === 0" value="L2">L2</option>
+            <option *ngIf="niveaux.length === 0" value="L3">L3</option>
+            <option *ngIf="niveaux.length === 0" value="M1">M1</option>
+            <option *ngIf="niveaux.length === 0" value="M2">M2</option>
           </select>
         </div>
         <div class="form-group">
@@ -333,8 +338,8 @@
       <div class="form-group">
         <label>Enseignant</label>
         <select [(ngModel)]="newCourse.teacherId">
-          <option [value]="0">— Aucun enseignant —</option>
-          <option *ngFor="let t of teachers" [value]="t.id">{{ t.name }}</option>
+          <option [ngValue]="0">— Aucun enseignant —</option>
+          <option *ngFor="let t of teachers" [ngValue]="t.id">{{ t.name }}</option>
         </select>
       </div>
       <div class="form-row">
@@ -419,8 +424,8 @@
         <div class="form-group">
           <label>Niveau <span class="req">*</span></label>
           <select [(ngModel)]="newGroup.niveauId">
-            <option [value]="0">— Choisir un niveau —</option>
-            <option *ngFor="let n of niveaux" [value]="n.id">{{ n.name }} ({{ n.filiereName }})</option>
+            <option [ngValue]="0">— Choisir un niveau —</option>
+            <option *ngFor="let n of niveaux" [ngValue]="n.id">{{ n.name }} ({{ n.filiereName }})</option>
           </select>
         </div>
       </div>

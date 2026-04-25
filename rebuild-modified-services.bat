@@ -1,84 +1,119 @@
 @echo off
-setlocal enabledelayedexpansion
-
-echo ============================================================
-echo   REBUILD - SERVICES MODIFIES
-echo   reservation-service, notification-service,
-echo   course-service, resource-service, frontend-angular
-echo ============================================================
-
-REM ── Vérifications préalables ──────────────────────────────────
-call mvn --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERREUR] Maven introuvable. Ajoutez-le au PATH.
-    pause & exit /b 1
-)
-
-call node --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERREUR] Node.js introuvable.
-    pause & exit /b 1
-)
-
-call docker --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERREUR] Docker introuvable.
-    pause & exit /b 1
-)
-
-echo [OK] Maven, Node.js et Docker sont disponibles.
-echo.
-
-REM ── 1. Build Maven des services modifiés ──────────────────────
-set SERVICES=reservation-service notification-service course-service resource-service
-
-for %%s in (%SERVICES%) do (
-    echo [BUILD] %%s ...
-    cd %%s
-    call mvn clean package -DskipTests -q
-    if !errorlevel! neq 0 (
-        echo [ERREUR] Build Maven echoue pour %%s
-        cd ..
-        pause & exit /b 1
-    )
-    echo [OK] %%s - JAR genere
-    cd ..
-)
+REM ============================================================
+REM rebuild-modified-services.bat
+REM Rebuild uniquement les services modifies depuis le dernier commit
+REM Services Java : school, scheduling, resource, api-gateway,
+REM                 course, notification, reporting, event
+REM Frontend      : frontend-angular
+REM ============================================================
 
 echo.
+echo ===================================================
+echo  REBUILD DES SERVICES MODIFIES
+echo ===================================================
+echo.
 
-REM ── 2. Install npm + build Angular ────────────────────────────
-echo [BUILD] frontend-angular - installation des dependances...
-cd frontend-angular
-call npm install --legacy-peer-deps
+REM ── Verifier Maven ──────────────────────────────────────────
+where mvn >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERREUR] npm install echoue
-    cd ..
-    pause & exit /b 1
+    echo [ERREUR] Maven introuvable. Ajoute mvn au PATH.
+    pause
+    exit /b 1
 )
-echo [OK] Dependances npm installees (sockjs-client, @stomp/stompjs inclus)
+
+REM ── Verifier Node/npm ───────────────────────────────────────
+where npm >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERREUR] npm introuvable. Installe Node.js.
+    pause
+    exit /b 1
+)
+
+set FAILED=0
+set BUILT=0
+
+REM ============================================================
+REM  SERVICES JAVA
+REM ============================================================
+
+echo [1/8] school-service  (GroupeDTO + AffectationDTO enrichis)
+cd school-service
+call mvn clean package -DskipTests -q
+if %errorlevel% neq 0 ( echo [ECHEC] school-service & set FAILED=1 ) else ( echo [OK] school-service & set /a BUILT+=1 )
 cd ..
 
+echo [2/8] scheduling-service  (teacherId dans Schedule/ScheduleDTO)
+cd scheduling-service
+call mvn clean package -DskipTests -q
+if %errorlevel% neq 0 ( echo [ECHEC] scheduling-service & set FAILED=1 ) else ( echo [OK] scheduling-service & set /a BUILT+=1 )
+cd ..
+
+echo [3/8] resource-service  (schoolId dans Salle)
+cd resource-service
+call mvn clean package -DskipTests -q
+if %errorlevel% neq 0 ( echo [ECHEC] resource-service & set FAILED=1 ) else ( echo [OK] resource-service & set /a BUILT+=1 )
+cd ..
+
+echo [4/8] api-gateway  (route /api/v1/etudiants/**)
+cd api-gateway
+call mvn clean package -DskipTests -q
+if %errorlevel% neq 0 ( echo [ECHEC] api-gateway & set FAILED=1 ) else ( echo [OK] api-gateway & set /a BUILT+=1 )
+cd ..
+
+echo [5/8] course-service  (assignGroup endpoint)
+cd course-service
+call mvn clean package -DskipTests -q
+if %errorlevel% neq 0 ( echo [ECHEC] course-service & set FAILED=1 ) else ( echo [OK] course-service & set /a BUILT+=1 )
+cd ..
+
+echo [6/8] notification-service
+cd notification-service
+call mvn clean package -DskipTests -q
+if %errorlevel% neq 0 ( echo [ECHEC] notification-service & set FAILED=1 ) else ( echo [OK] notification-service & set /a BUILT+=1 )
+cd ..
+
+echo [7/8] reporting-service
+cd reporting-service
+call mvn clean package -DskipTests -q
+if %errorlevel% neq 0 ( echo [ECHEC] reporting-service & set FAILED=1 ) else ( echo [OK] reporting-service & set /a BUILT+=1 )
+cd ..
+
+echo [8/8] event-service
+cd event-service
+call mvn clean package -DskipTests -q
+if %errorlevel% neq 0 ( echo [ECHEC] event-service & set FAILED=1 ) else ( echo [OK] event-service & set /a BUILT+=1 )
+cd ..
+
+REM ============================================================
+REM  FRONTEND ANGULAR
+REM ============================================================
+
 echo.
+echo [9/9] frontend-angular  (build production)
+cd frontend-angular
+call npm run build -- --configuration production
+if %errorlevel% neq 0 ( echo [ECHEC] frontend-angular & set FAILED=1 ) else ( echo [OK] frontend-angular & set /a BUILT+=1 )
+cd ..
 
-REM ── 3. Docker build des images modifiées ──────────────────────
-echo [DOCKER] Reconstruction des images Docker...
+REM ============================================================
+REM  BILAN
+REM ============================================================
 
-docker compose build --no-cache reservation-service notification-service course-service resource-service frontend-angular
-if %errorlevel% neq 0 (
-    echo [ERREUR] docker compose build echoue
-    pause & exit /b 1
+echo.
+echo ===================================================
+echo  BILAN : %BUILT%/9 services rebuildes avec succes
+echo ===================================================
+
+if %FAILED% neq 0 (
+    echo.
+    echo [ATTENTION] Certains services ont echoue.
+    echo Corrige les erreurs avant de pusher.
+    pause
+    exit /b 1
 )
 
 echo.
-echo ============================================================
-echo   BUILD TERMINE
-echo ============================================================
-echo.
-echo Pour redemarrer uniquement les services modifies :
-echo   docker compose up -d reservation-service notification-service course-service resource-service frontend-angular
-echo.
-echo Pour tout redemarrer :
-echo   docker compose up -d
+echo Tous les services sont prets.
+echo Tu peux maintenant pusher : git push origin main
 echo.
 pause

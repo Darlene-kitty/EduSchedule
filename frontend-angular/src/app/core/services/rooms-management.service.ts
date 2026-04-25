@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { ApiService } from './api.service';
 
 export interface Room {
@@ -10,6 +11,8 @@ export interface Room {
   type: string;
   equipment?: string[];
   status?: 'available' | 'occupied' | 'maintenance';
+  /** ID de l'école dans school-service (optionnel) */
+  schoolId?: number;
   createdAt?: string;
 }
 
@@ -53,11 +56,15 @@ export class RoomsManagementService {
   private api = inject(ApiService);
 
   getRooms(): Observable<Room[]> {
-    return this.api.get<Room[]>('/v1/salles');
+    return this.api.get<any[]>('/v1/salles').pipe(
+      map(list => list.map(s => this.mapSalleToRoom(s)))
+    );
   }
 
   getRoomById(id: number): Observable<Room> {
-    return this.api.get<Room>(`/v1/salles/${id}`);
+    return this.api.get<any>(`/v1/salles/${id}`).pipe(
+      map(s => this.mapSalleToRoom(s))
+    );
   }
 
   addRoom(room: Omit<Room, 'id' | 'createdAt'>, code: string): Observable<Room> {
@@ -73,6 +80,25 @@ export class RoomsManagementService {
   }
 
   getAvailableRooms(): Observable<Room[]> {
-    return this.api.get<Room[]>('/v1/salles/disponibles');
+    return this.api.get<any[]>('/v1/salles/disponibles').pipe(
+      map(list => list.map(s => this.mapSalleToRoom(s)))
+    );
+  }
+
+  /** Maps the backend Salle entity fields to the frontend Room interface */
+  private mapSalleToRoom(s: any): Room {
+    return {
+      id:        s.id,
+      name:      s.name ?? s.nom,
+      building:  s.batiment ?? s.building,
+      capacity:  s.capacite ?? s.capacity ?? 0,
+      type:      s.type ?? '',
+      equipment: s.equipment ?? [],
+      status:    s.disponible === false ? 'maintenance'
+               : s.disponible === true  ? 'available'
+               : (s.status ?? 'available'),
+      schoolId:  s.schoolId ?? undefined,
+      createdAt: s.createdAt,
+    };
   }
 }

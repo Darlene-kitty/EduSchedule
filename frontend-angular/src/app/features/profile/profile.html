@@ -1,4 +1,4 @@
-<div class="page-layout">
+﻿<div class="page-layout">
   <app-sidebar activePage="profile"></app-sidebar>
   <div class="main-wrapper">
 
@@ -12,11 +12,11 @@
         </div>
         <button class="header-notif-btn">
           <mat-icon>notifications</mat-icon>
-          <span class="notif-dot">2</span>
+          <span class="notif-dot" *ngIf="unreadCount > 0">{{ unreadCount }}</span>
         </button>
         <div class="header-user">
           <div class="header-avatar">{{ getInitials() }}</div>
-          <span class="header-username">Admin</span>
+          <span class="header-username">{{ currentUserName }}</span>
           <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
         </div>
       </div>

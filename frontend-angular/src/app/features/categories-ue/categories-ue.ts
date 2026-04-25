@@ -1,9 +1,13 @@
-import { Component, OnInit } from '@angular/core';
+import { AuthService } from '../../core/services/auth.service';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { CategoriesUeManagementService } from '../../core/services/categories-ue-management.service';
+import { SchoolManagementService } from '../../core/services/school-management.service';
+import { FilieresManagementService } from '../../core/services/filieres-management.service';
+import { NiveauxManagementService } from '../../core/services/niveaux-management.service';
 
 export interface CategorieUE {
   id: number;
@@ -32,6 +36,11 @@ export class CategoriesUeComponent implements OnInit {
 
   constructor(private categoriesUeService: CategoriesUeManagementService) {}
 
+  private schoolSvc   = inject(SchoolManagementService);
+  private filieresSvc = inject(FilieresManagementService);
+  private niveauxSvc  = inject(NiveauxManagementService);
+  private authService = inject(AuthService);
+
   searchQuery  = '';
   filterType   = '';
   filterEcole  = '';
@@ -46,6 +55,7 @@ export class CategoriesUeComponent implements OnInit {
   catToDelete: CategorieUE | null = null;
 
   currentDate = ''; currentTime = '';
+  currentUserName = ''; currentUserInitials = ''; unreadCount = 0;
   showSuccess = false; successMessage = '';
 
   types: CategorieUE['type'][] = ['Fondamentale', 'Transversale', 'Professionnelle', 'Optionnelle'];
@@ -57,20 +67,10 @@ export class CategoriesUeComponent implements OnInit {
     'Optionnelle':    '#EA580C',
   };
 
-  ecoles = [
-    { sigle: 'SJI',       nom: 'Saint Jean Ingénieur',                    couleur: '#1D4ED8' },
-    { sigle: 'SJM',       nom: 'Saint Jean Management',                   couleur: '#15803D' },
-    { sigle: 'PRÉPAVOGT', nom: 'Prépavogt',                                couleur: '#DC2626' },
-    { sigle: 'CPGE',      nom: 'Classes Préparatoires aux Grandes Écoles', couleur: '#7C3AED' },
-  ];
-
-  allFilieres = [
-    'Génie Informatique','Génie Civil','Génie Électrique','Génie Mécanique','Génie Télécom','Génie Biomédical',
-    'Management des Entreprises','Finance & Comptabilité','Marketing','Commerce International','Ressources Humaines','Logistique',
-    'Mathématiques','Physique','Chimie','Sciences de la Vie','Lettres & Sciences Humaines','Droit des Affaires',
-  ];
-
-  allNiveaux = ['L1','L2','L3','M1','M2','Prépa 1','Prépa 2','CPGE 1','CPGE 2'];
+  /** Chargés depuis le backend */
+  ecoles:      { sigle: string; nom: string; couleur: string }[] = [];
+  allFilieres: string[] = [];
+  allNiveaux:  string[] = [];
 
   categories: CategorieUE[] = [];
 
@@ -84,8 +84,36 @@ export class CategoriesUeComponent implements OnInit {
 
   ngOnInit(): void {
     this.updateDateTime();
+    const u = this.authService.getUser(); if (u) { const n = u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Utilisateur'; this.currentUserName = n; const p = n.trim().split(' ').filter((x: string) => x); this.currentUserInitials = p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : n.substring(0, 2).toUpperCase(); }
     setInterval(() => this.updateDateTime(), 1000);
     this.loadCategories();
+    this.loadReferenceData();
+  }
+
+  private loadReferenceData(): void {
+    const palette = ['#1D4ED8','#15803D','#DC2626','#7C3AED','#EA580C'];
+    this.schoolSvc.getAll().subscribe({
+      next: schools => {
+        this.ecoles = (schools ?? []).map((s, i) => ({
+          sigle:   s.sigle || s.code || s.name || '',
+          nom:     s.nom   || s.name || '',
+          couleur: s.couleur || palette[i % palette.length]
+        }));
+      },
+      error: () => {}
+    });
+    this.filieresSvc.getAll().subscribe({
+      next: filieres => {
+        this.allFilieres = [...new Set((filieres ?? []).map(f => f.name).filter(Boolean))].sort();
+      },
+      error: () => {}
+    });
+    this.niveauxSvc.getAll().subscribe({
+      next: niveaux => {
+        this.allNiveaux = [...new Set((niveaux ?? []).map(n => n.name || n.code).filter(Boolean))].sort();
+      },
+      error: () => {}
+    });
   }
 
   private loadCategories(): void {

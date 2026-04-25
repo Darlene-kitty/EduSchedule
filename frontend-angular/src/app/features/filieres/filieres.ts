@@ -1,3 +1,4 @@
+import { AuthService } from '../../core/services/auth.service';
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -5,8 +6,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { FilieresManagementService } from '../../core/services/filieres-management.service';
 import { SchoolManagementService, SchoolEntry } from '../../core/services/school-management.service';
-import { NiveauxManagementService } from '../../core/services/niveaux-management.service';
+import { NiveauxManagementService, NiveauBackend } from '../../core/services/niveaux-management.service';
 import { AppConfigService } from '../../core/services/app-config.service';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 export interface Filiere {
   id: number;
@@ -43,6 +46,7 @@ export class FilieresComponent implements OnInit {
   filiereToDelete: Filiere | null = null;
 
   currentDate = ''; currentTime = '';
+  currentUserName = ''; currentUserInitials = ''; unreadCount = 0;
   showSuccess = false; successMessage = '';
   loading = false;
 
@@ -50,6 +54,7 @@ export class FilieresComponent implements OnInit {
 
   private configSvc   = inject(AppConfigService);
   private niveauxSvc  = inject(NiveauxManagementService);
+  private authService = inject(AuthService);
 
   ecoles: SchoolEntry[] = [];
 
@@ -71,9 +76,14 @@ export class FilieresComponent implements OnInit {
 
   ngOnInit(): void {
     this.updateDateTime();
+    const u = this.authService.getUser(); if (u) { const n = u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Utilisateur'; this.currentUserName = n; const p = n.trim().split(' ').filter((x: string) => x); this.currentUserInitials = p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : n.substring(0, 2).toUpperCase(); }
     setInterval(() => this.updateDateTime(), 1000);
-    this.loadFilieres();
-    this.schoolService.getAll().subscribe(data => { this.ecoles = data ?? []; });
+
+    // Charger les écoles d'abord, puis les filières (pour avoir les couleurs)
+    this.schoolService.getAll().subscribe(data => {
+      this.ecoles = data ?? [];
+      this.loadFilieres();
+    });
 
     // Charger les niveaux depuis le backend
     this.niveauxSvc.getAll().subscribe({
@@ -100,20 +110,49 @@ export class FilieresComponent implements OnInit {
     this.loading = true;
     this.filieresService.getAll().subscribe({
       next: (data) => {
-        this.filieres = (data ?? []).map(f => ({
-          id: f.id,
-          code: f.code || '',
-          nom: f.name,
-          ecole: f.schoolName || '',
-          sigleEcole: f.schoolName || '',
-          couleurEcole: '#1D4ED8',
-          responsable: '',
-          description: f.description || '',
-          niveaux: [],
-          duree: 3,
-          enabled: f.active
-        }));
-        this.loading = false;
+        const raw = data ?? [];
+
+        // Charger les niveaux de chaque filière en parallèle
+        const niveauxRequests = raw.map(f =>
+          this.niveauxSvc.getAll(f.id).pipe(catchError(() => of([] as NiveauBackend[])))
+        );
+
+        if (niveauxRequests.length === 0) {
+          this.filieres = [];
+          this.loading = false;
+          return;
+        }
+
+        forkJoin(niveauxRequests).subscribe(niveauxByFiliere => {
+          this.filieres = raw.map((f, i) => {
+            // Retrouver la couleur de l'école correspondante
+            const school = this.ecoles.find(e =>
+              e.id === f.schoolId ||
+              (e.nom || e.name) === f.schoolName
+            );
+            const couleur = school?.couleur ||
+              this.schoolColors[this.ecoles.indexOf(school!) % this.schoolColors.length] ||
+              '#1D4ED8';
+            const sigle = school?.sigle || school?.code || f.schoolName || '';
+
+            const niveaux = (niveauxByFiliere[i] ?? []).map(n => n.code || n.name);
+
+            return {
+              id: f.id,
+              code: f.code || '',
+              nom: f.name,
+              ecole: f.schoolName || '',
+              sigleEcole: sigle,
+              couleurEcole: couleur,
+              responsable: '',
+              description: f.description || '',
+              niveaux,
+              duree: niveaux.length || 3,
+              enabled: f.active
+            };
+          });
+          this.loading = false;
+        });
       },
       error: () => { this.loading = false; }
     });

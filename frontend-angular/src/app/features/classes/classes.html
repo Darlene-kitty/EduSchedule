@@ -1,4 +1,4 @@
-<div class="page-layout">
+﻿<div class="page-layout">
   <app-sidebar activePage="classes"></app-sidebar>
   <div class="main-wrapper">
 
@@ -11,8 +11,8 @@
         </div>
         <button class="header-notif-btn"><mat-icon>notifications</mat-icon></button>
         <div class="header-user">
-          <div class="header-avatar">AS</div>
-          <span class="header-username">Admin</span>
+          <div class="header-avatar">{{ currentUserInitials }}</div>
+          <span class="header-username">{{ currentUserName }}</span>
           <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
         </div>
       </div>
@@ -47,8 +47,7 @@
         <select class="filter-select" [(ngModel)]="filterNiveau">
           <option value="">Tous les niveaux</option>
           <option *ngFor="let n of allNiveaux" [value]="n">{{ n }}</option>
-        </select>
-      </div>
+        </select>      </div>
 
       <!-- Tableau -->
       <div class="table-card">
@@ -121,9 +120,10 @@
                 </td>
                 <td>
                   <div class="actions-cell">
-                    <button class="action-btn view-btn"   (click)="openViewModal(c)"   title="Voir"><mat-icon>visibility</mat-icon></button>
-                    <button class="action-btn edit-btn"   (click)="openEditModal(c)"   title="Modifier"><mat-icon>edit</mat-icon></button>
-                    <button class="action-btn delete-btn" (click)="openDeleteModal(c)" title="Supprimer"><mat-icon>delete</mat-icon></button>
+                    <button class="action-btn view-btn"   (click)="openViewModal(c)"         title="Voir"><mat-icon>visibility</mat-icon></button>
+                    <button class="action-btn edit-btn"   (click)="openEditModal(c)"          title="Modifier"><mat-icon>edit</mat-icon></button>
+                    <button class="action-btn assign-btn" (click)="openAutoAffectModal(c)"    title="Auto-affecter des étudiants"><mat-icon>group_add</mat-icon></button>
+                    <button class="action-btn delete-btn" (click)="openDeleteModal(c)"        title="Supprimer"><mat-icon>delete</mat-icon></button>
                   </div>
                 </td>
               </tr>
@@ -270,9 +270,9 @@
         </div>
         <div class="form-group">
           <label>Niveau *</label>
-          <select [(ngModel)]="newClasse.niveau" [disabled]="!newClasse.sigleEcole">
+          <select [(ngModel)]="newClasse.niveau" [disabled]="!niveaux.length">
             <option value="">-- Choisir --</option>
-            <option *ngFor="let n of filteredNiveauxNew" [value]="n">{{ n }}</option>
+            <option *ngFor="let n of niveaux" [value]="n.code">{{ n.name }} ({{ n.code }})</option>
           </select>
         </div>
       </div>
@@ -340,7 +340,7 @@
         <div class="form-group">
           <label>Niveau *</label>
           <select [(ngModel)]="editClasseData.niveau">
-            <option *ngFor="let n of filteredNiveauxEdit" [value]="n">{{ n }}</option>
+            <option *ngFor="let n of niveaux" [value]="n.code">{{ n.name }} ({{ n.code }})</option>
           </select>
         </div>
       </div>
@@ -373,6 +373,118 @@
     <div class="modal-footer">
       <button class="btn-cancel" (click)="closeEditModal()">Annuler</button>
       <button class="btn-save" (click)="handleEditClasse()"><mat-icon>save</mat-icon> Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL AUTO-AFFECTATION ═══════════════════ -->
+<div *ngIf="isAutoAffectModalOpen" class="modal-overlay" (click)="closeAutoAffectModal()">
+  <div class="modal modal-form modal-auto-affect" (click)="$event.stopPropagation()">
+    <div class="modal-header-plain">
+      <div class="auto-affect-header-icon"><mat-icon>group_add</mat-icon></div>
+      <div>
+        <h2>Auto-affectation — {{ autoAffectNiveauName }}</h2>
+        <p class="modal-header-sub">Distribution round-robin par capacité disponible</p>
+      </div>
+      <button class="modal-close" (click)="closeAutoAffectModal()"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- Chargement des étudiants -->
+      <div *ngIf="allStudentsLoading" class="auto-affect-loading">
+        <mat-icon class="spin">sync</mat-icon>
+        <span>Chargement des étudiants...</span>
+      </div>
+
+      <!-- Résumé avant lancement -->
+      <div *ngIf="!allStudentsLoading && !autoAffectResult" class="auto-affect-info">
+        <div class="info-card">
+          <mat-icon>people</mat-icon>
+          <div>
+            <p class="info-num">{{ allStudentIds.length }}</p>
+            <p class="info-lbl">étudiants disponibles</p>
+          </div>
+        </div>
+        <div class="info-card">
+          <mat-icon>groups</mat-icon>
+          <div>
+            <p class="info-num">{{ getGroupesCountForNiveau(autoAffectNiveauId) }}</p>
+            <p class="info-lbl">groupes dans ce niveau</p>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="!allStudentsLoading && !autoAffectResult" class="auto-affect-algo-desc">
+        <mat-icon>info</mat-icon>
+        <p>
+          L'algorithme distribue les étudiants <strong>équitablement</strong> entre tous les groupes actifs
+          du niveau <strong>{{ autoAffectNiveauName }}</strong>, en respectant la capacité maximale de chaque groupe.
+          Les étudiants déjà affectés à ce niveau sont ignorés par défaut.
+        </p>
+      </div>
+
+      <div *ngIf="!allStudentsLoading && !autoAffectResult" class="form-group toggle-group">
+        <label>Réaffecter les étudiants déjà dans un groupe</label>
+        <label class="toggle">
+          <input type="checkbox" [(ngModel)]="autoAffectForce" />
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-label" [class.warn]="autoAffectForce">
+          {{ autoAffectForce ? '⚠ Les affectations existantes seront écrasées' : 'Étudiants déjà affectés ignorés' }}
+        </span>
+      </div>
+
+      <!-- Résultat -->
+      <div *ngIf="autoAffectResult" class="auto-affect-result">
+        <div class="result-summary">
+          <div class="result-badge success">
+            <mat-icon>check_circle</mat-icon>
+            <div><p class="result-num">{{ autoAffectResult.affectes }}</p><p class="result-lbl">Affectés</p></div>
+          </div>
+          <div class="result-badge neutral" *ngIf="autoAffectResult.ignores > 0">
+            <mat-icon>skip_next</mat-icon>
+            <div><p class="result-num">{{ autoAffectResult.ignores }}</p><p class="result-lbl">Ignorés</p></div>
+          </div>
+          <div class="result-badge error" *ngIf="autoAffectResult.rejetes > 0">
+            <mat-icon>error</mat-icon>
+            <div><p class="result-num">{{ autoAffectResult.rejetes }}</p><p class="result-lbl">Rejetés</p></div>
+          </div>
+        </div>
+        <p class="result-message">{{ autoAffectResult.message }}</p>
+        <p *ngIf="autoAffectResult.rejetes > 0" class="result-warn">
+          <mat-icon>warning</mat-icon>
+          {{ autoAffectResult.rejetes }} étudiant(s) n'ont pas pu être affectés : les groupes sont complets.
+          Augmentez la capacité des groupes ou créez de nouveaux groupes.
+        </p>
+      </div>
+
+      <!-- Chargement en cours -->
+      <div *ngIf="autoAffectLoading" class="auto-affect-loading">
+        <mat-icon class="spin">sync</mat-icon>
+        <span>Distribution en cours...</span>
+      </div>
+
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAutoAffectModal()">
+        {{ autoAffectResult ? 'Fermer' : 'Annuler' }}
+      </button>
+      <button
+        *ngIf="!autoAffectResult"
+        class="btn-save btn-auto-affect"
+        [disabled]="autoAffectLoading || allStudentsLoading || allStudentIds.length === 0"
+        (click)="runAutoAffectation()">
+        <mat-icon>{{ autoAffectLoading ? 'sync' : 'auto_awesome' }}</mat-icon>
+        {{ autoAffectLoading ? 'Distribution...' : 'Lancer l\'auto-affectation' }}
+      </button>
+      <button
+        *ngIf="autoAffectResult"
+        class="btn-save"
+        (click)="autoAffectResult = null; autoAffectForce = false">
+        <mat-icon>refresh</mat-icon> Relancer
+      </button>
     </div>
   </div>
 </div>

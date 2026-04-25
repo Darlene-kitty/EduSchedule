@@ -86,7 +86,7 @@ public class NotificationController {
      * Récupère toutes les notifications
      */
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<Map<String, Object>> getAllNotifications() {
         try {
             List<NotificationDTO> notifications = notificationService.getAllNotifications();

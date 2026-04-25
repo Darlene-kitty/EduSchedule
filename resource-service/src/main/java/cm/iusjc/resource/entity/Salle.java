@@ -34,6 +34,10 @@ public class Salle {
     @Column(nullable = false)
     private Boolean active = true;
 
+    /** Référence optionnelle à l'école (school-service ID) pour le filtrage */
+    @Column(name = "school_id")
+    private Long schoolId;
+
     public enum TypeSalle {
         AMPHITHEATRE, SALLE_COURS, LABORATOIRE, SALLE_TP, SALLE_TD, BIBLIOTHEQUE
     }

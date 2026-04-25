@@ -10,6 +10,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { WebSocketService } from '../../core/services/websocket.service';
 import { SchoolManagementService } from '../../core/services/school-management.service';
 import { RoomsManagementService } from '../../core/services/rooms-management.service';
+import { TeacherAvailabilityManagementService, TeacherAvailabilityEntry } from '../../core/services/teacher-availability-management.service';
 
 export interface CalendarEvent {
   id: number; subject: string; room: string; professor: string;
@@ -34,6 +35,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
   private wsSvc           = inject(WebSocketService);
   private schoolSvc       = inject(SchoolManagementService);
   private roomSvc         = inject(RoomsManagementService);
+  private availSvc        = inject(TeacherAvailabilityManagementService);
 
   private wsSub?: Subscription;
 
@@ -52,6 +54,10 @@ export class CalendarComponent implements OnInit, OnDestroy {
   isLoading = false;
 
   isSyncing = false; showSyncToast = false; syncMessage = '';
+
+  // Disponibilités enseignant pour overlay dans le calendrier
+  teacherAvailabilities: TeacherAvailabilityEntry[] = [];
+  showAvailabilityOverlay = false;
 
   // Navigation
   today = new Date();
@@ -82,6 +88,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
 
     this.buildMonthGrid();
     this.loadSchedule();
+    this.loadAvailabilities();
 
     if (!this.isTeacher) {
       this.usersSvc.getUsers().subscribe({
@@ -115,12 +122,45 @@ export class CalendarComponent implements OnInit, OnDestroy {
     this.wsSvc.connect();
     this.wsSub = this.wsSvc.scheduleChanges$.subscribe(() => {
       this.loadSchedule();
+      this.loadAvailabilities();
     });
   }
 
   ngOnDestroy(): void { this.wsSub?.unsubscribe(); }
 
   // ── Data ──────────────────────────────────────────────────────────────────
+
+  loadAvailabilities(): void {
+    this.availSvc.getAll().subscribe({
+      next: (data) => {
+        // Si enseignant connecté, ne charger que ses propres disponibilités
+        this.teacherAvailabilities = this.isTeacher
+          ? (data || []).filter(a => a.teacherName === this.currentTeacherName)
+          : (data || []);
+      },
+      error: () => { this.teacherAvailabilities = []; }
+    });
+  }
+
+  /**
+   * Retourne true si un enseignant a une disponibilité déclarée pour ce jour/heure.
+   * Utilisé pour l'overlay visuel dans la grille.
+   */
+  isTeacherAvailableAt(dayIndex: number, hour: number): boolean {
+    if (!this.showAvailabilityOverlay) return false;
+    const dayKeys = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
+    const dayKey = dayKeys[dayIndex];
+    const hourStr = `${hour.toString().padStart(2,'0')}:00`;
+
+    const relevantAvail = this.selectedTeacher !== 'Tous les enseignants'
+      ? this.teacherAvailabilities.filter(a => a.teacherName === this.selectedTeacher)
+      : this.teacherAvailabilities;
+
+    return relevantAvail.some(a =>
+      a.status === 'active' &&
+      a.slots.some(s => s.day === dayKey && s.startTime <= hourStr && s.endTime > hourStr)
+    );
+  }
 
   loadSchedule(): void {
     this.isLoading = true;
@@ -287,6 +327,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
     if (this.isSyncing) return;
     this.isSyncing = true;
     this.loadSchedule();
+    this.loadAvailabilities();
     setTimeout(() => {
       this.isSyncing = false;
       this.syncMessage = 'Calendrier synchronisé';

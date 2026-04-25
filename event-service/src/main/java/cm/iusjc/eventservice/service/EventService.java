@@ -80,6 +80,14 @@ public class EventService {
     public Page<Event> getAllEvents(Pageable pageable) {
         return eventRepository.findAll(pageable);
     }
+
+    /**
+     * Récupère tous les événements sous forme de liste (pour le frontend)
+     */
+    public List<Event> getAllEventsList() {
+        return eventRepository.findAll(org.springframework.data.domain.Sort.by(
+                org.springframework.data.domain.Sort.Direction.DESC, "startDateTime"));
+    }
     
     /**
      * Récupère les événements par organisateur

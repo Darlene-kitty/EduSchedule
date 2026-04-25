@@ -1,3 +1,4 @@
+import { AuthService } from '../../core/services/auth.service';
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -5,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { UsersManagementService, UserManagement, SchoolAssignment } from '../../core/services/users-management.service';
 import { SchoolManagementService, SchoolEntry } from '../../core/services/school-management.service';
+import { FilieresManagementService } from '../../core/services/filieres-management.service';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
@@ -41,6 +43,8 @@ export interface ImportResult {
 export class UsersComponent implements OnInit {
   private usersManagementService = inject(UsersManagementService);
   private schoolService = inject(SchoolManagementService);
+  private filieresSvc   = inject(FilieresManagementService);
+  private authService = inject(AuthService);
 
   searchQuery = '';
   isAddModalOpen      = false;
@@ -56,6 +60,7 @@ export class UsersComponent implements OnInit {
   switchingUser: User | null = null;
 
   currentDate = ''; currentTime = '';
+  currentUserName = ''; currentUserInitials = ''; unreadCount = 0;
   importSuccessCount = 0; showImportSuccess = false;
   showSuccess = false; successMessage = '';
 
@@ -78,7 +83,8 @@ export class UsersComponent implements OnInit {
 
   expectedColumns = ['Nom complet', 'Email', 'Rôle', 'Département', 'Téléphone', 'Actif (oui/non)'];
 
-  readonly departments = ['Informatique','Mathématiques','Physique','Chimie','Biologie','Économie','Droit','Lettres','Sciences Humaines','Génie Civil','Génie Électrique','Administration','Direction'];
+  // Départements chargés depuis le backend (filières), avec fallback statique
+  departments: string[] = ['Informatique','Mathématiques','Physique','Chimie','Biologie','Économie','Droit','Lettres','Sciences Humaines','Génie Civil','Génie Électrique','Administration','Direction'];
 
   users: User[] = [];
 
@@ -91,12 +97,27 @@ export class UsersComponent implements OnInit {
     name: '', username: '', email: '', role: 'Enseignant' as User['role'],
     department: '', phone: '', enabled: true
   };
+  editSchoolId: number | null = null;
 
   ngOnInit(): void {
     this.updateDateTime();
+    const u = this.authService.getUser(); if (u) { const n = u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Utilisateur'; this.currentUserName = n; const p = n.trim().split(' ').filter((x: string) => x); this.currentUserInitials = p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : n.substring(0, 2).toUpperCase(); }
     setInterval(() => this.updateDateTime(), 1000);
     this.loadUsers();
     this.loadSchools();
+    this.loadDepartments();
+  }
+
+  private loadDepartments(): void {
+    this.filieresSvc.getAll().subscribe({
+      next: (filieres) => {
+        const names = filieres.map(f => f.name || (f as any).nom || '').filter(Boolean);
+        if (names.length > 0) {
+          this.departments = [...new Set(names)].sort();
+        }
+      },
+      error: () => {} // garder le fallback statique
+    });
   }
 
   private loadUsers(): void {
@@ -218,6 +239,7 @@ export class UsersComponent implements OnInit {
     this.editingUser = user;
     this.editUserData = { name: user.name, username: user.username, email: user.email,
       role: user.role, department: user.department, phone: user.phone, enabled: user.enabled };
+    this.editSchoolId = user.primarySchoolId || null;
     this.isEditModalOpen = true;
   }
   closeEditModal(): void { this.isEditModalOpen = false; this.editingUser = null; }
@@ -232,9 +254,24 @@ export class UsersComponent implements OnInit {
       firstName, lastName,
       email: this.editUserData.email,
       role: this.reverseMapRole(this.editUserData.role),
+      department: this.editUserData.department || undefined,
+      phone: this.editUserData.phone || undefined,
       enabled: this.editUserData.enabled
     }).subscribe({
-      next: () => { this.closeEditModal(); this.loadUsers(); this.toast('Utilisateur modifié avec succès !'); },
+      next: () => {
+        // Si l'école a changé, la mettre à jour
+        const schoolChanged = this.editSchoolId !== (this.editingUser!.primarySchoolId || null);
+        if (schoolChanged && this.editSchoolId) {
+          this.usersManagementService.switchSchool(this.editingUser!.id, this.editSchoolId)
+            .pipe(catchError(() => {
+              const school = this.availableSchools.find(s => s.id === this.editSchoolId);
+              return this.usersManagementService.assignSchool(this.editingUser!.id, this.editSchoolId!, school?.name || school?.nom || '', true);
+            }))
+            .subscribe({ next: () => { this.closeEditModal(); this.loadUsers(); this.toast('Utilisateur modifié avec succès !'); }, error: () => { this.closeEditModal(); this.loadUsers(); this.toast('Utilisateur modifié (école non mise à jour).'); } });
+        } else {
+          this.closeEditModal(); this.loadUsers(); this.toast('Utilisateur modifié avec succès !');
+        }
+      },
       error: () => this.toast('Erreur lors de la modification.')
     });
   }

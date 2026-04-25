@@ -1,3 +1,4 @@
+import { AuthService } from '../../core/services/auth.service';
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -6,7 +7,7 @@ import { SidebarComponent } from '../../shared/components/sidebar/sidebar.compon
 import { StudentsManagementService } from '../../core/services/students-management.service';
 import { FilieresManagementService } from '../../core/services/filieres-management.service';
 import { NiveauxManagementService } from '../../core/services/niveaux-management.service';
-import { GroupesManagementService } from '../../core/services/groupes-management.service';
+import { GroupesManagementService, GroupeBackend } from '../../core/services/groupes-management.service';
 
 export interface Student {
   id: number;
@@ -45,6 +46,7 @@ export class StudentsComponent implements OnInit {
   private filieresService = inject(FilieresManagementService);
   private niveauxService  = inject(NiveauxManagementService);
   private groupesService  = inject(GroupesManagementService);
+  private authService = inject(AuthService);
 
   searchQuery = '';
   isAddModalOpen    = false;
@@ -58,6 +60,7 @@ export class StudentsComponent implements OnInit {
   studentToDelete: Student | null = null;
 
   currentDate = ''; currentTime = '';
+  currentUserName = ''; currentUserInitials = ''; unreadCount = 0;
   importSuccessCount = 0; showImportSuccess = false;
   isLoading = false; errorMessage = '';
 
@@ -74,6 +77,8 @@ export class StudentsComponent implements OnInit {
   filieres: string[] = [];
   niveaux:  string[] = [];
   classes:  string[] = [];
+  /** Raw groupe objects for affectation lookup */
+  groupesRaw: GroupeBackend[] = [];
 
   students: Student[] = [];
 
@@ -83,6 +88,7 @@ export class StudentsComponent implements OnInit {
 
   ngOnInit(): void {
     this.updateDateTime();
+    const u = this.authService.getUser(); if (u) { const n = u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Utilisateur'; this.currentUserName = n; const p = n.trim().split(' ').filter((x: string) => x); this.currentUserInitials = p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : n.substring(0, 2).toUpperCase(); }
     setInterval(() => this.updateDateTime(), 1000);
     this.loadStudents();
     this.loadFormOptions();
@@ -96,7 +102,8 @@ export class StudentsComponent implements OnInit {
       this.niveaux = (data ?? []).map(n => n.name);
     });
     this.groupesService.getAll().subscribe(data => {
-      this.classes = (data ?? []).map(g => g.name);
+      this.groupesRaw = data ?? [];
+      this.classes = this.groupesRaw.map(g => g.name);
     });
   }
 
@@ -146,7 +153,18 @@ export class StudentsComponent implements OnInit {
   closeAddModal(): void { this.isAddModalOpen = false; }
   handleAddStudent(): void {
     this.studentsService.addStudent(this.newStudent).subscribe({
-      next: (created) => { this.students = [...this.students, created]; this.closeAddModal(); },
+      next: (created) => {
+        // Si une classe (groupe) est sélectionnée, affecter l'étudiant au groupe
+        const selectedGroupe = this.groupesRaw.find(g => g.name === this.newStudent.classe);
+        if (selectedGroupe && created.id) {
+          this.groupesService.affecter(selectedGroupe.id, created.id).subscribe({
+            next: () => {},
+            error: (e: any) => console.warn('Affectation groupe échouée:', e?.error?.message)
+          });
+        }
+        this.students = [...this.students, created];
+        this.closeAddModal();
+      },
       error: (err) => {
         console.error('Erreur création étudiant:', err);
         alert('Erreur lors de la création de l\'étudiant. Vérifiez les données saisies.');
@@ -162,6 +180,14 @@ export class StudentsComponent implements OnInit {
     const id = this.editingStudent.id;
     this.studentsService.updateStudent(id, this.editStudentData).subscribe({
       next: (updated) => {
+        // Si la classe a changé, mettre à jour l'affectation
+        const selectedGroupe = this.groupesRaw.find(g => g.name === this.editStudentData.classe);
+        if (selectedGroupe && this.editStudentData.classe !== this.editingStudent!.classe) {
+          this.groupesService.affecter(selectedGroupe.id, id).subscribe({
+            next: () => {},
+            error: (e: any) => console.warn('Mise à jour affectation groupe échouée:', e?.error?.message)
+          });
+        }
         this.students = this.students.map(s => s.id === id ? updated : s);
         this.closeEditModal();
       },

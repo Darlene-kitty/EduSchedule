@@ -427,3 +427,87 @@
 .btn-delete-confirm { display: flex; align-items: center; gap: 7px; background: #EF4444; color: white; border: none; padding: 10px 22px; border-radius: 9px; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
 .btn-delete-confirm:hover { background: #DC2626; }
 .btn-delete-confirm mat-icon { font-size: 16px !important; width: 16px !important; height: 16px !important; }
+
+/* ── Bouton assign ─────────────────────────────────────────────────────── */
+.action-btn.assign-btn { color: #7C3AED; }
+.action-btn.assign-btn:hover { background: #EDE9FE; }
+
+/* ── Modal auto-affectation ────────────────────────────────────────────── */
+.modal-auto-affect { max-width: 540px; }
+
+.auto-affect-header-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: linear-gradient(135deg, #7C3AED, #4F46E5);
+  display: flex; align-items: center; justify-content: center;
+  color: white; flex-shrink: 0;
+}
+.auto-affect-header-icon mat-icon { font-size: 22px !important; width: 22px !important; height: 22px !important; }
+
+.modal-header-plain { display: flex; align-items: center; gap: 14px; padding: 20px 24px 0; }
+.modal-header-plain h2 { font-size: 1.1rem; font-weight: 700; color: #111827; margin: 0; }
+.modal-header-sub { font-size: 0.8rem; color: #6B7280; margin: 2px 0 0; }
+.modal-header-plain .modal-close { margin-left: auto; }
+
+.auto-affect-info {
+  display: flex; gap: 16px; margin-bottom: 20px;
+}
+.info-card {
+  flex: 1; display: flex; align-items: center; gap: 12px;
+  background: #F9FAFB; border: 1px solid #E5E7EB;
+  border-radius: 10px; padding: 14px 16px;
+}
+.info-card mat-icon { color: #7C3AED; font-size: 28px !important; width: 28px !important; height: 28px !important; }
+.info-num { font-size: 1.5rem; font-weight: 700; color: #111827; margin: 0; line-height: 1; }
+.info-lbl { font-size: 0.75rem; color: #6B7280; margin: 4px 0 0; }
+
+.auto-affect-algo-desc {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: #EFF6FF; border: 1px solid #BFDBFE;
+  border-radius: 8px; padding: 12px 14px;
+  font-size: 0.82rem; color: #1E40AF; margin-bottom: 16px;
+}
+.auto-affect-algo-desc mat-icon { font-size: 18px !important; width: 18px !important; height: 18px !important; flex-shrink: 0; margin-top: 1px; }
+
+.toggle-label.warn { color: #D97706; font-weight: 600; }
+
+.auto-affect-loading {
+  display: flex; align-items: center; gap: 10px;
+  justify-content: center; padding: 24px;
+  color: #6B7280; font-size: 0.9rem;
+}
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* Résultat */
+.auto-affect-result { display: flex; flex-direction: column; gap: 14px; }
+.result-summary { display: flex; gap: 12px; }
+.result-badge {
+  flex: 1; display: flex; align-items: center; gap: 10px;
+  border-radius: 10px; padding: 12px 14px;
+}
+.result-badge.success { background: #F0FDF4; border: 1px solid #BBF7D0; color: #15803D; }
+.result-badge.neutral { background: #F9FAFB; border: 1px solid #E5E7EB; color: #6B7280; }
+.result-badge.error   { background: #FEF2F2; border: 1px solid #FECACA; color: #DC2626; }
+.result-badge mat-icon { font-size: 22px !important; width: 22px !important; height: 22px !important; }
+.result-num { font-size: 1.4rem; font-weight: 700; margin: 0; line-height: 1; }
+.result-lbl { font-size: 0.72rem; margin: 3px 0 0; }
+
+.result-message {
+  font-size: 0.85rem; color: #374151;
+  background: #F9FAFB; border-radius: 8px;
+  padding: 10px 14px; margin: 0;
+}
+.result-warn {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 0.82rem; color: #92400E;
+  background: #FFFBEB; border: 1px solid #FDE68A;
+  border-radius: 8px; padding: 10px 14px; margin: 0;
+}
+.result-warn mat-icon { font-size: 16px !important; width: 16px !important; height: 16px !important; flex-shrink: 0; margin-top: 1px; }
+
+.btn-auto-affect {
+  background: linear-gradient(135deg, #7C3AED, #4F46E5) !important;
+}
+.btn-auto-affect:hover:not(:disabled) {
+  background: linear-gradient(135deg, #6D28D9, #4338CA) !important;
+}

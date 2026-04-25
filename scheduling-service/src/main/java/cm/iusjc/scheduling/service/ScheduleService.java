@@ -43,6 +43,7 @@ public class ScheduleService {
         schedule.setEndTime(scheduleDTO.getEndTime());
         schedule.setRoom(scheduleDTO.getRoom());
         schedule.setTeacher(scheduleDTO.getTeacher());
+        schedule.setTeacherId(scheduleDTO.getTeacherId());
         schedule.setCourse(scheduleDTO.getCourse());
         schedule.setGroupName(scheduleDTO.getGroupName());
         schedule.setStatus(scheduleDTO.getStatus() != null ? scheduleDTO.getStatus() : "ACTIVE");
@@ -215,6 +216,7 @@ public class ScheduleService {
         schedule.setEndTime(scheduleDTO.getEndTime());
         schedule.setRoom(scheduleDTO.getRoom());
         schedule.setTeacher(scheduleDTO.getTeacher());
+        schedule.setTeacherId(scheduleDTO.getTeacherId());
         schedule.setCourse(scheduleDTO.getCourse());
         schedule.setGroupName(scheduleDTO.getGroupName());
         schedule.setStatus(scheduleDTO.getStatus());
@@ -477,6 +479,7 @@ public class ScheduleService {
         dto.setEndTime(schedule.getEndTime());
         dto.setRoom(schedule.getRoom());
         dto.setTeacher(schedule.getTeacher());
+        dto.setTeacherId(schedule.getTeacherId());
         dto.setCourse(schedule.getCourse());
         dto.setGroupName(schedule.getGroupName());
         dto.setStatus(schedule.getStatus());

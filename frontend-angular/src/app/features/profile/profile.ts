@@ -5,9 +5,10 @@ import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { AuthService } from '../../core/services/auth.service';
-import { UserService } from '../../core/services/user.service';
+import { ProfileService } from '../../core/services/profile.service';
+import { UsersManagementService } from '../../core/services/users-management.service';
 import { PreferencesService } from '../../core/services/preferences.service';
-import { StorageService } from '../../core/services/storage.service';
+import { NotificationsManagementService } from '../../core/services/notifications-management.service';
 
 @Component({
   selector: 'app-profile',
@@ -19,16 +20,22 @@ import { StorageService } from '../../core/services/storage.service';
 export class ProfileComponent implements OnInit {
   private router = inject(Router);
   private authService = inject(AuthService);
-  private userService = inject(UserService);
+  private profileService = inject(ProfileService);
+  private usersMgmtService = inject(UsersManagementService);
   private preferencesService = inject(PreferencesService);
-  private storageService = inject(StorageService);
+  private notifService = inject(NotificationsManagementService);
 
   activeTab = 'personal';
   message = '';
   isError = false;
   isEditMode = false;
+  isSaving = false;
   currentDate = '';
   currentTime = '';
+  /** Nom de l'utilisateur connecté affiché dans le header */
+  currentUserName = '';
+  /** Nombre de notifications non lues (header badge) */
+  unreadCount = 0;
 
   showCurrentPassword = false;
   showNewPassword = false;
@@ -51,10 +58,10 @@ export class ProfileComponent implements OnInit {
   preferences = { emailNotifications: true, pushNotifications: false, language: 'fr' };
 
   stats = [
-    { label: 'Cours',    value: '12',  icon: 'menu_book',    color: 'bg-blue'   },
-    { label: 'Heures',   value: '48',  icon: 'schedule',     color: 'bg-green'  },
-    { label: 'Salles',   value: '5',   icon: 'meeting_room', color: 'bg-purple' },
-    { label: 'Présence', value: '94%', icon: 'check_circle', color: 'bg-orange' },
+    { label: 'Cours',    value: '—',  icon: 'menu_book',    color: 'bg-blue'   },
+    { label: 'Heures',   value: '—',  icon: 'schedule',     color: 'bg-green'  },
+    { label: 'Salles',   value: '—',  icon: 'meeting_room', color: 'bg-purple' },
+    { label: 'Présence', value: '—',  icon: 'check_circle', color: 'bg-orange' },
   ];
 
   tabs = [
@@ -73,8 +80,10 @@ export class ProfileComponent implements OnInit {
   private loadUserData(): void {
     const user = this.authService.getUser();
     if (user) {
+      const name = user.name || [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || 'Utilisateur';
+      this.currentUserName = name;
       this.profileData = {
-        name: user.name || this.profileData.name,
+        name,
         email: user.email || this.profileData.email,
         phone: user.phone || this.profileData.phone,
         address: user.address || this.profileData.address,
@@ -82,6 +91,25 @@ export class ProfileComponent implements OnInit {
         department: user.department || this.profileData.department,
         specialization: user.specialization || this.profileData.specialization
       };
+      // Charger les données fraîches depuis le backend si on a un ID
+      if (user.id) {
+        this.usersMgmtService.getUserById(user.id).subscribe({
+          next: u => {
+            const freshName = u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || this.profileData.name;
+            this.currentUserName = freshName;
+            this.profileData = {
+              name: freshName,
+              email: u.email || this.profileData.email,
+              phone: u.phone || this.profileData.phone,
+              address: this.profileData.address,
+              bio: this.profileData.bio,
+              department: u.department || this.profileData.department,
+              specialization: this.profileData.specialization
+            };
+          },
+          error: () => {}
+        });
+      }
     }
   }
 
@@ -107,51 +135,98 @@ export class ProfileComponent implements OnInit {
   cancelEdit(): void { this.isEditMode = false; this.message = ''; }
 
   saveProfile(): void {
-    if (!this.profileDataEdit.name?.trim()) { 
-      this.isError = true; 
-      this.message = 'Le nom est obligatoire'; 
-      return; 
+    if (!this.profileDataEdit.name?.trim()) {
+      this.isError = true;
+      this.message = 'Le nom est obligatoire';
+      return;
     }
-    
-    this.profileData = { ...this.profileDataEdit };
-    
-    // Sauvegarder dans le localStorage via le service
-    const currentUser = this.authService.getUser();
-    const updatedUser = { ...currentUser, ...this.profileData };
-    this.authService.setUser(updatedUser);
-    
-    this.isEditMode = false; 
-    this.isError = false; 
-    this.message = 'Profil mis à jour avec succès';
+    this.isSaving = true;
+    const user = this.authService.getUser();
+    const nameParts = this.profileDataEdit.name.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName  = nameParts.slice(1).join(' ') || '';
+
+    this.usersMgmtService.updateUser(user.id, {
+      firstName,
+      lastName,
+      email:      this.profileDataEdit.email,
+      phone:      this.profileDataEdit.phone,
+      department: this.profileDataEdit.department,
+      enabled:    true
+    }).subscribe({
+      next: (updated) => {
+        this.profileData = { ...this.profileDataEdit };
+        // Mettre à jour le cache local
+        this.authService.setUser({ ...user, ...updated, name: this.profileDataEdit.name });
+        this.isEditMode = false;
+        this.isError = false;
+        this.isSaving = false;
+        this.message = 'Profil mis à jour avec succès';
+        setTimeout(() => this.message = '', 3000);
+      },
+      error: () => {
+        this.isSaving = false;
+        this.isError = true;
+        this.message = 'Erreur lors de la mise à jour du profil';
+      }
+    });
   }
 
   changePassword(): void {
-    if (this.passwordData.newPassword !== this.passwordData.confirmPassword) { 
-      this.isError = true; 
-      this.message = 'Les mots de passe ne correspondent pas'; 
-      return; 
+    if (this.passwordData.newPassword !== this.passwordData.confirmPassword) {
+      this.isError = true;
+      this.message = 'Les mots de passe ne correspondent pas';
+      return;
     }
-    if (this.passwordData.newPassword.length < 6) { 
-      this.isError = true; 
-      this.message = 'Le mot de passe doit contenir au moins 6 caractères'; 
-      return; 
+    if (this.passwordData.newPassword.length < 6) {
+      this.isError = true;
+      this.message = 'Le mot de passe doit contenir au moins 6 caractères';
+      return;
     }
-    
-    this.isError = false; 
-    this.message = 'Mot de passe changé avec succès';
-    this.passwordData = { currentPassword: '', newPassword: '', confirmPassword: '' };
+    this.isSaving = true;
+    this.profileService.changePassword({
+      currentPassword: this.passwordData.currentPassword,
+      newPassword:     this.passwordData.newPassword,
+      confirmPassword: this.passwordData.confirmPassword
+    }).subscribe({
+      next: () => {
+        this.isSaving = false;
+        this.isError = false;
+        this.message = 'Mot de passe changé avec succès';
+        this.passwordData = { currentPassword: '', newPassword: '', confirmPassword: '' };
+        setTimeout(() => this.message = '', 3000);
+      },
+      error: () => {
+        this.isSaving = false;
+        this.isError = true;
+        this.message = 'Mot de passe actuel incorrect';
+      }
+    });
   }
 
-  savePreferences(): void { 
-    // Sauvegarder les préférences dans le localStorage
+  savePreferences(): void {
+    const userId = this.authService.getUser()?.id;
+    // Sauvegarder localement
     this.preferencesService.updatePreferences({
       emailNotifications: this.preferences.emailNotifications,
-      notifications: this.preferences.pushNotifications,
-      language: this.preferences.language
+      notifications:      this.preferences.pushNotifications,
+      language:           this.preferences.language
     });
-    
-    this.isError = false; 
+    // Persister au backend si userId disponible
+    if (userId) {
+      this.notifService.savePreferences(userId, {
+        emailEnabled:           this.preferences.emailNotifications,
+        pushEnabled:            this.preferences.pushNotifications,
+        scheduleChanges:        true,
+        conflictAlerts:         true,
+        reservationUpdates:     true,
+        reminderNotifications:  true,
+        reminderMinutesBefore:  30
+      }).subscribe({ error: () => {} });
+    }
+    this.isError = false;
     this.message = 'Préférences sauvegardées';
+    setTimeout(() => this.message = '', 3000);
   }
 
   logout(): void { 

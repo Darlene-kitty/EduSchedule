@@ -159,7 +159,15 @@ export class ReportsComponent implements OnInit, AfterViewInit {
     const userId = this.authService.getUser()?.id;
     const obs = userId ? this.reportingService.getMyReports(userId) : this.reportingService.getAll();
     obs.subscribe({
-      next: (res: { content: ReportDTO[] }) => { this.recentReports = (res.content ?? []).slice(0, 10); this.isLoadingHistory = false; },
+      next: (res: any) => {
+        // Le backend peut retourner soit { content: ReportDTO[] } (paginé)
+        // soit directement ReportDTO[] (tableau simple)
+        const list: ReportDTO[] = Array.isArray(res)
+          ? res
+          : (res?.content ?? res?.data ?? []);
+        this.recentReports = list.slice(0, 10);
+        this.isLoadingHistory = false;
+      },
       error: () => { this.recentReports = []; this.isLoadingHistory = false; }
     });
   }

@@ -1,4 +1,4 @@
-<div class="page-layout">
+﻿<div class="page-layout">
   <app-sidebar activePage="users"></app-sidebar>
   <div class="main-wrapper">
     <header class="page-header">
@@ -8,10 +8,10 @@
           <span class="header-date">{{ currentDate }}</span>
           <span class="header-time">{{ currentTime }}</span>
         </div>
-        <button class="header-notif-btn"><mat-icon>notifications</mat-icon><span class="notif-dot">2</span></button>
+        <button class="header-notif-btn"><mat-icon>notifications</mat-icon><span class="notif-dot" *ngIf="unreadCount > 0">{{ unreadCount }}</span></button>
         <div class="header-user">
-          <div class="header-avatar">AS</div>
-          <span class="header-username">Admin</span>
+          <div class="header-avatar">{{ currentUserInitials }}</div>
+          <span class="header-username">{{ currentUserName }}</span>
           <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
         </div>
       </div>
@@ -169,6 +169,13 @@
         <label>Statut</label>
         <label class="toggle"><input type="checkbox" [(ngModel)]="editUserData.enabled" /><span class="toggle-slider"></span></label>
         <span class="toggle-label">{{ editUserData.enabled ? 'Actif' : 'Inactif' }}</span>
+      </div>
+      <div class="form-group">
+        <label>École principale</label>
+        <select [(ngModel)]="editSchoolId">
+          <option [ngValue]="null">— Aucune école —</option>
+          <option *ngFor="let s of availableSchools" [ngValue]="s.id">{{ s.nom || s.name }} ({{ s.sigle || s.code }})</option>
+        </select>
       </div>
     </div>
     <div class="modal-footer">

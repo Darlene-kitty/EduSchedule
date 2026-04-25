@@ -1,3 +1,4 @@
+import { AuthService } from '../../core/services/auth.service';
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -36,6 +37,7 @@ export class EventsComponent implements OnInit {
   private usersSvc      = inject(UsersManagementService);
   private notifSvc      = inject(NotificationsManagementService);
   private configSvc     = inject(AppConfigService);
+  private authService = inject(AuthService);
 
   // Listes pour les selects
   availableRooms: { id: number; name: string; building: string }[] = [];
@@ -44,6 +46,7 @@ export class EventsComponent implements OnInit {
   /** Peuplé depuis le backend via AppConfigService */
   eventTypes: { value: EventType; label: string }[] = [];
   currentDate = ''; currentTime = '';
+  currentUserName = ''; currentUserInitials = ''; unreadCount = 0;
   searchQuery = '';
 
   isCreateModalOpen = false;
@@ -79,7 +82,8 @@ export class EventsComponent implements OnInit {
   editEventData = { title: '', description: '', type: 'CONFERENCE' as EventType, status: 'CONFIRMED' as EventStatus, date: '', startTime: '', endTime: '', room: '', organizer: '', maxAttendees: 50, resourceId: 0, organizerId: 0 };
 
   ngOnInit(): void { 
-    this.updateDateTime(); 
+    this.updateDateTime();
+    const u = this.authService.getUser(); if (u) { const n = u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Utilisateur'; this.currentUserName = n; const p = n.trim().split(' ').filter((x: string) => x); this.currentUserInitials = p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : n.substring(0, 2).toUpperCase(); } 
     setInterval(() => this.updateDateTime(), 1000);
     this.loadEvents();
     this.loadRooms();
@@ -167,14 +171,16 @@ export class EventsComponent implements OnInit {
   closeCreateModal(): void { this.isCreateModalOpen = false; }
   handleAdd(): void {
     if (!this.newEvent.title.trim()) return;
+    const resourceId  = this.newEvent.resourceId  || this.availableRooms[0]?.id       || 0;
+    const organizerId = this.newEvent.organizerId || this.availableOrganizers[0]?.id  || 0;
     this.eventsService.addEvent({
       title: this.newEvent.title,
       description: this.newEvent.description,
       type: this.newEvent.type,
       startDateTime: EventsManagementService.toISO(this.newEvent.date, this.newEvent.startTime),
       endDateTime:   EventsManagementService.toISO(this.newEvent.date, this.newEvent.endTime),
-      resourceId:  this.newEvent.resourceId || 1,
-      organizerId: this.newEvent.organizerId || 1,
+      resourceId,
+      organizerId,
       maxParticipants: this.newEvent.maxAttendees,
     }).subscribe({
       next: () => { this.loadEvents(); this.closeCreateModal(); },
@@ -208,14 +214,16 @@ export class EventsComponent implements OnInit {
   saveEdit(): void {
     if (!this.editingEvent) return;
     const id = this.editingEvent.id;
+    const resourceId  = this.editEventData.resourceId  || this.editingEvent.resourceId  || this.availableRooms[0]?.id       || 0;
+    const organizerId = this.editEventData.organizerId || this.editingEvent.organizerId || this.availableOrganizers[0]?.id  || 0;
     this.eventsService.updateEvent(id, {
       title: this.editEventData.title,
       description: this.editEventData.description,
       type: this.editEventData.type,
       startDateTime: EventsManagementService.toISO(this.editEventData.date, this.editEventData.startTime),
       endDateTime:   EventsManagementService.toISO(this.editEventData.date, this.editEventData.endTime),
-      resourceId:  this.editEventData.resourceId || this.editingEvent.resourceId || 1,
-      organizerId: this.editEventData.organizerId || this.editingEvent.organizerId || 1,
+      resourceId,
+      organizerId,
       maxParticipants: this.editEventData.maxAttendees,
     }).subscribe({
       next: () => { this.loadEvents(); this.closeEditModal(); },
@@ -269,15 +277,21 @@ export class EventsComponent implements OnInit {
   get invalidImportRows() { return this.importPreviewRows.filter(r => !r.valid); }
   confirmImport(): void {
     const valid = this.validImportRows;
+    // Utiliser la première salle et le premier organisateur disponibles comme fallback
+    const defaultResourceId = this.availableRooms[0]?.id ?? 1;
+    const defaultOrganizerId = this.availableOrganizers[0]?.id ?? 1;
     valid.forEach(r => {
+      // Chercher la salle par nom si renseignée
+      const room = r.room ? this.availableRooms.find(rm => rm.name.toLowerCase().includes(r.room.toLowerCase())) : null;
+      const resourceId = room?.id ?? defaultResourceId;
       this.eventsService.addEvent({
         title: r.title,
         description: '',
         type: 'OTHER',
         startDateTime: EventsManagementService.toISO(r.date, '09:00'),
         endDateTime:   EventsManagementService.toISO(r.date, '11:00'),
-        resourceId: 1,
-        organizerId: 1,
+        resourceId,
+        organizerId: defaultOrganizerId,
       }).subscribe();
     });
     this.importedCount = valid.length;

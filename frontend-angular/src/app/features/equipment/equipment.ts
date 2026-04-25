@@ -1,3 +1,4 @@
+import { AuthService } from '../../core/services/auth.service';
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -50,6 +51,7 @@ export class EquipmentComponent implements OnInit {
   private salleSvc   = inject(SalleMaterielService);
   private configSvc  = inject(AppConfigService);
   private schoolsSvc = inject(SchoolManagementService);
+  private authService = inject(AuthService);
 
   // ── Onglets ───────────────────────────────────────────────────────────────
   activeTab: 'inventaire' | 'salle' | 'disponibilite' = 'inventaire';
@@ -89,6 +91,7 @@ export class EquipmentComponent implements OnInit {
 
   currentDate = '';
   currentTime = '';
+  currentUserName = ''; currentUserInitials = ''; unreadCount = 0;
   showSuccess = false;
   successMessage = '';
 
@@ -130,6 +133,7 @@ export class EquipmentComponent implements OnInit {
 
   ngOnInit(): void {
     this.updateDateTime();
+    const u = this.authService.getUser(); if (u) { const n = u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Utilisateur'; this.currentUserName = n; const p = n.trim().split(' ').filter((x: string) => x); this.currentUserInitials = p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : n.substring(0, 2).toUpperCase(); }
     setInterval(() => this.updateDateTime(), 1000);
     this.loadMateriels();
     this.loadSalles();
@@ -432,11 +436,18 @@ export class EquipmentComponent implements OnInit {
       description: this.editMatData.description, active: this.editMatData.enabled
     };
     this.equipmentService.updateMateriel(id, payload).subscribe({
-      next: () => { this.loadMateriels(); },
-      error: () => { this.materiels = this.materiels.map(m => m.id === id ? { id, ...this.editMatData } : m); }
+      next: () => {
+        this.closeEditModal();
+        this.loadMateriels();
+        this.toast('Matériel modifié !');
+      },
+      error: (err: any) => {
+        // Mise à jour locale en fallback si l'API échoue
+        this.materiels = this.materiels.map(m => m.id === id ? { id, ...this.editMatData } : m);
+        this.closeEditModal();
+        this.toast('Matériel modifié (hors ligne).');
+      }
     });
-    this.closeEditModal();
-    this.toast('Matériel modifié !');
   }
 
   openDeleteModal(m: Materiel): void { this.matToDelete = m; this.isDeleteModalOpen = true; }
@@ -446,10 +457,16 @@ export class EquipmentComponent implements OnInit {
     if (!this.matToDelete) return;
     const id = this.matToDelete.id;
     this.equipmentService.deleteMateriel(id).subscribe({
-      next: () => { this.loadMateriels(); },
-      error: () => { this.materiels = this.materiels.filter(m => m.id !== id); }
+      next: () => {
+        this.materiels = this.materiels.filter(m => m.id !== id);
+        this.closeDeleteModal();
+        this.toast('Matériel supprimé.');
+      },
+      error: () => {
+        this.materiels = this.materiels.filter(m => m.id !== id);
+        this.closeDeleteModal();
+        this.toast('Matériel supprimé.');
+      }
     });
-    this.closeDeleteModal();
-    this.toast('Matériel supprimé.');
   }
 }

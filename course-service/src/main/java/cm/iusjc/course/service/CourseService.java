@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 public class CourseService {
     
     private final CourseRepository courseRepository;
+    private final UserServiceClient userServiceClient;
     
     /**
      * Crée un nouveau cours
@@ -383,6 +384,14 @@ public class CourseService {
         dto.setActive(course.isActive());
         dto.setCreatedAt(course.getCreatedAt());
         dto.setUpdatedAt(course.getUpdatedAt());
+        // Peupler le nom de l'enseignant via user-service
+        if (course.getTeacherId() != null) {
+            try {
+                dto.setTeacherName(userServiceClient.getUserName(course.getTeacherId()));
+            } catch (Exception e) {
+                log.warn("Could not fetch teacher name for ID: {}", course.getTeacherId());
+            }
+        }
         return dto;
     }
 }

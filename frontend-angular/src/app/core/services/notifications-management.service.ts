@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { ApiService } from './api.service';
+import { AuthService } from './auth.service';
 
 export interface Notification {
   id: number;
@@ -49,10 +50,27 @@ interface ApiWrapped<T> { success: boolean; data: T; }
 })
 export class NotificationsManagementService {
   private api = inject(ApiService);
+  private authService = inject(AuthService);
 
+  /**
+   * Récupère les notifications de l'utilisateur connecté.
+   * - Si userId connu → GET /v1/notifications/user/:id  (filtre par user)
+   * - Sinon           → GET /v1/notifications           (toutes, admin seulement)
+   */
   getNotifications(): Observable<Notification[]> {
-    return this.api.get<ApiWrapped<Notification[]>>('/v1/notifications').pipe(
-      map(res => res?.data ?? (res as any)),
+    const userId = this.authService.getUser()?.id;
+    const endpoint = userId
+      ? `/v1/notifications/user/${userId}`
+      : `/v1/notifications`;
+
+    return this.api.get<ApiWrapped<Notification[]>>(endpoint).pipe(
+      map(res => {
+        // Réponse enveloppée { success, data: [...] }
+        if (res && (res as any).data) return (res as any).data as Notification[];
+        // Réponse directe [...]
+        if (Array.isArray(res)) return res as unknown as Notification[];
+        return [];
+      }),
       catchError(() => of([]))
     );
   }
@@ -70,7 +88,9 @@ export class NotificationsManagementService {
   }
 
   markAsRead(id: number): Observable<void> {
-    return this.api.post<void>(`/v1/notifications/${id}/read`, {});
+    return this.api.patch<void>(`/notifications/advanced/mark-read/${id}`, {}).pipe(
+      catchError(() => of(undefined as any))
+    );
   }
 
   deleteNotification(id: number): Observable<void> {

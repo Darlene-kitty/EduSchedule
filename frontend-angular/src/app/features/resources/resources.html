@@ -1,4 +1,4 @@
-<div class="page-layout">
+﻿<div class="page-layout">
 
   <!-- Sidebar -->
   <app-sidebar activePage="resources"></app-sidebar>
@@ -18,11 +18,11 @@
         </div>
         <button class="header-notif-btn">
           <mat-icon>notifications</mat-icon>
-          <span class="notif-dot">2</span>
+          <span class="notif-dot" *ngIf="unreadCount > 0">{{ unreadCount }}</span>
         </button>
         <div class="header-user">
-          <div class="header-avatar">AS</div>
-          <span class="header-username">Admin</span>
+          <div class="header-avatar">{{ currentUserInitials }}</div>
+          <span class="header-username">{{ currentUserName }}</span>
           <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
         </div>
       </div>
@@ -132,7 +132,14 @@
           </div>
 
           <!-- Reserve Button -->
-          <button class="btn-reserve">Réserver</button>
+          <div class="card-footer-actions">
+            <button class="btn-edit-res" (click)="openEditModal(resource)">
+              <mat-icon>edit</mat-icon> Modifier
+            </button>
+            <button class="btn-delete-res" (click)="openDeleteModal(resource)">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
 
         </div>
       </div>
@@ -256,14 +263,12 @@
 <div *ngIf="isModalOpen" class="modal-overlay" (click)="closeModal()">
   <div class="modal" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h2>Réserver un équipement</h2>
-      <button class="modal-close" (click)="closeModal()">
-        <mat-icon>close</mat-icon>
-      </button>
+      <h2>Ajouter une ressource</h2>
+      <button class="modal-close" (click)="closeModal()"><mat-icon>close</mat-icon></button>
     </div>
     <div class="modal-body">
       <div class="form-group">
-        <label>Nom de l'équipement</label>
+        <label>Nom de l'équipement *</label>
         <input type="text" [(ngModel)]="newResource.name" placeholder="Ex: Projecteur HD" />
       </div>
       <div class="form-row">
@@ -290,89 +295,83 @@
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" (click)="closeModal()">Annuler</button>
-      <button class="btn-save" (click)="handleAdd()">
+      <button class="btn-save" (click)="handleAdd()" [disabled]="!newResource.name">
         <mat-icon>save</mat-icon> Ajouter
       </button>
     </div>
   </div>
 </div>
 
-<!-- ═══ MODAL IMPORT RESSOURCES ═══ -->
-<div *ngIf="isImportModalOpen" class="modal-overlay" (click)="closeImportModal()">
-  <div class="modal modal-import" (click)="$event.stopPropagation()">
+<!-- Modal Édition -->
+<div *ngIf="isEditModalOpen && editingResource" class="modal-overlay" (click)="closeEditModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <div class="modal-header-left">
-        <div class="import-modal-icon"><mat-icon>upload_file</mat-icon></div>
-        <div><h2>Importer des ressources</h2><p class="modal-header-sub">Fichier CSV ou Excel (.xlsx)</p></div>
-      </div>
-      <button class="modal-close" (click)="closeImportModal()"><mat-icon>close</mat-icon></button>
+      <h2>Modifier la ressource</h2>
+      <button class="modal-close" (click)="closeEditModal()"><mat-icon>close</mat-icon></button>
     </div>
-    <div *ngIf="importStep === 1" class="modal-body">
-      <div class="template-banner">
-        <mat-icon>download</mat-icon>
-        <div><p class="template-title">Télécharger le modèle</p><p class="template-sub">Utilisez notre modèle pour formater vos données</p></div>
-        <button class="btn-template" (click)="downloadTemplate()"><mat-icon>file_download</mat-icon> Modèle CSV</button>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Nom de l'équipement *</label>
+        <input type="text" [(ngModel)]="editResourceData.name" placeholder="Ex: Projecteur HD" />
       </div>
-      <div class="drop-zone" [class.dragging]="isDragging" [class.has-file]="importFile"
-        (dragover)="onImportDragOver($event)" (dragleave)="onImportDragLeave()" (drop)="onImportDrop($event)" (click)="fileInput.click()">
-        <input #fileInput type="file" accept=".csv,.xlsx,.xls" style="display:none" (change)="onImportFileSelected($event)" />
-        <div *ngIf="!importFile" class="drop-content">
-          <div class="drop-icon-circle"><mat-icon>cloud_upload</mat-icon></div>
-          <p class="drop-title">Glissez votre fichier ici</p>
-          <p class="drop-sub">ou <span class="drop-link">cliquez pour sélectionner</span></p>
-          <p class="drop-formats">CSV, XLS, XLSX • Max 10 Mo</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Catégorie</label>
+          <select [(ngModel)]="editResourceData.category">
+            <option value="">Sélectionner</option>
+            <option value="Projecteur">Projecteur</option>
+            <option value="Informatique">Informatique</option>
+            <option value="Audio">Audio</option>
+            <option value="Vidéo">Vidéo</option>
+            <option value="Affichage">Affichage</option>
+          </select>
         </div>
-        <div *ngIf="importFile" class="file-selected">
-          <mat-icon class="file-icon">description</mat-icon>
-          <div class="file-info"><p class="file-name">{{ importFile.name }}</p><p class="file-size">{{ formatSize(importFile.size) }}</p></div>
-          <button class="file-remove" (click)="removeImportFile($event)"><mat-icon>close</mat-icon></button>
-        </div>
-      </div>
-      <div class="format-info">
-        <p class="format-title">Colonnes attendues :</p>
-        <div class="columns-list">
-          <span class="column-tag">Nom</span><span class="column-tag">Catégorie</span>
-          <span class="column-tag">Disponible</span><span class="column-tag">Total</span><span class="column-tag">Localisation</span>
+        <div class="form-group">
+          <label>Quantité totale</label>
+          <input type="number" [(ngModel)]="editResourceData.total" min="1" />
         </div>
       </div>
-      <div *ngIf="importParseError" class="error-banner"><mat-icon>error</mat-icon><span>{{ importParseError }}</span></div>
-    </div>
-    <div *ngIf="importStep === 2" class="modal-body preview-body">
-      <div class="summary-badges">
-        <div class="summary-badge total"><mat-icon>table_rows</mat-icon><div><p class="badge-num">{{ importPreviewRows.length }}</p><p class="badge-lbl">Total</p></div></div>
-        <div class="summary-badge valid"><mat-icon>check_circle</mat-icon><div><p class="badge-num">{{ validImportCount }}</p><p class="badge-lbl">Valides</p></div></div>
-      </div>
-      <div class="preview-table-wrapper">
-        <table class="preview-table">
-          <thead><tr><th>#</th><th>Nom</th><th>Catégorie</th><th>Dispo</th><th>Total</th><th>✓</th></tr></thead>
-          <tbody>
-            <tr *ngFor="let row of importPreviewRows; let i = index" [class.row-invalid]="!row.valid">
-              <td class="col-num">{{ i+1 }}</td>
-              <td class="col-bold">{{ row.name }}</td>
-              <td>{{ row.category }}</td>
-              <td>
-  <span *ngIf="row.valid; else invalide">Valide</span>
-  <ng-template #invalide>Invalide</ng-template>
-</td>
-              <td>{{ row.total }}</td>
-              <td><mat-icon *ngIf="row.valid" class="valid-icon">check_circle</mat-icon><mat-icon *ngIf="!row.valid" class="error-icon">warning</mat-icon></td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="form-group">
+        <label>Emplacement</label>
+        <input type="text" [(ngModel)]="editResourceData.location" placeholder="Ex: Bâtiment A - Réserve" />
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-cancel" (click)="closeImportModal()">Annuler</button>
-      <div class="footer-right">
-        <button *ngIf="importStep === 2" class="btn-back" (click)="importStep = 1"><mat-icon>arrow_back</mat-icon> Retour</button>
-        <button *ngIf="importStep === 1" class="btn-next" [disabled]="!importFile || isImportLoading" (click)="parseImportFile()"><mat-icon>visibility</mat-icon> {{ isImportLoading ? 'Analyse...' : 'Aperçu' }}</button>
-        <button *ngIf="importStep === 2 && validImportCount" class="btn-import-confirm" (click)="confirmImport()"><mat-icon>upload</mat-icon> Importer {{ validImportCount }} ressource(s)</button>
-      </div>
+      <button class="btn-cancel" (click)="closeEditModal()">Annuler</button>
+      <button class="btn-save" (click)="handleEdit()" [disabled]="!editResourceData.name">
+        <mat-icon>save</mat-icon> Sauvegarder
+      </button>
     </div>
   </div>
 </div>
 
-<!-- ═══ MODAL IMPORT ═══ -->
+<!-- Modal Suppression -->
+<div *ngIf="isDeleteModalOpen && resourceToDelete" class="modal-overlay" (click)="closeDeleteModal()">
+  <div class="modal modal-delete" (click)="$event.stopPropagation()">
+    <div class="delete-modal-body">
+      <div class="delete-icon-circle"><mat-icon>delete_forever</mat-icon></div>
+      <h2 class="delete-title">Supprimer la ressource ?</h2>
+      <p class="delete-desc">
+        Vous êtes sur le point de supprimer <strong>{{ resourceToDelete.name }}</strong>.
+        Cette action est <strong>irréversible</strong>.
+      </p>
+    </div>
+    <div class="modal-footer delete-footer">
+      <button class="btn-cancel" (click)="closeDeleteModal()">Annuler</button>
+      <button class="btn-delete-confirm" (click)="confirmDelete()">
+        <mat-icon>delete</mat-icon> Oui, supprimer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-success" [class.visible]="showSuccess">
+  <mat-icon>check_circle</mat-icon>
+  <span>{{ successMessage }}</span>
+</div>
+
+<!-- ═══ MODAL IMPORT RESSOURCES ═══ -->
 <div *ngIf="isImportModalOpen" class="modal-overlay" (click)="closeImportModal()">
   <div class="modal modal-import" (click)="$event.stopPropagation()">
     <div class="modal-header">

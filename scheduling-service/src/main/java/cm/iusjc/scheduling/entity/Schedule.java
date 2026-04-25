@@ -35,6 +35,9 @@ public class Schedule {
     @Column(length = 100)
     private String teacher;
     
+    @Column(name = "teacher_id")
+    private Long teacherId;
+    
     @Column(length = 100)
     private String course;
     

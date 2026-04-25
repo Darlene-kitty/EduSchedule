@@ -1,4 +1,4 @@
-<div class="page-layout">
+﻿<div class="page-layout">
   <app-sidebar activePage="teacher-availability"></app-sidebar>
   <div class="main-wrapper">
 
@@ -10,10 +10,10 @@
           <span class="header-date">{{ currentDate }}</span>
           <span class="header-time">{{ currentTime }}</span>
         </div>
-        <button class="header-notif-btn"><mat-icon>notifications</mat-icon><span class="notif-dot">2</span></button>
+        <button class="header-notif-btn"><mat-icon>notifications</mat-icon><span class="notif-dot" *ngIf="unreadCount > 0">{{ unreadCount }}</span></button>
         <div class="header-user">
-          <div class="header-avatar">AS</div>
-          <span class="header-username">Admin</span>
+          <div class="header-avatar">{{ currentUserInitials }}</div>
+          <span class="header-username">{{ currentUserName }}</span>
           <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
         </div>
       </div>

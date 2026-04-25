@@ -1,9 +1,10 @@
+import { AuthService } from '../../core/services/auth.service';
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
-import { ResourcesManagementService, EquipmentDashboard, EquipmentAlerte, MaintenanceRecord } from '../../core/services/resources-management.service';
+import { ResourcesManagementService, EquipmentDashboard, EquipmentAlerte } from '../../core/services/resources-management.service';
 
 export interface Assignment { room: string; course: string; }
 export interface Resource {
@@ -21,9 +22,17 @@ export interface ImportedResource { name: string; category: string; location: st
 })
 export class ResourcesComponent implements OnInit {
   private resourcesService = inject(ResourcesManagementService);
+  private authService = inject(AuthService);
   searchQuery = ''; activeTab: 'inventaire' | 'equipement' = 'inventaire';
   currentDate = ''; currentTime = '';
+  currentUserName = ''; currentUserInitials = ''; unreadCount = 0;
   isModalOpen = false;
+  isEditModalOpen = false;
+  isDeleteModalOpen = false;
+  editingResource: Resource | null = null;
+  resourceToDelete: Resource | null = null;
+  editResourceData = { name: '', category: '', location: '', total: 1 };
+  showSuccess = false; successMessage = '';
   isImportModalOpen = false;
   importStep: 1 | 2 = 1;
   importFile: File | null = null;
@@ -47,7 +56,8 @@ export class ResourcesComponent implements OnInit {
   newResource = { name: '', category: '', location: '', total: 1 };
 
   ngOnInit(): void { 
-    this.updateDateTime(); 
+    this.updateDateTime();
+    const u = this.authService.getUser(); if (u) { const n = u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Utilisateur'; this.currentUserName = n; const p = n.trim().split(' ').filter((x: string) => x); this.currentUserInitials = p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : n.substring(0, 2).toUpperCase(); } 
     setInterval(() => this.updateDateTime(), 1000);
     this.loadResources();
   }
@@ -112,9 +122,63 @@ export class ResourcesComponent implements OnInit {
       available: this.newResource.total,
       location: this.newResource.location
     }).subscribe({
-      next: () => { this.closeModal(); this.loadResources(); },
+      next: () => { this.closeModal(); this.loadResources(); this.toast('Ressource ajoutée !'); },
       error: (err) => alert(err?.error?.message || 'Erreur lors de la création')
     });
+  }
+
+  openEditModal(resource: Resource): void {
+    this.editingResource = resource;
+    this.editResourceData = {
+      name: resource.name,
+      category: resource.category || '',
+      location: resource.location || '',
+      total: resource.total
+    };
+    this.isEditModalOpen = true;
+  }
+  closeEditModal(): void { this.isEditModalOpen = false; this.editingResource = null; }
+  handleEdit(): void {
+    if (!this.editingResource) return;
+    const id = this.editingResource.id;
+    this.resourcesService.updateResource(id, {
+      name: this.editResourceData.name,
+      type: this.editResourceData.category,
+      quantity: this.editResourceData.total,
+      available: this.editResourceData.total,
+      location: this.editResourceData.location
+    }).subscribe({
+      next: () => {
+        this.closeEditModal();
+        this.loadResources();
+        this.toast('Ressource modifiée !');
+      },
+      error: (err) => alert(err?.error?.message || 'Erreur lors de la modification')
+    });
+  }
+
+  openDeleteModal(resource: Resource): void { this.resourceToDelete = resource; this.isDeleteModalOpen = true; }
+  closeDeleteModal(): void { this.isDeleteModalOpen = false; this.resourceToDelete = null; }
+  confirmDelete(): void {
+    if (!this.resourceToDelete) return;
+    const id = this.resourceToDelete.id;
+    this.resourcesService.deleteResource(id).subscribe({
+      next: () => {
+        this.resources = this.resources.filter(r => r.id !== id);
+        this.closeDeleteModal();
+        this.toast('Ressource supprimée.');
+      },
+      error: (err) => {
+        // Supprimer localement même si l'API échoue (ressource peut-être déjà supprimée)
+        this.resources = this.resources.filter(r => r.id !== id);
+        this.closeDeleteModal();
+      }
+    });
+  }
+
+  toast(msg: string): void {
+    this.successMessage = msg; this.showSuccess = true;
+    setTimeout(() => this.showSuccess = false, 3500);
   }
   openImportModal(): void {
     this.importStep = 1; this.importFile = null; this.isDragging = false;

@@ -8,6 +8,8 @@ export interface ScheduleEntry {
   courseName?: string;
   title?: string;
   teacher?: string;
+  /** ID de l'enseignant dans le user-service — retourné par le backend depuis la v2 */
+  teacherId?: number;
   room?: string;
   dayOfWeek?: number | string;
   startTime: string;

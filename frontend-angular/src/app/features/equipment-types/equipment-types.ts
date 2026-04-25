@@ -1,3 +1,4 @@
+import { AuthService } from '../../core/services/auth.service';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -25,7 +26,7 @@ export interface TypeMateriel {
 })
 export class EquipmentTypesComponent implements OnInit {
 
-  constructor(private equipmentService: EquipmentManagementService) {}
+  constructor(private equipmentService: EquipmentManagementService, private authService: AuthService) {}
 
   searchQuery = '';
   isAddModalOpen    = false;
@@ -38,6 +39,7 @@ export class EquipmentTypesComponent implements OnInit {
   typeToDelete: TypeMateriel | null = null;
 
   currentDate = ''; currentTime = '';
+  currentUserName = ''; currentUserInitials = ''; unreadCount = 0;
   showSuccess = false; successMessage = '';
 
   icones = [
@@ -58,16 +60,8 @@ export class EquipmentTypesComponent implements OnInit {
     { label:'Gris',    value:'#4B5563' },
   ];
 
-  types: TypeMateriel[] = [
-    { id:1,  code:'INFO',   nom:'Informatique',          icone:'computer',                couleur:'#1D4ED8', description:'Ordinateurs, laptops, tablettes et périphériques informatiques.',          nombreMateriel:45, enabled:true },
-    { id:2,  code:'PROJ',   nom:'Projection',            icone:'videocam',                couleur:'#7C3AED', description:'Vidéoprojecteurs, écrans de projection et systèmes d\'affichage.',         nombreMateriel:18, enabled:true },
-    { id:3,  code:'AUDIO',  nom:'Audio & Sonorisation',  icone:'speaker',                 couleur:'#EA580C', description:'Microphones, enceintes, amplificateurs et systèmes de sonorisation.',      nombreMateriel:12, enabled:true },
-    { id:4,  code:'LABO',   nom:'Équipement de Labo',    icone:'science',                 couleur:'#DC2626', description:'Microscopes, oscilloscopes, générateurs de signaux et instruments de mesure.', nombreMateriel:30, enabled:true },
-    { id:5,  code:'IMPR',   nom:'Impression',            icone:'print',                   couleur:'#0891B2', description:'Imprimantes, scanners, photocopieurs et traceurs.',                         nombreMateriel:10, enabled:true },
-    { id:6,  code:'MOBI',   nom:'Mobilier',              icone:'chair',                   couleur:'#4B5563', description:'Tables, chaises, tableaux blancs et mobilier de salle.',                    nombreMateriel:200, enabled:true },
-    { id:7,  code:'ELEC',   nom:'Électronique',          icone:'electrical_services',     couleur:'#15803D', description:'Composants électroniques, alimentations et équipements de mesure électrique.', nombreMateriel:25, enabled:true },
-    { id:8,  code:'CAM',    nom:'Caméra & Photo',        icone:'camera_alt',              couleur:'#DB2777', description:'Caméras, appareils photo, webcams et équipements de captation vidéo.',      nombreMateriel:8,  enabled:true },
-  ];
+  types: TypeMateriel[] = [];
+  isLoading = false;
 
   emptyType = (): Omit<TypeMateriel, 'id' | 'nombreMateriel'> => ({
     code:'', nom:'', icone:'devices', couleur:'#1D4ED8', description:'', enabled:true
@@ -78,22 +72,28 @@ export class EquipmentTypesComponent implements OnInit {
 
   ngOnInit(): void {
     this.updateDateTime();
+    const u = this.authService.getUser(); if (u) { const n = u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Utilisateur'; this.currentUserName = n; const p = n.trim().split(' ').filter((x: string) => x); this.currentUserInitials = p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : n.substring(0, 2).toUpperCase(); }
     setInterval(() => this.updateDateTime(), 1000);
     this.loadTypes();
   }
 
   private loadTypes(): void {
+    this.isLoading = true;
     this.equipmentService.getAllTypes().subscribe({
       next: (data) => {
-        if (data && data.length > 0) {
-          this.types = data.map(t => ({
-            id: t.id, code: t.code, nom: t.nom,
-            icone: t.icone ?? 'devices', couleur: t.couleur ?? '#1D4ED8',
-            description: t.description ?? '', nombreMateriel: 0, enabled: t.active
-          }));
-        }
+        this.isLoading = false;
+        this.types = (data ?? []).map(t => ({
+          id: t.id,
+          code: t.code ?? String(t.id),
+          nom: t.nom ?? (t as any).name ?? '',
+          icone: t.icone ?? 'devices',
+          couleur: t.couleur ?? '#1D4ED8',
+          description: t.description ?? '',
+          nombreMateriel: (t as any).nombreMateriel ?? 0,
+          enabled: t.active ?? true
+        }));
       },
-      error: () => {} // garde les données démo
+      error: () => { this.isLoading = false; }
     });
   }
 

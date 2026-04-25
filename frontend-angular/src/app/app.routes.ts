@@ -131,11 +131,6 @@ export const routes: Routes = [
     canActivate: [authGuard, roleGuard('ADMIN')]
   },
   {
-    path: 'competences',
-    loadComponent: () => import('./features/competences/competences').then(m => m.CompetencesComponent),
-    canActivate: [authGuard, roleGuard('ADMIN')]
-  },
-  {
     path: 'equipment-types',
     loadComponent: () => import('./features/equipment-types/equipment-types').then(m => m.EquipmentTypesComponent),
     canActivate: [authGuard, roleGuard('ADMIN')]

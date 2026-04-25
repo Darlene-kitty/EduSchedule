@@ -17,4 +17,6 @@ public class ScheduleRequest {
     private String teacher;
     private String course;
     private String groupName;
+    /** ID de l'enseignant dans le user-service */
+    private Long teacherId;
 }

@@ -1,20 +1,17 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { ScheduleManagementService } from '../../core/services/schedule-management.service';
 import { CoursesManagementService } from '../../core/services/courses-management.service';
-import { RoomsManagementService, Room } from '../../core/services/rooms-management.service';
+import { RoomsManagementService } from '../../core/services/rooms-management.service';
 import { UsersManagementService } from '../../core/services/users-management.service';
+import { GroupesManagementService } from '../../core/services/groupes-management.service';
+import { SchoolManagementService } from '../../core/services/school-management.service';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationsManagementService, ReminderPayload } from '../../core/services/notifications-management.service';
-import {
-  TimetableGenerationService,
-  SchedulingRequest,
-  GenerationJob,
-  ScheduleSlot
-} from '../../core/services/timetable-generation.service';
 
 export interface Seance {
   id: number;
@@ -52,143 +49,25 @@ export interface Conflit {
 @Component({
   selector: 'app-schedules',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, SidebarComponent],
+  imports: [CommonModule, FormsModule, RouterModule, MatIconModule, SidebarComponent],
   templateUrl: './schedule.html',
   styleUrl: './schedule.css'
 })
 export class SchedulesComponent implements OnInit {
   private scheduleService   = inject(ScheduleManagementService);
-  private timetableSvc      = inject(TimetableGenerationService);
   private roomSvc           = inject(RoomsManagementService);
   private coursesSvc        = inject(CoursesManagementService);
   private usersSvc          = inject(UsersManagementService);
+  private groupesSvc        = inject(GroupesManagementService);
+  private schoolSvc         = inject(SchoolManagementService);
   private authService       = inject(AuthService);
   private notifSvc          = inject(NotificationsManagementService);
 
   isTeacher = false;
   currentTeacherName = '';
 
-  // ── Génération automatique ──
-  showGenPanel   = false;
-  genRooms       = signal<Room[]>([]);
-  genSelectedRooms = signal<number[]>([]);
-  genRequest: SchedulingRequest = { schoolId: 1, semester: 'S1', level: 'L1', maxHoursPerDay: 6 };
-  genAlgo: 'ford-fulkerson' | 'edmonds-karp' = 'edmonds-karp';
-  genJob         = signal<GenerationJob | null>(null);
-  isGenerating   = signal(false);
-  isConfirming   = signal(false);
-  confirmMsg     = signal('');
-  genErrorMsg    = signal('');
-  readonly genLevels    = ['L1', 'L2', 'L3', 'M1', 'M2'];
-  readonly genSemesters = ['S1', 'S2'];
-
-  // Créneaux générés superposés sur la grille
-  generatedSlots = signal<ScheduleSlot[]>([]);
-
-  get progressColor(): string {
-    const s = this.genJob()?.status;
-    if (s === 'COMPLETED') return '#22c55e';
-    if (s === 'PARTIAL')   return '#f59e0b';
-    if (s === 'FAILED')    return '#ef4444';
-    return '#3b82f6';
-  }
-
-  toggleGenRoom(id: number): void {
-    const cur = this.genSelectedRooms();
-    this.genSelectedRooms.set(cur.includes(id) ? cur.filter(r => r !== id) : [...cur, id]);
-  }
-
-  isGenRoomSelected(id: number): boolean { return this.genSelectedRooms().includes(id); }
-
-  launchGeneration(): void {
-    if (!this.genRequest.schoolId) { this.genErrorMsg.set('Veuillez saisir un ID école.'); return; }
-    this.genErrorMsg.set('');
-    this.isGenerating.set(true);
-    this.genJob.set({ jobId: '', status: 'PENDING', progress: 0 });
-    this.generatedSlots.set([]);
-
-    const payload: SchedulingRequest = {
-      ...this.genRequest,
-      algorithm: this.genAlgo,
-      roomIds: this.genSelectedRooms().length ? this.genSelectedRooms() : undefined
-    };
-
-    this.timetableSvc.generate(payload).subscribe({
-      next: jobId => {
-        this.timetableSvc.pollUntilDone(jobId).subscribe({
-          next: status => {
-            this.genJob.set(status);
-            if (status.slots) this.generatedSlots.set(status.slots);
-          },
-          error: err => { this.genErrorMsg.set('Erreur : ' + err.message); this.isGenerating.set(false); },
-          complete: () => this.isGenerating.set(false)
-        });
-      },
-      error: err => { this.genErrorMsg.set('Erreur : ' + err.message); this.isGenerating.set(false); }
-    });
-  }
-
-  confirmGeneration(): void {
-    const j = this.genJob();
-    if (!j?.jobId) return;
-    if (j.status !== 'COMPLETED' && j.status !== 'PARTIAL') {
-      return;
-    }
-    this.isConfirming.set(true);
-    const today = new Date();
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-    const weekStart = monday.toISOString().split('T')[0];
-    this.timetableSvc.confirm(j.jobId, this.genRequest.schoolId, 'current-user', weekStart).subscribe({
-      next: res => {
-        this.confirmMsg.set(res.message + ' (' + res.savedSlots + ' créneaux)');
-        this.isConfirming.set(false);
-        // Intégrer les créneaux générés dans la grille principale
-        const dayMap: Record<string, string> = {
-          LUNDI:'Lundi', MARDI:'Mardi', MERCREDI:'Mercredi', JEUDI:'Jeudi', VENDREDI:'Vendredi', SAMEDI:'Samedi'
-        };
-        const newSeances: Seance[] = this.generatedSlots().map((slot, i) => ({
-          id: Date.now() + i,
-          matiere: slot.courseName,
-          codeMatiere: slot.courseCode,
-          type: 'CM' as Seance['type'],
-          enseignant: slot.teacherName || 'À définir',
-          enseignantId: slot.teacherId,
-          ecole: '', sigleEcole: '', couleurEcole: '#1D4ED8',
-          classe: slot.level,
-          filiere: '', niveau: slot.level,
-          salle: slot.roomName,
-          jour: dayMap[slot.dayOfWeek] || slot.dayOfWeek,
-          heureDebut: slot.startTime,
-          heureFin: slot.endTime,
-          couleur: '#1D4ED8',
-          semaine: this.semaineActive
-        }));
-        this.seances = [...this.seances, ...newSeances];
-        this.toast(`${newSeances.length} séances importées depuis la génération automatique`);
-        this.showGenPanel = false;
-      },
-      error: err => { this.confirmMsg.set('Erreur : ' + err.message); this.isConfirming.set(false); }
-    });
-  }
-
-  resetGeneration(): void {
-    this.genJob.set(null);
-    this.isGenerating.set(false);
-    this.isConfirming.set(false);
-    this.confirmMsg.set('');
-    this.genErrorMsg.set('');
-    this.generatedSlots.set([]);
-  }
-
-  getGeneratedSlotsCreneau(jour: string, heure: string): ScheduleSlot[] {
-    const dayMap: Record<string, string> = {
-      Lundi:'LUNDI', Mardi:'MARDI', Mercredi:'MERCREDI', Jeudi:'JEUDI', Vendredi:'VENDREDI', Samedi:'SAMEDI'
-    };
-    return this.generatedSlots().filter(s => s.dayOfWeek === dayMap[jour] && s.startTime === heure);
-  }
-
   currentDate = ''; currentTime = '';
+  currentUserName = ''; currentUserInitials = ''; unreadCount = 0;
   isAddModalOpen    = false;
   isEditModalOpen   = false;
   isViewModalOpen   = false;
@@ -300,6 +179,7 @@ export class SchedulesComponent implements OnInit {
 
   ngOnInit(): void {
     this.updateDateTime();
+    const u = this.authService.getUser(); if (u) { const n = u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Utilisateur'; this.currentUserName = n; const p = n.trim().split(' ').filter((x: string) => x); this.currentUserInitials = p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : n.substring(0, 2).toUpperCase(); }
     setInterval(() => this.updateDateTime(), 1000);
 
     // Détecter le rôle
@@ -312,17 +192,35 @@ export class SchedulesComponent implements OnInit {
   }
 
   private loadReferenceData(): void {
-    // Enseignants depuis user-service
+    // Enseignants depuis user-service + leurs affectations école
     this.usersSvc.getUsers().subscribe({
       next: users => {
-        this.enseignants = users
+        const teachers = users
           .filter(u => (u.role || '').toUpperCase().includes('TEACHER'))
           .map(u => ({
             id: u.id,
             nom: u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || '',
-            ecoles: [],
+            ecoles: [] as string[],
             specialite: u.department || ''
           }));
+
+        this.enseignants = teachers;
+
+        // Charger les affectations école pour chaque enseignant
+        teachers.forEach(t => {
+          this.usersSvc.getUserSchools(t.id).subscribe({
+            next: assignments => {
+              const idx = this.enseignants.findIndex(e => e.id === t.id);
+              if (idx >= 0) {
+                this.enseignants[idx].ecoles = assignments
+                  .filter(a => (a as any).isActive !== false)
+                  .map(a => (a as any).schoolName || '')
+                  .filter(Boolean);
+              }
+            },
+            error: () => {}
+          });
+        });
       },
       error: () => {}
     });
@@ -334,11 +232,6 @@ export class SchedulesComponent implements OnInit {
         this.matieres = courses
           .filter(c => { const k = c.code; if (seen.has(k)) return false; seen.add(k); return true; })
           .map(c => ({ code: c.code, nom: c.name }));
-        // Groupes/classes uniques
-        const groupsSeen = new Set<string>();
-        this.classes = courses
-          .filter(c => c.group && !groupsSeen.has(c.group) && groupsSeen.add(c.group))
-          .map(c => ({ code: c.group ?? '', nom: c.group ?? '', ecole: '', filiere: c.name, niveau: c.level }));
       },
       error: () => {}
     });
@@ -349,9 +242,30 @@ export class SchedulesComponent implements OnInit {
       error: () => {}
     });
 
-    // Salles dispo pour la génération
-    this.roomSvc.getAvailableRooms().subscribe({
-      next: data => { this.genRooms.set(data); this.genSelectedRooms.set(data.map(r => r.id)); },
+    // Écoles depuis school-service — chargées en premier pour enrichir les classes
+    this.schoolSvc.getAll().subscribe({
+      next: schools => {
+        this.ecoles = (schools ?? []).map((s, i) => ({
+          sigle: s.sigle || s.code || s.name || '',
+          nom: s.nom || s.name || '',
+          couleur: s.couleur || ['#1D4ED8','#15803D','#DC2626','#7C3AED','#EA580C'][i % 5]
+        }));
+
+        // Classes depuis groupes-service — enrichies avec école et filière depuis le backend
+        this.groupesSvc.getAll().subscribe({
+          next: groupes => {
+            this.classes = groupes.map(g => ({
+              code:    String(g.id),
+              nom:     g.name,
+              // schoolCode est le code court de l'école (ex: "SJI"), schoolName le nom complet
+              ecole:   g.schoolCode || g.schoolName || '',
+              filiere: g.filiereName || '',
+              niveau:  g.niveauName  || ''
+            }));
+          },
+          error: () => {}
+        });
+      },
       error: () => {}
     });
   }
@@ -367,16 +281,14 @@ export class SchedulesComponent implements OnInit {
           let heureFin   = '10:00';
 
           if (e.startTime && e.startTime.includes('T')) {
-            // Format LocalDateTime ISO — extraire jour et heure
             const startDt = new Date(e.startTime);
             const endDt   = e.endTime ? new Date(e.endTime) : new Date(e.startTime);
-            const jsDay   = startDt.getDay(); // 0=Dim, 1=Lun, ..., 6=Sam
+            const jsDay   = startDt.getDay();
             const dayIdx  = jsDay === 0 ? 6 : jsDay - 1;
-            jour      = jours[dayIdx] || 'Lundi';
+            jour       = jours[dayIdx] || 'Lundi';
             heureDebut = `${String(startDt.getHours()).padStart(2,'0')}:${String(startDt.getMinutes()).padStart(2,'0')}`;
             heureFin   = `${String(endDt.getHours()).padStart(2,'0')}:${String(endDt.getMinutes()).padStart(2,'0')}`;
           } else {
-            // Format heure simple + dayOfWeek
             heureDebut = e.startTime || '08:00';
             heureFin   = e.endTime   || '10:00';
             if (typeof e.dayOfWeek === 'number') {
@@ -392,24 +304,38 @@ export class SchedulesComponent implements OnInit {
             }
           }
 
+          // Résoudre l'enseignantId depuis teacherId backend ou depuis la liste locale
+          const teacherIdFromBackend = (e as any).teacherId as number | undefined;
+          const resolvedTeacherId = teacherIdFromBackend
+            ?? this.enseignants.find(t => t.nom === e.teacher)?.id
+            ?? 0;
+
+          // Résoudre l'école depuis la classe (groupName) chargée dans classes[]
+          const classeMatch = this.classes.find(c =>
+            c.nom === (e.group || e.groupName) || c.code === (e.group || e.groupName)
+          );
+          const sigleEcole   = classeMatch?.ecole || '';
+          const ecoleObj     = this.ecoles.find(ec => ec.sigle === sigleEcole);
+          const couleurEcole = ecoleObj?.couleur || e.color || '#1D4ED8';
+
           return {
             id: e.id,
             matiere: e.courseName || e.course || e.title || 'À définir',
             codeMatiere: String(e.courseId || ''),
             type: 'CM' as Seance['type'],
             enseignant: e.teacher || 'À définir',
-            enseignantId: 0,
-            ecole: '',
-            sigleEcole: '',
-            couleurEcole: e.color || '#1D4ED8',
+            enseignantId: resolvedTeacherId,
+            ecole: ecoleObj?.nom || '',
+            sigleEcole,
+            couleurEcole,
             classe: e.group || e.groupName || '',
-            filiere: '',
-            niveau: e.level || '',
+            filiere: classeMatch?.filiere || '',
+            niveau: e.level || classeMatch?.niveau || '',
             salle: e.room || 'À définir',
             jour,
             heureDebut,
             heureFin,
-            couleur: e.color || '#1D4ED8',
+            couleur: couleurEcole,
             semaine: 1
           };
         });
@@ -435,9 +361,13 @@ export class SchedulesComponent implements OnInit {
     return this.seances.filter(s => {
       const matchEcole  = !this.filterEcole  || s.sigleEcole === this.filterEcole;
       const matchClasse = !this.filterClasse || s.classe     === this.filterClasse;
-      const matchEns    = !this.filterEnseignant || s.enseignantId === +this.filterEnseignant;
-      const matchSem    = s.semaine === this.semaineActive;
-      // Un enseignant ne voit que ses propres séances
+      // Filtre enseignant : par ID si disponible, sinon par nom
+      const matchEns = !this.filterEnseignant || (
+        s.enseignantId
+          ? s.enseignantId === +this.filterEnseignant
+          : s.enseignant   === (this.enseignants.find(e => e.id === +this.filterEnseignant)?.nom ?? '')
+      );
+      const matchSem     = s.semaine === this.semaineActive;
       const matchTeacher = !this.isTeacher || s.enseignant === this.currentTeacherName;
       return matchEcole && matchClasse && matchEns && matchSem && matchTeacher;
     });
@@ -464,11 +394,20 @@ export class SchedulesComponent implements OnInit {
         const a = s[i], b = s[j];
         if (a.jour !== b.jour) continue;
         if (!this.chevauchement(a.heureDebut, a.heureFin, b.heureDebut, b.heureFin)) continue;
-        if (a.enseignantId === b.enseignantId)
-          result.push({ type:'enseignant', message:`${a.enseignant} a deux cours en même temps (${a.jour} ${a.heureDebut}) : ${a.matiere} (${a.sigleEcole}) et ${b.matiere} (${b.sigleEcole})`, seances:[a.id, b.id] });
-        if (a.salle === b.salle)
+
+        // Conflit enseignant : comparer par ID si disponible, sinon par nom (non vide)
+        const sameTeacher = a.enseignantId && b.enseignantId
+          ? a.enseignantId === b.enseignantId
+          : a.enseignant && b.enseignant && a.enseignant !== 'À définir' && a.enseignant === b.enseignant;
+        if (sameTeacher)
+          result.push({ type:'enseignant', message:`${a.enseignant} a deux cours en même temps (${a.jour} ${a.heureDebut}) : ${a.matiere} et ${b.matiere}`, seances:[a.id, b.id] });
+
+        // Conflit salle
+        if (a.salle && b.salle && a.salle !== 'À définir' && a.salle === b.salle)
           result.push({ type:'salle', message:`La salle ${a.salle} est réservée deux fois le ${a.jour} à ${a.heureDebut} : ${a.matiere} et ${b.matiere}`, seances:[a.id, b.id] });
-        if (a.classe === b.classe)
+
+        // Conflit classe
+        if (a.classe && b.classe && a.classe === b.classe)
           result.push({ type:'classe', message:`La classe ${a.classe} a deux cours en même temps le ${a.jour} à ${a.heureDebut}`, seances:[a.id, b.id] });
       }
     }

@@ -29,6 +29,8 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   private wsSub?: Subscription;
 
   currentDate = ''; currentTime = '';
+  currentUserName = '';
+  currentUserInitials = '';
   activeTab: 'notifications' | 'settings' = 'notifications';
   isLoading = false;
   isSavingPrefs = false;
@@ -51,6 +53,17 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.updateDateTime();
     setInterval(() => this.updateDateTime(), 1000);
+    const user = this.authService.getUser();
+    if (user) {
+      this.currentUserName = user.firstName && user.lastName
+        ? `${user.firstName} ${user.lastName}`
+        : (user.username ?? user.email ?? '');
+      const name = this.currentUserName.trim();
+      const parts = name.split(' ').filter(Boolean);
+      this.currentUserInitials = parts.length >= 2
+        ? (parts[0][0] + parts[1][0]).toUpperCase()
+        : name.substring(0, 2).toUpperCase();
+    }
     this.loadNotifications();
     this.loadPreferences();
 

@@ -53,11 +53,11 @@ public class EventController {
     }
     
     /**
-     * Récupère tous les événements
+     * Récupère tous les événements (liste complète pour le frontend)
      */
     @GetMapping
-    public ResponseEntity<Page<Event>> getAllEvents(Pageable pageable) {
-        Page<Event> events = eventService.getAllEvents(pageable);
+    public ResponseEntity<List<Event>> getAllEvents() {
+        List<Event> events = eventService.getAllEventsList();
         return ResponseEntity.ok(events);
     }
     

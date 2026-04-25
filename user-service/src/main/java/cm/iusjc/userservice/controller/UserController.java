@@ -44,6 +44,21 @@ public class UserController {
     public ResponseEntity<UserDTO> getUserById(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getUserById(id));
     }
+
+    /** Endpoint léger pour les appels inter-services (course-service, scheduling-service) */
+    @GetMapping("/{id}/name")
+    public ResponseEntity<String> getUserName(@PathVariable Long id) {
+        UserDTO u = userService.getUserById(id);
+        String name = (u.getFirstName() != null ? u.getFirstName() : "")
+                    + (u.getLastName()  != null ? " " + u.getLastName() : "");
+        return ResponseEntity.ok(name.isBlank() ? u.getUsername() : name.trim());
+    }
+
+    /** Endpoint léger pour les appels inter-services */
+    @GetMapping("/{id}/role")
+    public ResponseEntity<String> getUserRole(@PathVariable Long id) {
+        return ResponseEntity.ok(userService.getUserById(id).getRole());
+    }
     
     @GetMapping("/username/{username}")
     @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")

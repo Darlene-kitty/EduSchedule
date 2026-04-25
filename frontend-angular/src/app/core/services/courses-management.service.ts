@@ -89,6 +89,17 @@ export class CoursesManagementService {
     return this.api.delete<void>(`/v1/courses/${id}`);
   }
 
+  /** Assigne un groupe (school-service) à un cours via course-groups */
+  assignGroup(courseId: number, groupName: string, maxStudents: number, teacherId?: number): Observable<any> {
+    return this.api.post<any>('/v1/course-groups', {
+      courseId,
+      groupName,
+      type: 'COURS',
+      maxStudents: maxStudents || 30,
+      teacherId: teacherId ?? null
+    }).pipe(catchError(() => of(null)));
+  }
+
   /** Normalise la réponse backend vers l'interface Course UI */
   private normalize(c: any): Course {
     return {

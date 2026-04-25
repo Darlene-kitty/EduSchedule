@@ -54,6 +54,10 @@ node_modules/
 out/
 dist/
 
+### Uploads (fichiers utilisateurs) ###
+course-service/uploads/
+**/uploads/
+
 ### Documentation (garder seulement les principaux à la racine) ###
 /ARCHITECTURE.md
 /DOCUMENTATION_INDEX.md

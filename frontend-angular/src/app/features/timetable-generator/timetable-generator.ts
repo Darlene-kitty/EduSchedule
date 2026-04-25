@@ -3,14 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
-import {
-  TimetableGenerationService,
+import { TimetableGenerationService,
   SchedulingRequest,
   GenerationJob,
   ScheduleSlot
 } from '../../core/services/timetable-generation.service';
 import { RoomsManagementService, Room } from '../../core/services/rooms-management.service';
-import { SchoolsManagementService, School } from '../../core/services/schools-management.service';
+import { SchoolManagementService, SchoolEntry } from '../../core/services/school-management.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConflictsManagementService } from '../../core/services/conflicts-management.service';
 import { AppConfigService } from '../../core/services/app-config.service';
@@ -44,7 +43,7 @@ interface Constraint {
 export class TimetableGeneratorComponent implements OnInit {
   private svc          = inject(TimetableGenerationService);
   private roomSvc      = inject(RoomsManagementService);
-  private schoolSvc    = inject(SchoolsManagementService);
+  private schoolSvc    = inject(SchoolManagementService);
   private auth         = inject(AuthService);
   private conflictsSvc = inject(ConflictsManagementService);
   private configSvc    = inject(AppConfigService);
@@ -54,7 +53,7 @@ export class TimetableGeneratorComponent implements OnInit {
 
   // ── Config ──
   rooms         = signal<Room[]>([]);
-  schools       = signal<School[]>([]);
+  schools       = signal<SchoolEntry[]>([]);
   selectedRooms = signal<number[]>([]);
   request: SchedulingRequest = { schoolId: 0, semester: 'S1', level: 'L1', maxHoursPerDay: 6 };
   selectedAlgo: 'ford-fulkerson' | 'edmonds-karp' = 'edmonds-karp';
@@ -131,10 +130,10 @@ export class TimetableGeneratorComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.schoolSvc.getSchools().subscribe({
+    this.schoolSvc.getAll().subscribe({
       next: data => {
-        this.schools.set(data);
-        if (data.length > 0 && !this.request.schoolId) {
+        this.schools.set(data ?? []);
+        if ((data ?? []).length > 0 && !this.request.schoolId) {
           this.request.schoolId = data[0].id;
         }
       },

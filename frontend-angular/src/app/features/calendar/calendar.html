@@ -33,11 +33,8 @@
           <select class="select-ctrl" [(ngModel)]="selectedTeacher" *ngIf="!isTeacher">
             <option *ngFor="let t of teachers">{{ t }}</option>
           </select>
+          <!-- Filtre salle (admin seulement) -->
           <select class="select-ctrl" [(ngModel)]="selectedRoom" *ngIf="!isTeacher">
-            <option *ngFor="let r of rooms">{{ r }}</option>
-          </select>
-          <!-- Filtre salle -->
-          <select class="select-ctrl" [(ngModel)]="selectedRoom">
             <option *ngFor="let r of rooms">{{ r }}</option>
           </select>
           <!-- Filtre école (admin seulement) -->
@@ -48,6 +45,13 @@
           <button class="btn-sync" (click)="synchronize()" [disabled]="isSyncing">
             <mat-icon [class.spinning]="isSyncing">sync</mat-icon>
             {{ isSyncing ? 'Sync...' : 'Synchroniser' }}
+          </button>
+          <!-- Toggle overlay disponibilités -->
+          <button class="btn-avail-toggle" (click)="showAvailabilityOverlay = !showAvailabilityOverlay"
+                  [class.active]="showAvailabilityOverlay"
+                  title="Afficher/masquer les disponibilités enseignants">
+            <mat-icon>event_available</mat-icon>
+            Disponibilités
           </button>
         </div>
       </div>
@@ -74,7 +78,8 @@
           </div>
           <ng-container *ngFor="let hour of hours">
             <div class="time-cell" [class.current-hour]="isCurrentHour(hour)">{{ hour }}:00</div>
-            <div *ngFor="let day of days; let di = index" class="day-cell">
+            <div *ngFor="let day of days; let di = index" class="day-cell"
+                 [class.avail-slot]="isTeacherAvailableAt(di, hour)">
               <div *ngFor="let event of getEventsForDayAndHour(di, hour)"
                    class="event-block" [style.background]="event.color"
                    [style.height.px]="getEventHeight(event)">
@@ -96,7 +101,7 @@
           </div>
           <ng-container *ngFor="let hour of hours">
             <div class="time-cell" [class.current-hour]="isCurrentHour(hour)">{{ hour }}:00</div>
-            <div class="day-cell">
+            <div class="day-cell" [class.avail-slot]="isTeacherAvailableAt(currentDayDate.getDay() === 0 ? 6 : currentDayDate.getDay() - 1, hour)">
               <div *ngFor="let event of getEventsForHour(hour)"
                    class="event-block" [style.background]="event.color"
                    [style.height.px]="getEventHeight(event)">
@@ -140,6 +145,10 @@
         <div class="legend-item" *ngFor="let entry of [['CM','#1D4ED8'],['TD','#15803D'],['TP','#7C3AED'],['Séminaire','#EA580C']]">
           <span class="legend-dot" [style.background]="entry[1]"></span>
           <span>{{ entry[0] }}</span>
+        </div>
+        <div class="legend-item" *ngIf="showAvailabilityOverlay">
+          <span class="legend-dot avail-dot"></span>
+          <span>Disponibilité enseignant</span>
         </div>
       </div>
 

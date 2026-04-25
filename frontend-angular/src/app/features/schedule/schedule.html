@@ -1,4 +1,4 @@
-<div class="page-layout">
+﻿<div class="page-layout">
   <app-sidebar activePage="schedule"></app-sidebar>
   <div class="main-wrapper">
 
@@ -14,8 +14,8 @@
           <span class="notif-dot" *ngIf="conflits.length > 0">{{ conflits.length }}</span>
         </button>
         <div class="header-user">
-          <div class="header-avatar">AS</div>
-          <span class="header-username">Admin</span>
+          <div class="header-avatar">{{ currentUserInitials }}</div>
+          <span class="header-username">{{ currentUserName }}</span>
           <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
         </div>
       </div>
@@ -38,9 +38,9 @@
             <mat-icon>warning</mat-icon>
             {{ conflits.length }} conflit(s)
           </button>
-          <button class="btn-generate" (click)="showGenPanel = !showGenPanel" [class.active]="showGenPanel">
-            <mat-icon>auto_awesome</mat-icon> Générer
-          </button>
+          <a class="btn-generate" routerLink="/timetable-generator" title="Génération automatique complète">
+            <mat-icon>auto_awesome</mat-icon> Générer EDT
+          </a>
           <button class="btn-add" (click)="openAddModal()"><mat-icon>add</mat-icon> Nouvelle séance</button>
         </div>
       </div>
@@ -60,104 +60,6 @@
         <div *ngFor="let c of conflits" class="conflit-item" [ngClass]="'conflit-' + c.type">
           <mat-icon>{{ c.type === 'enseignant' ? 'person_off' : c.type === 'salle' ? 'meeting_room' : 'groups' }}</mat-icon>
           <span>{{ c.message }}</span>
-        </div>
-      </div>
-
-      <!-- Panneau génération automatique -->
-      <div class="gen-panel" *ngIf="showGenPanel">
-        <div class="gen-panel-header">
-          <div class="gen-panel-title">
-            <mat-icon>auto_awesome</mat-icon>
-            <span>Génération automatique — {{ genAlgo === 'edmonds-karp' ? 'Edmonds-Karp (BFS)' : 'Ford-Fulkerson (DFS)' }}</span>
-          </div>
-          <button class="conflits-close" (click)="showGenPanel = false; resetGeneration()"><mat-icon>close</mat-icon></button>
-        </div>
-
-        <!-- Paramètres -->
-        <div class="gen-params" *ngIf="!genJob()">
-          <div class="gen-params-row">
-            <div class="gen-field">
-              <label>ID École</label>
-              <input type="number" [(ngModel)]="genRequest.schoolId" placeholder="ex: 1" />
-            </div>
-            <div class="gen-field">
-              <label>Niveau</label>
-              <select [(ngModel)]="genRequest.level">
-                <option *ngFor="let l of genLevels" [value]="l">{{ l }}</option>
-              </select>
-            </div>
-            <div class="gen-field">
-              <label>Semestre</label>
-              <select [(ngModel)]="genRequest.semester">
-                <option *ngFor="let s of genSemesters" [value]="s">{{ s }}</option>
-              </select>
-            </div>
-            <div class="gen-field">
-              <label>Max h/jour</label>
-              <input type="number" [(ngModel)]="genRequest.maxHoursPerDay" min="2" max="10" />
-            </div>
-            <div class="gen-field">
-              <label>Algorithme</label>
-              <select [(ngModel)]="genAlgo">
-                <option value="edmonds-karp">Edmonds-Karp (BFS)</option>
-                <option value="ford-fulkerson">Ford-Fulkerson (DFS)</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="gen-rooms" *ngIf="genRooms().length > 0">
-            <span class="gen-rooms-label">Salles <span class="badge">{{ genSelectedRooms().length }}/{{ genRooms().length }}</span></span>
-            <div class="gen-rooms-chips">
-              <label class="room-chip" *ngFor="let r of genRooms()" [class.selected]="isGenRoomSelected(r.id)">
-                <input type="checkbox" [checked]="isGenRoomSelected(r.id)" (change)="toggleGenRoom(r.id)" />
-                {{ r.name }}
-              </label>
-            </div>
-          </div>
-
-          <p class="gen-error" *ngIf="genErrorMsg()">{{ genErrorMsg() }}</p>
-
-          <div class="gen-actions">
-            <button class="btn-generate-launch" (click)="launchGeneration()" [disabled]="isGenerating()">
-              <mat-icon>play_arrow</mat-icon>
-              Lancer la génération
-            </button>
-          </div>
-        </div>
-
-        <!-- Progression -->
-        <div class="gen-progress" *ngIf="genJob()">
-          <div class="gen-progress-header">
-            <span class="status-badge" [attr.data-status]="genJob()!.status">{{ genJob()!.status }}</span>
-            <span class="gen-pct">{{ genJob()!.progress }}%</span>
-            <button class="btn-reset-gen" (click)="resetGeneration()" [disabled]="isGenerating()">
-              <mat-icon>refresh</mat-icon>
-            </button>
-          </div>
-          <div class="gen-progress-bar">
-            <div class="gen-progress-fill" [style.width.%]="genJob()!.progress" [style.background]="progressColor"></div>
-          </div>
-          <p class="gen-hint" *ngIf="genJob()!.message">{{ genJob()!.message }}</p>
-
-          <div class="gen-stats" *ngIf="genJob()!.status === 'COMPLETED' || genJob()!.status === 'PARTIAL'">
-            <span>Flot max : <strong>{{ genJob()!.maxFlowValue }}</strong></span>
-            <span>Créneaux placés : <strong>{{ genJob()!.slots?.length ?? 0 }}</strong></span>
-            <span>Durée : <strong>{{ genJob()!.generationTimeMs }}ms</strong></span>
-          </div>
-
-          <div class="gen-unassigned" *ngIf="genJob()?.unassignedCourses?.length">
-            <mat-icon>warning</mat-icon>
-            <span>{{ genJob()!.unassignedCourses!.length }} cours non placés</span>
-          </div>
-
-          <div class="gen-confirm-row" *ngIf="genJob()!.status === 'COMPLETED' || genJob()!.status === 'PARTIAL'">
-            <p class="gen-preview-hint"><mat-icon>visibility</mat-icon> Aperçu visible dans la grille ci-dessous (créneaux en pointillés)</p>
-            <button class="btn-confirm-gen" (click)="confirmGeneration()" [disabled]="isConfirming()">
-              <mat-icon>check_circle</mat-icon>
-              {{ isConfirming() ? 'Sauvegarde…' : 'Valider & Importer dans la planification' }}
-            </button>
-            <p class="gen-confirm-msg" *ngIf="confirmMsg()">{{ confirmMsg() }}</p>
-          </div>
         </div>
       </div>
 
@@ -232,16 +134,6 @@
                 <div class="conflict-badge" *ngIf="isConflict(s.id)">
                   <mat-icon>warning</mat-icon> Conflit
                 </div>
-              </div>
-              <!-- Aperçu créneaux générés (avant validation) -->
-              <div *ngFor="let gs of getGeneratedSlotsCreneau(jour, heure)"
-                class="seance-card seance-card--preview">
-                <div class="seance-top">
-                </div>
-                <div class="seance-matiere">{{ gs.courseName }}</div>
-                <div class="seance-info"><mat-icon>meeting_room</mat-icon><span>{{ gs.roomName }}</span></div>
-                <div class="seance-info"><mat-icon>layers</mat-icon><span>{{ gs.level }}</span></div>
-                <div class="seance-time">{{ gs.startTime }} – {{ gs.endTime }}</div>
               </div>
             </div>
           </ng-container>

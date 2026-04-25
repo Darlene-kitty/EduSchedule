@@ -11,6 +11,7 @@ import cm.iusjc.userservice.entity.User;
 import cm.iusjc.userservice.entity.Role;
 import cm.iusjc.userservice.repository.RoleRepository;
 import cm.iusjc.userservice.repository.UserRepository;
+import cm.iusjc.userservice.repository.TeacherSchoolAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,6 +31,7 @@ public class UserService {
     private final UserEventPublisher userEventPublisher;
     private final WelcomeEmailService welcomeEmailService;
     private final RoleRepository roleRepository;
+    private final TeacherSchoolAssignmentRepository assignmentRepository;
 
     @Transactional
     public UserDTO createUser(RegisterRequest request) {
@@ -155,6 +157,31 @@ public class UserService {
     }
     
     private UserDTO convertToDTO(User user) {
+        // Récupérer l'école principale de l'enseignant
+        Long primarySchoolId = null;
+        String primarySchoolName = null;
+        List<Long> schoolIds = null;
+
+        try {
+            var assignments = assignmentRepository.findByTeacherIdAndIsActiveTrue(user.getId());
+            schoolIds = assignments.stream()
+                    .map(a -> a.getSchoolId())
+                    .collect(Collectors.toList());
+            var primary = assignments.stream()
+                    .filter(a -> Boolean.TRUE.equals(a.getIsPrimarySchool()))
+                    .findFirst();
+            if (primary.isPresent()) {
+                primarySchoolId   = primary.get().getSchoolId();
+                primarySchoolName = primary.get().getSchoolName();
+            } else if (!assignments.isEmpty()) {
+                // Fallback : première école active
+                primarySchoolId   = assignments.get(0).getSchoolId();
+                primarySchoolName = assignments.get(0).getSchoolName();
+            }
+        } catch (Exception e) {
+            // Ne pas faire échouer la conversion si les affectations sont inaccessibles
+        }
+
         return new UserDTO(
                 user.getId(),
                 user.getUsername(),
@@ -165,9 +192,9 @@ public class UserService {
                 user.getEnabled(),
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
-                null,
-                null,
-                null
+                primarySchoolId,
+                primarySchoolName,
+                schoolIds
         );
     }
     

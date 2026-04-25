@@ -1,9 +1,12 @@
+import { AuthService } from '../../core/services/auth.service';
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { SchoolManagementService } from '../../core/services/school-management.service';
+import { FilieresManagementService } from '../../core/services/filieres-management.service';
+import { NiveauxManagementService } from '../../core/services/niveaux-management.service';
 
 export interface School {
   id: number;
@@ -30,7 +33,10 @@ export interface School {
   styleUrl: './schools.css'
 })
 export class SchoolsComponent implements OnInit {
-  private schoolService = inject(SchoolManagementService);
+  private schoolService  = inject(SchoolManagementService);
+  private filieresSvc    = inject(FilieresManagementService);
+  private niveauxSvc     = inject(NiveauxManagementService);
+  private authService = inject(AuthService);
 
   searchQuery = '';
   isAddModalOpen    = false;
@@ -44,10 +50,11 @@ export class SchoolsComponent implements OnInit {
   schoolToDelete: School | null = null;
 
   currentDate = ''; currentTime = '';
+  currentUserName = ''; currentUserInitials = ''; unreadCount = 0;
   showSuccess = false; successMessage = '';
 
-  // Toutes les filières disponibles dans l'institution
-  allFilieres = [
+  // Toutes les filières disponibles dans l'institution — chargées depuis le backend
+  allFilieres: string[] = [
     'Génie Informatique', 'Génie Civil', 'Génie Électrique', 'Génie Mécanique',
     'Génie Télécom', 'Génie Biomédical',
     'Management des Entreprises', 'Finance & Comptabilité', 'Marketing',
@@ -56,7 +63,7 @@ export class SchoolsComponent implements OnInit {
     'Lettres & Sciences Humaines', 'Droit des Affaires'
   ];
 
-  allNiveaux = ['L1', 'L2', 'L3', 'M1', 'M2', 'Prépa 1', 'Prépa 2', 'CPGE 1', 'CPGE 2'];
+  allNiveaux: string[] = ['L1', 'L2', 'L3', 'M1', 'M2', 'Prépa 1', 'Prépa 2', 'CPGE 1', 'CPGE 2'];
 
   couleurs = [
     { label: 'Bleu',   value: '#1D4ED8' },
@@ -82,8 +89,34 @@ export class SchoolsComponent implements OnInit {
 
   ngOnInit(): void {
     this.updateDateTime();
+    const u = this.authService.getUser(); if (u) { const n = u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Utilisateur'; this.currentUserName = n; const p = n.trim().split(' ').filter((x: string) => x); this.currentUserInitials = p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : n.substring(0, 2).toUpperCase(); }
     setInterval(() => this.updateDateTime(), 1000);
     this.loadSchools();
+    this.loadReferenceData();
+  }
+
+  private loadReferenceData(): void {
+    // Charger les filières depuis le backend (noms uniques)
+    this.filieresSvc.getAll().subscribe({
+      next: (filieres) => {
+        const names = filieres.map(f => f.name || (f as any).nom || '').filter(Boolean);
+        if (names.length > 0) {
+          // Dédupliquer et trier
+          this.allFilieres = [...new Set(names)].sort();
+        }
+      },
+      error: () => {} // garder les valeurs par défaut
+    });
+    // Charger les niveaux depuis le backend (codes uniques)
+    this.niveauxSvc.getAll().subscribe({
+      next: (niveaux) => {
+        const codes = niveaux.map(n => n.code || n.name || '').filter(Boolean);
+        if (codes.length > 0) {
+          this.allNiveaux = [...new Set(codes)].sort();
+        }
+      },
+      error: () => {} // garder les valeurs par défaut
+    });
   }
 
   loadSchools(): void {

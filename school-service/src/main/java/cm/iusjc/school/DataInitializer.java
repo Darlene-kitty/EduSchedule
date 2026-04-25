@@ -81,6 +81,10 @@ public class DataInitializer implements ApplicationRunner {
         School s = new School();
         s.setName(name); s.setCode(code); s.setCity(city);
         s.setCountry("Cameroun"); s.setActive(true);
+        // Couleurs distinctes par école pour le frontend
+        String[] palette = {"#1D4ED8", "#15803D", "#DC2626", "#7C3AED", "#EA580C"};
+        long count = schoolRepository.count();
+        s.setCouleur(palette[(int)(count % palette.length)]);
         return schoolRepository.save(s);
     }
 

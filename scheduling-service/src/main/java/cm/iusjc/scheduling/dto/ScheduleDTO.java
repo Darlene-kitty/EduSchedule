@@ -34,6 +34,9 @@ public class ScheduleDTO {
     
     @Size(max = 100, message = "Teacher name cannot exceed 100 characters")
     private String teacher;
+
+    /** ID de l'enseignant dans le user-service — utilisé pour la détection de conflits */
+    private Long teacherId;
     
     @Size(max = 100, message = "Course name cannot exceed 100 characters")
     private String course;

@@ -141,3 +141,27 @@
 /* ── Spinning ── */
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinning { animation: spin 1s linear infinite; }
+
+/* ── Disponibilités overlay ─────────────────────────────────────────────── */
+.day-cell.avail-slot {
+  background: rgba(21, 128, 61, 0.07);
+  border-left: 2px solid rgba(21, 128, 61, 0.35);
+}
+
+.btn-avail-toggle {
+  display: flex; align-items: center; gap: 4px;
+  background: transparent; border: 1px solid #E5E7EB;
+  padding: 8px 14px; border-radius: 8px; font-size: 0.85rem;
+  cursor: pointer; color: #374151; transition: all 0.2s;
+}
+.btn-avail-toggle mat-icon { font-size: 16px !important; width: 16px !important; height: 16px !important; }
+.btn-avail-toggle:hover { background: #F3F4F6; }
+.btn-avail-toggle.active {
+  background: #DCFCE7; border-color: #15803D; color: #15803D; font-weight: 600;
+}
+
+/* Légende */
+.legend { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; padding: 8px 4px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #6B7280; }
+.legend-dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.legend-dot.avail-dot { background: rgba(21, 128, 61, 0.25); border: 1px solid #15803D; }

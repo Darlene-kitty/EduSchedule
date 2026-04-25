@@ -59,8 +59,15 @@ export class EventsManagementService {
   private api = inject(ApiService);
 
   getEvents(): Observable<Event[]> {
-    return this.api.get<ApiWrapped<Event[]>>('/v1/events').pipe(
-      map(res => res?.data ?? (res as any)),
+    return this.api.get<any>('/v1/events').pipe(
+      map(res => {
+        // Le backend peut retourner soit { data: [...] } soit directement un tableau
+        if (Array.isArray(res)) return res as Event[];
+        if (res?.data && Array.isArray(res.data)) return res.data as Event[];
+        // Page Spring (content: [...])
+        if (res?.content && Array.isArray(res.content)) return res.content as Event[];
+        return [];
+      }),
       catchError(() => of([]))
     );
   }

@@ -22,5 +22,27 @@ public class GroupeDTO {
     private Long niveauId;
 
     private String niveauName;
+    private String niveauCode;
+
+    // Filière (parent du niveau)
+    private Long filiereId;
+    private String filiereName;
+    private String filiereCode;
+
+    // École (parent de la filière)
+    private Long schoolId;
+    private String schoolName;
+    private String schoolCode;
+    private String schoolCouleur;
+
     private boolean active = true;
+
+    /** Nombre d'étudiants actuellement affectés (calculé dynamiquement, non persisté) */
+    private int effectif = 0;
+
+    /** Places disponibles = capacite - effectif */
+    public int getPlacesDisponibles() {
+        if (capacite == null) return Integer.MAX_VALUE;
+        return Math.max(0, capacite - effectif);
+    }
 }

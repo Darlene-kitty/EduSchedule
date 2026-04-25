@@ -3,7 +3,6 @@ package cm.iusjc.eventservice.dto;
 import cm.iusjc.eventservice.entity.EventType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Future;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -24,11 +23,9 @@ public class EventRequest {
     private EventType type;
     
     @NotNull(message = "Start date time is required")
-    @Future(message = "Start date time must be in the future")
     private LocalDateTime startDateTime;
     
     @NotNull(message = "End date time is required")
-    @Future(message = "End date time must be in the future")
     private LocalDateTime endDateTime;
     
     @NotNull(message = "Resource ID is required")

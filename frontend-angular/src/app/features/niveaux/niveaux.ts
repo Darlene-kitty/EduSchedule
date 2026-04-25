@@ -1,3 +1,4 @@
+import { AuthService } from '../../core/services/auth.service';
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -31,6 +32,7 @@ export class NiveauxComponent implements OnInit {
 
   private configSvc   = inject(AppConfigService);
   private schoolSvc   = inject(SchoolManagementService);
+  private authService = inject(AuthService);
 
   searchQuery  = '';
   filterType   = '';
@@ -46,6 +48,7 @@ export class NiveauxComponent implements OnInit {
   niveauToDelete: Niveau | null = null;
 
   currentDate = ''; currentTime = '';
+  currentUserName = ''; currentUserInitials = ''; unreadCount = 0;
   showSuccess = false; successMessage = '';
   loading = false;
 
@@ -76,22 +79,28 @@ export class NiveauxComponent implements OnInit {
 
   ngOnInit(): void {
     this.updateDateTime();
+    const u = this.authService.getUser(); if (u) { const n = u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Utilisateur'; this.currentUserName = n; const p = n.trim().split(' ').filter((x: string) => x); this.currentUserInitials = p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : n.substring(0, 2).toUpperCase(); }
     setInterval(() => this.updateDateTime(), 1000);
-    this.loadNiveaux();
-    this.filieresService.getAll().subscribe(data => { this.allFilieres = data ?? []; });
+
+    // Charger d'abord les filières et les écoles, puis les niveaux
+    // pour pouvoir déduire l'école de chaque niveau via sa filière
+    this.filieresService.getAll().subscribe(data => {
+      this.allFilieres = data ?? [];
+
+      this.schoolSvc.getAll().subscribe(schools => {
+        this.ecoles = (schools ?? []).map((s, i) => ({
+          sigle: s.sigle || s.code || s.name || '',
+          nom:   s.nom   || s.name || '',
+          couleur: s.couleur || this.schoolColors[i % this.schoolColors.length]
+        }));
+
+        this.loadNiveaux();
+      });
+    });
 
     // Charger les types depuis le backend
     this.configSvc.getConfig().subscribe(cfg => {
       this.types = (cfg.levelTypes ?? []) as Niveau['type'][];
-    });
-
-    // Charger les écoles depuis school-service
-    this.schoolSvc.getAll().subscribe(schools => {
-      this.ecoles = (schools ?? []).map((s, i) => ({
-        sigle: s.sigle || s.code || s.name || '',
-        nom:   s.nom   || s.name || '',
-        couleur: s.couleur || this.schoolColors[i % this.schoolColors.length]
-      }));
     });
   }
 
@@ -99,17 +108,26 @@ export class NiveauxComponent implements OnInit {
     this.loading = true;
     this.niveauxService.getAll().subscribe({
       next: (data) => {
-        this.niveaux = (data ?? []).map(n => ({
-          id: n.id,
-          code: n.code || '',
-          nom: n.name,
-          type: 'Licence' as Niveau['type'],
-          ecoles: [],
-          filieres: n.filiereName ? [n.filiereName] : [],
-          annee: n.ordre ?? 1,
-          description: '',
-          enabled: n.active
-        }));
+        this.niveaux = (data ?? []).map(n => {
+          // Déduire l'école depuis la filière associée
+          const filiere = this.allFilieres.find(f => f.id === n.filiereId);
+          const school = filiere
+            ? this.ecoles.find(e => e.sigle === (filiere.schoolName || '') || e.nom === (filiere.schoolName || ''))
+            : null;
+          const ecolesSigle = school ? [school.sigle] : [];
+
+          return {
+            id: n.id,
+            code: n.code || '',
+            nom: n.name,
+            type: 'Licence' as Niveau['type'],
+            ecoles: ecolesSigle,
+            filieres: n.filiereName ? [n.filiereName] : [],
+            annee: n.ordre ?? 1,
+            description: '',
+            enabled: n.active
+          };
+        });
         this.loading = false;
       },
       error: () => { this.loading = false; }

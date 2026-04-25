@@ -1,4 +1,4 @@
-<div class="page-layout">
+﻿<div class="page-layout">
   <app-sidebar activePage="filieres"></app-sidebar>
   <div class="main-wrapper">
 
@@ -11,8 +11,9 @@
         </div>
         <button class="header-notif-btn"><mat-icon>notifications</mat-icon></button>
         <div class="header-user">
-          <div class="header-avatar">AS</div>
+          <div class="header-avatar">{{ currentUserInitials }}</div>
           <!-- <span class="header-username"></span> -->
+          <span class="header-username">{{ currentUserName }}</span>
           <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
         </div>
       </div>
@@ -99,8 +100,10 @@
                 </td>
                 <td>
                   <div class="responsable-cell">
-                    <div class="resp-avatar" [style.background]="f.couleurEcole">{{ f.responsable.split(' ').slice(-1)[0][0] }}{{ f.responsable.split(' ').slice(-2)[0][0] }}</div>
-                    <span>{{ f.responsable }}</span>
+                    <div class="resp-avatar" [style.background]="f.couleurEcole">
+                      {{ f.responsable ? (f.responsable.split(' ').slice(-1)[0][0] + (f.responsable.split(' ').length > 1 ? f.responsable.split(' ').slice(-2)[0][0] : '')) : '?' }}
+                    </div>
+                    <span>{{ f.responsable || '—' }}</span>
                   </div>
                 </td>
                 <td>

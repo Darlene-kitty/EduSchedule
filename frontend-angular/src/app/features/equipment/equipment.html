@@ -1,4 +1,4 @@
-<div class="page-layout">
+﻿<div class="page-layout">
   <app-sidebar activePage="equipment"></app-sidebar>
   <div class="main-wrapper">
     <header class="page-header">
@@ -10,8 +10,8 @@
         </div>
         <button class="header-notif-btn"><mat-icon>notifications</mat-icon></button>
         <div class="header-user">
-          <div class="header-avatar">AS</div>
-          <span class="header-username">Admin</span>
+          <div class="header-avatar">{{ currentUserInitials }}</div>
+          <span class="header-username">{{ currentUserName }}</span>
           <mat-icon class="header-chevron">keyboard_arrow_down</mat-icon>
         </div>
       </div>

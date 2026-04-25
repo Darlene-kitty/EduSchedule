@@ -1,8 +1,11 @@
 package cm.iusjc.school.service;
 
 import cm.iusjc.school.dto.GroupeDTO;
+import cm.iusjc.school.entity.Filiere;
 import cm.iusjc.school.entity.Groupe;
 import cm.iusjc.school.entity.Niveau;
+import cm.iusjc.school.entity.School;
+import cm.iusjc.school.repository.AffectationRepository;
 import cm.iusjc.school.repository.GroupeRepository;
 import cm.iusjc.school.repository.NiveauRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +24,7 @@ public class GroupeService {
 
     private final GroupeRepository groupeRepository;
     private final NiveauRepository niveauRepository;
+    private final AffectationRepository affectationRepository;
 
     @Transactional(readOnly = true)
     public List<GroupeDTO> getAll() {
@@ -80,9 +84,29 @@ public class GroupeService {
         dto.setName(g.getName());
         dto.setCode(g.getCode());
         dto.setCapacite(g.getCapacite());
-        dto.setNiveauId(g.getNiveau().getId());
-        dto.setNiveauName(g.getNiveau().getName());
+
+        // Niveau
+        Niveau niveau = g.getNiveau();
+        dto.setNiveauId(niveau.getId());
+        dto.setNiveauName(niveau.getName());
+        dto.setNiveauCode(niveau.getCode());
+
+        // Filière (parent du niveau)
+        Filiere filiere = niveau.getFiliere();
+        dto.setFiliereId(filiere.getId());
+        dto.setFiliereName(filiere.getName());
+        dto.setFiliereCode(filiere.getCode());
+
+        // École (parent de la filière)
+        School school = filiere.getSchool();
+        dto.setSchoolId(school.getId());
+        dto.setSchoolName(school.getName());
+        dto.setSchoolCode(school.getCode());
+        dto.setSchoolCouleur(school.getCouleur());
+
         dto.setActive(g.getActive());
+        // Calcul de l'effectif réel depuis les affectations actives
+        dto.setEffectif((int) affectationRepository.countActiveByGroupeId(g.getId()));
         return dto;
     }
 }

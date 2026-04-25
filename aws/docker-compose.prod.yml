@@ -1,28 +1,52 @@
 # ============================================================
-# docker-compose.prod.yml — Production AWS EC2
+# docker-compose.prod.yml — Production AWS EC2 t3.medium (x86_64)
 # Usage: docker compose -f aws/docker-compose.prod.yml up -d
 # ============================================================
-# Les images sont tirées depuis Docker Hub (buildées par CI/CD)
-# DOCKER_IMAGE_PREFIX = <dockerhub_username>/eduschedule
+# Instance : t3.medium — 2 vCPU, 4 GB RAM, architecture x86_64 (amd64)
+# Images tirées depuis Docker Hub (buildées par CI/CD pour linux/amd64)
 # Variables d'environnement dans /opt/eduschedule/.env
 #
-# Limites mémoire par service (total ~3.5GB pour t3.medium 4GB) :
-#   Infrastructure  : mysql 512m, redis 128m, rabbitmq 256m
-#   eureka+config   : 256m chacun
-#   api-gateway     : 256m
-#   Services Java   : 256m chacun (×13 services = ~3.3GB)
-#   frontend        : 128m
-# Activer le swap sur l'EC2 avant de lancer (voir setup-ec2.sh)
+# Budget mémoire (4 GB RAM + 4 GB swap) :
+#   Infrastructure  : mysql 512m, redis 128m, rabbitmq 256m  → 896m
+#   eureka+config   : 192m chacun                            → 384m
+#   api-gateway     : 256m                                   → 256m
+#   Services Java   : 192m chacun × 13                       → 2496m
+#   frontend        : 128m                                   → 128m
+#   Total RAM       ≈ 4160m  (swap absorbe le dépassement)
+# ============================================================
+
+x-java-service: &java-defaults
+  restart: unless-stopped
+  platform: linux/amd64
+  mem_limit: 192m
+  memswap_limit: 320m
+  environment: &java-env
+    JAVA_OPTS: >-
+      -Xms48m -Xmx144m
+      -XX:+UseG1GC
+      -XX:MaxGCPauseMillis=200
+      -XX:+UseContainerSupport
+      -XX:MaxRAMPercentage=75.0
+      -Djava.security.egd=file:/dev/./urandom
+  networks:
+    - eduschedule-network
 
 services:
   # ── Infrastructure ──────────────────────────────────────────────────────
   mysql:
     image: mysql:8.0
+    platform: linux/amd64
     container_name: eduschedule-mysql
     restart: unless-stopped
     mem_limit: 512m
     memswap_limit: 768m
-    command: --default-authentication-plugin=mysql_native_password
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --innodb-buffer-pool-size=256M
+      --max-connections=100
+      --query-cache-size=0
+      --tmp-table-size=32M
+      --max-heap-table-size=32M
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
@@ -35,20 +59,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 30s
     networks:
       - eduschedule-network
 
   redis:
     image: redis:7-alpine
+    platform: linux/amd64
     container_name: eduschedule-redis
     restart: unless-stopped
     mem_limit: 128m
     memswap_limit: 192m
+    command: redis-server --maxmemory 96mb --maxmemory-policy allkeys-lru
     networks:
       - eduschedule-network
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
+    platform: linux/amd64
     container_name: eduschedule-rabbitmq
     restart: unless-stopped
     mem_limit: 256m
@@ -56,141 +84,121 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_VM_MEMORY_HIGH_WATERMARK: 0.4
     networks:
       - eduschedule-network
 
   # ── Core Services ───────────────────────────────────────────────────────
   eureka-server:
     image: ${DOCKER_IMAGE_PREFIX}-eureka-server:latest
+    <<: *java-defaults
     container_name: eduschedule-eureka
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
+    mem_limit: 192m
+    memswap_limit: 320m
     environment:
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:8761 || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
-      start_period: 40s
-    networks:
-      - eduschedule-network
+      start_period: 45s
 
   config-server:
     image: ${DOCKER_IMAGE_PREFIX}-config-server:latest
+    <<: *java-defaults
     container_name: eduschedule-config-server
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
     environment:
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       eureka-server:
         condition: service_healthy
-    networks:
-      - eduschedule-network
 
   api-gateway:
     image: ${DOCKER_IMAGE_PREFIX}-api-gateway:latest
+    <<: *java-defaults
     container_name: eduschedule-api-gateway
-    restart: unless-stopped
     mem_limit: 256m
     memswap_limit: 384m
     ports:
       - "8080:8080"
     environment:
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       eureka-server:
         condition: service_healthy
-    networks:
-      - eduschedule-network
 
   # ── Business Services ───────────────────────────────────────────────────
   user-service:
     image: ${DOCKER_IMAGE_PREFIX}-user-service:latest
+    <<: *java-defaults
     container_name: eduschedule-user-service
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - JWT_SECRET=${JWT_SECRET}
-      - SPRING_RABBITMQ_HOST=rabbitmq
-      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER}
-      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS}
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
     depends_on:
       mysql:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    networks:
-      - eduschedule-network
 
   resource-service:
     image: ${DOCKER_IMAGE_PREFIX}-resource-service:latest
+    <<: *java-defaults
     container_name: eduschedule-resource-service
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
-      - SPRING_DATA_REDIS_HOST=redis
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       mysql:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    networks:
-      - eduschedule-network
 
   school-service:
     image: ${DOCKER_IMAGE_PREFIX}-school-service:latest
+    <<: *java-defaults
     container_name: eduschedule-school-service
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       mysql:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    networks:
-      - eduschedule-network
 
   course-service:
     image: ${DOCKER_IMAGE_PREFIX}-course-service:latest
+    <<: *java-defaults
     container_name: eduschedule-course-service
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - SPRING_RABBITMQ_HOST=rabbitmq
-      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER}
-      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS}
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
     depends_on:
       mysql:
         condition: service_healthy
@@ -198,54 +206,46 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_started
-    networks:
-      - eduschedule-network
 
   reservation-service:
     image: ${DOCKER_IMAGE_PREFIX}-reservation-service:latest
+    <<: *java-defaults
     container_name: eduschedule-reservation-service
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - SPRING_RABBITMQ_HOST=rabbitmq
-      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER}
-      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS}
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
     depends_on:
       mysql:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    networks:
-      - eduschedule-network
 
   notification-service:
     image: ${DOCKER_IMAGE_PREFIX}-notification-service:latest
+    <<: *java-defaults
     container_name: eduschedule-notification-service
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
     ports:
       - "8087:8087"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - SPRING_RABBITMQ_HOST=rabbitmq
-      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER}
-      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS}
-      - MAIL_HOST=${MAIL_HOST}
-      - MAIL_PORT=${MAIL_PORT}
-      - MAIL_USERNAME=${MAIL_USERNAME}
-      - MAIL_PASSWORD=${MAIL_PASSWORD}
-      - MAIL_FROM=${MAIL_FROM}
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
     depends_on:
       mysql:
         condition: service_healthy
@@ -253,195 +253,159 @@ services:
         condition: service_started
       eureka-server:
         condition: service_healthy
-    networks:
-      - eduschedule-network
 
   scheduling-service:
     image: ${DOCKER_IMAGE_PREFIX}-scheduling-service:latest
+    <<: *java-defaults
     container_name: eduschedule-scheduling-service
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
-      - SPRING_DATA_REDIS_HOST=redis
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - SPRING_RABBITMQ_HOST=rabbitmq
-      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER}
-      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS}
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
     depends_on:
       mysql:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    networks:
-      - eduschedule-network
 
   room-service:
     image: ${DOCKER_IMAGE_PREFIX}-room-service:latest
+    <<: *java-defaults
     container_name: eduschedule-room-service
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       mysql:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    networks:
-      - eduschedule-network
 
   calendar-service:
     image: ${DOCKER_IMAGE_PREFIX}-calendar-service:latest
+    <<: *java-defaults
     container_name: eduschedule-calendar-service
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       mysql:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    networks:
-      - eduschedule-network
 
   reporting-service:
     image: ${DOCKER_IMAGE_PREFIX}-reporting-service:latest
+    <<: *java-defaults
     container_name: eduschedule-reporting-service
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       mysql:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    networks:
-      - eduschedule-network
 
   event-service:
     image: ${DOCKER_IMAGE_PREFIX}-event-service:latest
+    <<: *java-defaults
     container_name: eduschedule-event-service
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       mysql:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    networks:
-      - eduschedule-network
 
   teacher-availability-service:
     image: ${DOCKER_IMAGE_PREFIX}-teacher-availability-service:latest
+    <<: *java-defaults
     container_name: eduschedule-teacher-availability-service
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       mysql:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    networks:
-      - eduschedule-network
 
   ai-service:
     image: ${DOCKER_IMAGE_PREFIX}-ai-service:latest
+    <<: *java-defaults
     container_name: eduschedule-ai-service
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       mysql:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    networks:
-      - eduschedule-network
 
   maintenance-service:
     image: ${DOCKER_IMAGE_PREFIX}-maintenance-service:latest
+    <<: *java-defaults
     container_name: eduschedule-maintenance-service
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       mysql:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    networks:
-      - eduschedule-network
 
   ent-integration-service:
     image: ${DOCKER_IMAGE_PREFIX}-ent-integration-service:latest
+    <<: *java-defaults
     container_name: eduschedule-ent-integration-service
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 384m
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - JAVA_OPTS=-Xms64m -Xmx192m -XX:+UseG1GC
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       mysql:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
-    networks:
-      - eduschedule-network
 
+  # ── Frontend ─────────────────────────────────────────────────────────────
   frontend-angular:
     image: ${DOCKER_IMAGE_PREFIX}-frontend-angular:latest
+    platform: linux/amd64
     container_name: eduschedule-frontend-angular
     restart: unless-stopped
     mem_limit: 128m

@@ -31,6 +31,7 @@ export class TeacherAvailabilityComponent implements OnInit {
   currentTeacherName = '';
 
   currentDate = ''; currentTime = '';
+  currentUserName = ''; currentUserInitials = ''; unreadCount = 0;
   searchQuery = '';
   selectedDay = 'all';
   selectedTeacher = 'all';
@@ -50,6 +51,7 @@ export class TeacherAvailabilityComponent implements OnInit {
 
   ngOnInit(): void {
     this.updateDateTime();
+    const u = this.authService.getUser(); if (u) { const n = u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Utilisateur'; this.currentUserName = n; const p = n.trim().split(' ').filter((x: string) => x); this.currentUserInitials = p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : n.substring(0, 2).toUpperCase(); }
     setInterval(() => this.updateDateTime(), 1000);
 
     const user = this.authService.getUser();
@@ -160,7 +162,18 @@ export class TeacherAvailabilityComponent implements OnInit {
   openEdit(a: TeacherAvailability): void {
     this.editingAvailability = a;
     this.newSlots = [...a.slots.map(s => ({ ...s }))];
-    this.newForm = { teacherName: a.teacherName, effectiveDate: a.effectiveDate, maxHoursPerDay: a.maxHoursPerDay, maxHoursPerWeek: a.maxHoursPerWeek, status: a.status, notes: a.notes || '' };
+    this.newForm = {
+      teacherName: a.teacherName,
+      effectiveDate: a.effectiveDate,
+      maxHoursPerDay: a.maxHoursPerDay,
+      maxHoursPerWeek: a.maxHoursPerWeek,
+      status: a.status,
+      notes: a.notes || ''
+    };
+    // S'assurer que le teacherId est dans la liste pour le select admin
+    if (!this.isTeacher && a.teacherId && !this.teacherList.find(t => t.id === a.teacherId)) {
+      this.teacherList = [...this.teacherList, { id: a.teacherId, name: a.teacherName }];
+    }
     this.isAddModalOpen = true;
   }
 
@@ -178,19 +191,47 @@ export class TeacherAvailabilityComponent implements OnInit {
   }
 
   handleSave(): void {
+    if (!this.newForm.teacherName) {
+      alert('Veuillez sélectionner un enseignant.');
+      return;
+    }
+    if (this.newSlots.length === 0) {
+      alert('Veuillez ajouter au moins un créneau.');
+      return;
+    }
+
+    // Résoudre le teacherId depuis la liste des enseignants
+    const teacher = this.teacherList.find(t => t.name === this.newForm.teacherName);
+    const teacherId = teacher?.id ?? this.editingAvailability?.teacherId ?? 0;
+
+    const payload = {
+      ...this.newForm,
+      teacherId,
+      slots: this.newSlots,
+      status: this.newForm.status as 'active' | 'inactive' | 'pending'
+    };
+
     if (this.editingAvailability) {
       const id = this.editingAvailability.id;
-      this.availabilityService.update(id, { ...this.newForm, slots: this.newSlots, status: this.newForm.status as any }).subscribe({
+      this.availabilityService.update(id, payload).subscribe({
         next: (updated) => {
-          const idx = this.availabilities.findIndex(a => a.id === id);
-          if (idx >= 0) this.availabilities[idx] = updated;
+          // Remplacer toutes les entrées de cet enseignant par la nouvelle
+          this.availabilities = this.availabilities.filter(a => a.teacherId !== teacherId);
+          this.availabilities.push(updated);
+          this.availabilities.sort((a, b) => a.teacherName.localeCompare(b.teacherName));
           this.closeModal();
         },
         error: (err) => alert(err?.error?.message || 'Erreur lors de la modification')
       });
     } else {
-      this.availabilityService.create({ ...this.newForm, slots: this.newSlots, status: this.newForm.status as any }).subscribe({
-        next: (created) => { this.availabilities.push(created); this.closeModal(); },
+      this.availabilityService.create(payload).subscribe({
+        next: (created) => {
+          // Remplacer l'entrée existante de cet enseignant si elle existe
+          this.availabilities = this.availabilities.filter(a => a.teacherId !== teacherId);
+          this.availabilities.push(created);
+          this.availabilities.sort((a, b) => a.teacherName.localeCompare(b.teacherName));
+          this.closeModal();
+        },
         error: (err) => alert(err?.error?.message || 'Erreur lors de la création')
       });
     }
@@ -199,7 +240,10 @@ export class TeacherAvailabilityComponent implements OnInit {
   deleteAvailability(id: number): void {
     if (confirm('Supprimer cette disponibilité ?')) {
       this.availabilityService.delete(id).subscribe({
-        next: () => { this.availabilities = this.availabilities.filter(a => a.id !== id); },
+        next: () => {
+          // Retirer l'entrée dont l'id correspond (id = id du premier créneau)
+          this.availabilities = this.availabilities.filter(a => a.id !== id);
+        },
         error: (err) => alert(err?.error?.message || 'Erreur lors de la suppression')
       });
     }

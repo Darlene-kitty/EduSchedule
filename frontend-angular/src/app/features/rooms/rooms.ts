@@ -1,9 +1,11 @@
+import { AuthService } from '../../core/services/auth.service';
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { RoomsManagementService } from '../../core/services/rooms-management.service';
+import { SchoolManagementService } from '../../core/services/school-management.service';
 
 export interface Salle {
   id: number;
@@ -27,7 +29,9 @@ export interface Salle {
   styleUrl: './rooms.css'
 })
 export class Rooms implements OnInit {
-  private roomsService = inject(RoomsManagementService);
+  private roomsService  = inject(RoomsManagementService);
+  private schoolService = inject(SchoolManagementService);
+  private authService = inject(AuthService);
 
   searchQuery  = '';
   filterType   = '';
@@ -44,6 +48,7 @@ export class Rooms implements OnInit {
   salleToDelete: Salle | null = null;
 
   currentDate = ''; currentTime = '';
+  currentUserName = ''; currentUserInitials = ''; unreadCount = 0;
   showSuccess = false; successMessage = '';
 
   types: Salle['type'][] = ['Amphithéâtre','Salle de cours','Salle TP','Salle informatique','Laboratoire','Salle de réunion'];
@@ -66,7 +71,9 @@ export class Rooms implements OnInit {
     'Salle de réunion':  '#EA580C',
   };
 
-  ecoles = ['SJI','SJM','PRÉPAVOGT','CPGE','Commun'];
+  /** Écoles chargées depuis school-service — indexées par ID */
+  ecoles: string[] = [];
+  private ecolesById: Map<number, string> = new Map();
 
   allEquipements = [
     'Vidéoprojecteur','Tableau blanc','Tableau noir','Climatisation',
@@ -86,25 +93,49 @@ export class Rooms implements OnInit {
 
   ngOnInit(): void {
     this.updateDateTime();
+    const u = this.authService.getUser(); if (u) { const n = u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Utilisateur'; this.currentUserName = n; const p = n.trim().split(' ').filter((x: string) => x); this.currentUserInitials = p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : n.substring(0, 2).toUpperCase(); }
     setInterval(() => this.updateDateTime(), 1000);
     this.loadSalles();
+    this.schoolService.getAll().subscribe({
+      next: schools => {
+        this.ecoles = (schools ?? []).map(s => s.sigle || s.code || s.name || '').filter(Boolean);
+        // Indexer par ID pour enrichir les salles
+        this.ecolesById = new Map(
+          (schools ?? []).map(s => [s.id, s.sigle || s.code || s.name || ''])
+        );
+        // Re-enrichir les salles si déjà chargées
+        this.salles = this.salles.map(salle => ({
+          ...salle,
+          ecole: (salle as any)._schoolId
+            ? (this.ecolesById.get((salle as any)._schoolId) ?? '')
+            : salle.ecole
+        }));
+      },
+      error: () => {}
+    });
   }
 
   private loadSalles(): void {
-    this.roomsService.getRooms().subscribe((rooms: any[]) => {
-      this.salles = rooms.map(r => ({
-        id: r.id,
-        code: r.code ?? String(r.id),
-        nom: r.name,
-        type: (this.backendTypeToDisplay(r.type)) as Salle['type'],
-        ecole: '',
-        batiment: r.batiment ?? '',
-        etage: r.etage ?? '',
-        capacite: r.capacite ?? 0,
-        equipements: [],
-        disponible: r.disponible ?? true,
-        enabled: r.active ?? true
-      }));
+    this.roomsService.getRooms().subscribe({
+      next: (rooms) => {
+        this.salles = rooms.map(r => ({
+          id: r.id,
+          code: (r as any).code ?? String(r.id),
+          nom: r.name,
+          type: this.backendTypeToDisplay((r as any).type ?? r.type) as Salle['type'],
+          // Résoudre l'école depuis schoolId si disponible, sinon vide
+          ecole: r.schoolId ? (this.ecolesById.get(r.schoolId) ?? '') : '',
+          batiment: (r as any).batiment ?? r.building ?? '',
+          etage: (r as any).etage ?? '',
+          capacite: (r as any).capacite ?? r.capacity ?? 0,
+          equipements: r.equipment ?? [],
+          disponible: (r as any).disponible ?? r.status === 'available',
+          enabled: (r as any).active ?? true,
+          // Stocker schoolId pour ré-enrichissement après chargement des écoles
+          _schoolId: r.schoolId
+        } as Salle & { _schoolId?: number }));
+      },
+      error: () => {}
     });
   }
 

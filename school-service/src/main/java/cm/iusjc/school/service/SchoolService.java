@@ -365,6 +365,7 @@ public class SchoolService {
         dto.setSigle(school.getCode() != null ? school.getCode() : school.getName());
         dto.setTelephone(school.getPhone());
         dto.setEnabled(school.isActive());
+        dto.setCouleur(school.getCouleur());
         return dto;
     }
 }

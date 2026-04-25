@@ -31,6 +31,9 @@ public class School {
     @Column(length = 1000)
     private String description;
 
+    @Column(length = 20)
+    private String couleur = "#1D4ED8";
+
     @Column(nullable = false)
     private boolean active = true;
 

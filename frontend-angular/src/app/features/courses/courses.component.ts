@@ -10,6 +10,7 @@ import { FilieresManagementService, FiliereBackend } from '../../core/services/f
 import { NiveauxManagementService, NiveauBackend } from '../../core/services/niveaux-management.service';
 import { SchoolManagementService, SchoolEntry } from '../../core/services/school-management.service';
 import { AuthService } from '../../core/services/auth.service';
+import { AppConfigService } from '../../core/services/app-config.service';
 import { CourseDocumentsService, CourseDocument, DocumentCategory, UploadProgress } from '../../core/services/course-documents.service';
 import { forkJoin } from 'rxjs';
 
@@ -60,6 +61,7 @@ export class CoursesComponent implements OnInit {
   private niveauxSvc     = inject(NiveauxManagementService);
   private schoolSvc      = inject(SchoolManagementService);
   private authService    = inject(AuthService);
+  private configSvc      = inject(AppConfigService);
   private docsSvc        = inject(CourseDocumentsService);
 
   // Helpers statiques exposés au template
@@ -100,10 +102,16 @@ export class CoursesComponent implements OnInit {
   schools:   SchoolEntry[]    = [];
   currentSchoolId = 1; // fallback, remplacé au chargement
 
-  readonly departments = ['Informatique','Mathématiques','Physique','Chimie','Biologie','Économie','Droit','Lettres','Sciences Humaines','Génie Civil','Génie Électrique'];
-  readonly durations   = [30, 45, 60, 90, 120, 150, 180, 240];
-  readonly creditsList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  // Départements chargés depuis le backend (filières), avec fallback statique
+  departments: string[] = ['Informatique','Mathématiques','Physique','Chimie','Biologie','Économie','Droit','Lettres','Sciences Humaines','Génie Civil','Génie Électrique'];
+  durations:   number[] = [30, 45, 60, 90, 120, 150, 180, 240];
+  creditsList: number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   readonly courseTypes: Course['type'][] = ['Cours magistral', 'TD', 'TP', 'Séminaire'];
+
+  // Utilisateur connecté (pour le header)
+  currentUserName = '';
+  currentUserInitials = '';
+  unreadCount = 0;
 
   // Groupes filtrés selon le niveau sélectionné dans le modal cours
   get groupesFiltres(): GroupeBackend[] {
@@ -154,6 +162,13 @@ export class CoursesComponent implements OnInit {
 
   ngOnInit(): void {
     this.updateDateTime();
+    const u = this.authService.getUser();
+    if (u) {
+      const n = u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Utilisateur';
+      this.currentUserName = n;
+      const p = n.trim().split(' ').filter((x: string) => x);
+      this.currentUserInitials = p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : n.substring(0, 2).toUpperCase();
+    }
     setInterval(() => this.updateDateTime(), 1000);
     this.loadReferenceData();
     this.loadCourses();
@@ -180,6 +195,11 @@ export class CoursesComponent implements OnInit {
         this.niveaux  = niveaux;
         this.groupes  = groupes;
         this.schools  = schools;
+        // Peupler departments depuis les filières backend
+        const deptNames = filieres.map(f => f.name || (f as any).nom || '').filter(Boolean);
+        if (deptNames.length > 0) {
+          this.departments = [...new Set(deptNames)].sort();
+        }
         // Mettre à jour schoolId depuis la liste des écoles si besoin
         if (schools.length > 0 && !this.currentSchoolId) {
           this.currentSchoolId = schools[0].id;
@@ -193,8 +213,10 @@ export class CoursesComponent implements OnInit {
           capacity: g.capacite,
           enrolled: 0,
           courses: [],
-          responsible: ''
-        }));
+          responsible: '',
+          // conserver niveauId pour l'édition
+          niveauId: g.niveauId
+        } as StudentGroup & { niveauId: number }));
       },
       error: () => {}
     });
@@ -268,19 +290,23 @@ export class CoursesComponent implements OnInit {
     this.editingCourse = course || null;
     this.selectedGroupIds = course?.groupIds ? [...course.groupIds] : [];
     if (course) {
+      // Résoudre le teacherId depuis le nom si absent
+      const resolvedTeacherId = course.teacherId
+        ?? this.teachers.find(t => t.name === course.professor)?.id
+        ?? 0;
       this.newCourse = {
         name: course.name, code: course.code, level: course.level,
         type: course.type, professor: course.professor, hours: course.hours,
         students: course.students,
         credits: course.credits ?? 3,
         duration: course.duration ?? 90,
-        department: course.department ?? 'Informatique',
+        department: course.department ?? '',
         semester: course.semester ?? 'S1',
         description: course.description ?? '',
-        teacherId: course.teacherId ?? 0
+        teacherId: resolvedTeacherId
       };
     } else {
-      this.newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral', professor: '', hours: 30, students: 0, credits: 3, duration: 90, department: 'Informatique', semester: 'S1', description: '', teacherId: 0 };
+      this.newCourse = { name: '', code: '', level: 'L1', type: 'Cours magistral', professor: '', hours: 30, students: 0, credits: 3, duration: 90, department: '', semester: 'S1', description: '', teacherId: 0 };
     }
     this.isCourseModalOpen = true;
   }
@@ -303,9 +329,10 @@ export class CoursesComponent implements OnInit {
   closeCourseModal(): void { this.isCourseModalOpen = false; this.editingCourse = null; }
 
   saveCourse(): void {
-    // Résoudre le teacherId depuis le nom sélectionné
-    const teacher = this.teachers.find(t => t.name === this.newCourse.professor);
-    const teacherId = teacher?.id || this.newCourse.teacherId || undefined;
+    // Résoudre le teacherId et le nom depuis le select (qui bind sur teacherId)
+    const teacher = this.teachers.find(t => t.id === +this.newCourse.teacherId)
+      || this.teachers.find(t => t.name === this.newCourse.professor);
+    const teacherId = teacher?.id || undefined;
 
     if (this.editingCourse) {
       const editingId = this.editingCourse.id;
@@ -325,19 +352,17 @@ export class CoursesComponent implements OnInit {
         teacherId
       };
       this.coursesService.updateCourse(editingId, payload).subscribe({
-        next: (updated) => {
-          // Mettre à jour les groupes assignés
+        next: () => {
           this.assignGroupsToCourse(editingId, this.selectedGroupIds);
           const groupNames = this.groupes.filter(g => this.selectedGroupIds.includes(g.id)).map(g => g.name);
           this.courses = this.courses.map(c => c.id === editingId
-            ? { ...c, ...snapshot, professor: teacher?.name || snapshot.professor, teacherId, groups: groupNames, groupIds: [...this.selectedGroupIds] }
+            ? { ...c, ...snapshot, code: payload.code!, professor: teacher?.name || snapshot.professor, teacherId, groups: groupNames, groupIds: [...this.selectedGroupIds] }
             : c);
           this.closeCourseModal();
         },
         error: (err) => alert(err?.error?.message || 'Erreur lors de la modification')
       });
     } else {
-      // Valider le format du code avant envoi (pattern backend: 2-4 lettres majuscules + 2-3 chiffres)
       const codePattern = /^[A-Z]{2,4}[0-9]{2,3}$/;
       const code = this.newCourse.code.toUpperCase().trim();
       if (!codePattern.test(code)) {
@@ -360,7 +385,6 @@ export class CoursesComponent implements OnInit {
       };
       this.coursesService.addCourse(payload).subscribe({
         next: (created) => {
-          // Assigner les groupes sélectionnés au cours créé
           this.assignGroupsToCourse(created.id, this.selectedGroupIds);
           const groupNames = this.groupes.filter(g => this.selectedGroupIds.includes(g.id)).map(g => g.name);
           this.courses = [...this.courses, {
@@ -375,17 +399,18 @@ export class CoursesComponent implements OnInit {
     }
   }
 
-  /** Assigne les groupes à un cours via le backend */
+  /** Assigne les groupes (school-service) à un cours via course-groups */
   private assignGroupsToCourse(courseId: number, groupIds: number[]): void {
     if (!groupIds.length) return;
-    // Appel PATCH /api/v1/courses/{courseId}/groups si l'endpoint existe,
-    // sinon on met à jour chaque groupe avec le courseId
     groupIds.forEach(gId => {
       const groupe = this.groupes.find(g => g.id === gId);
-      if (groupe) {
-        // Mise à jour locale — l'endpoint d'assignation dépend du backend
-        // Si un endpoint /courses/{id}/assign-group existe, l'utiliser ici
-      }
+      if (!groupe) return;
+      this.coursesService.assignGroup(
+        courseId,
+        groupe.name,
+        groupe.capacite ?? 30,
+        undefined
+      ).subscribe({ error: () => {} });
     });
   }
 
@@ -394,8 +419,21 @@ export class CoursesComponent implements OnInit {
   openGroupModal(group?: StudentGroup): void {
     this.editingGroup = group || null;
     if (group) {
-      const niveauId = this.niveaux.find(n => n.code === group.level || n.name === group.level)?.id ?? 0;
-      this.newGroup = { name: group.name, level: group.level, niveauId, promotion: group.promotion, capacity: group.capacity, responsible: group.responsible };
+      // Chercher le niveauId depuis la liste des niveaux chargés
+      const niveau = this.niveaux.find(n =>
+        n.id === (group as any).niveauId ||
+        n.code === group.level ||
+        n.name === group.level
+      );
+      const niveauId = niveau?.id ?? (group as any).niveauId ?? 0;
+      this.newGroup = {
+        name: group.name,
+        level: niveau?.code || group.level,
+        niveauId,
+        promotion: group.promotion,
+        capacity: group.capacity,
+        responsible: group.responsible
+      };
     } else {
       this.newGroup = { name: '', level: 'L1', niveauId: 0, promotion: 'Licence 1', capacity: 30, responsible: '' };
     }
@@ -412,8 +450,18 @@ export class CoursesComponent implements OnInit {
     if (this.editingGroup) {
       const id = this.editingGroup.id;
       this.groupesSvc.update(id, { name: this.newGroup.name, capacite: this.newGroup.capacity, niveauId, active: true }).subscribe({
-        next: () => {
-          this.groups = this.groups.map(g => g.id === id ? { ...g, ...this.newGroup } : g);
+        next: (updated) => {
+          const niveau = this.niveaux.find(n => n.id === niveauId);
+          this.groups = this.groups.map(g => g.id === id
+            ? { ...g, name: this.newGroup.name, level: niveau?.code || this.newGroup.level,
+                promotion: niveau?.name || this.newGroup.promotion,
+                capacity: this.newGroup.capacity, responsible: this.newGroup.responsible,
+                niveauId } as any
+            : g);
+          // Mettre à jour aussi la liste groupes backend
+          if (updated) {
+            this.groupes = this.groupes.map(g => g.id === id ? { ...g, ...updated } : g);
+          }
           this.closeGroupModal();
         },
         error: (err: any) => alert(err?.error?.message || 'Erreur lors de la modification du groupe')
@@ -422,12 +470,14 @@ export class CoursesComponent implements OnInit {
       this.groupesSvc.create({ name: this.newGroup.name, capacite: this.newGroup.capacity, niveauId, active: true }).subscribe({
         next: (created) => {
           if (created) {
+            const niveau = this.niveaux.find(n => n.id === niveauId);
             const newGroup: StudentGroup = {
               id: created.id, name: created.name,
-              level: this.newGroup.level, promotion: this.newGroup.promotion,
+              level: niveau?.code || this.newGroup.level,
+              promotion: niveau?.name || this.newGroup.promotion,
               capacity: created.capacite, enrolled: 0, courses: [], responsible: this.newGroup.responsible
             };
-            this.groups = [...this.groups, newGroup];
+            this.groups = [...this.groups, { ...newGroup, niveauId } as any];
             this.groupes = [...this.groupes, created];
           }
           this.closeGroupModal();
